@@ -52,7 +52,8 @@ connects your socket to:
 IP address, Port
 
 Example:
-bind(server_fd, (struct sockaddr*)&address, sizeof(address));
+bind(server_fd, 
+, sizeof(address));
 
 Without bind, OS assigns random port.
 
@@ -92,8 +93,62 @@ That's how HTTP response is sent.
 
 Blocking vs non-blocking
 
+Blocking
+If no client connects:
+accept() → waits forever
+Program freezes.
+
+Non-blocking
+If no client connects:
+accept() → returns immediately
+Used for multiple clients.
+
+You enable with:
+fcntl(fd, F_SETFL, O_NONBLOCK);
+stands for "file control." It is a system call in Unix/Linux used to manipulate file descriptors.
+*F_SETFL tells fcntl to set file status flags.
+*O_NONBLOCK makes the file descriptor non-blocking: operations like accept(), recv(), or read() return immediately if no data is available, instead of waiting.
+------------------------------------
+
 poll() / select() / epoll()
 
-Practice code
+Used to handle MANY clients without threads.
 
-Official documentation links
+poll()
+Waits until:
+socket ready to read
+socket ready to write
+if socket ready → read
+if new connection → accept
+
+Bigger projects use epoll() → more efficient for many clients.
+-------------------------------
+
+Big picture:
+
+Normal server:
+socket()
+bind()
+listen()
+while (true)
+{
+    accept()
+    recv()
+    send()
+}
+
+Advanced server:
+socket()
+bind()
+listen()
+set non-blocking
+
+while (true)
+{
+    poll()
+    accept()
+    recv()
+    send()
+}
+
+

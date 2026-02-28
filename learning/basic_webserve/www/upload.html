@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Upload — pettop webserv</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <h1>POST / Upload Test</h1>
+    <p>Use this form to test POST requests to the server.</p>
+
+    <h2>Form POST</h2>
+    <form method="POST" action="/index.html">
+        <label>Username: <input type="text" name="user" value="pettop"></label><br><br>
+        <label>Message:  <input type="text" name="msg"  value="hello webserv"></label><br><br>
+        <button type="submit">Send POST</button>
+    </form>
+
+    <hr>
+    <h2>curl equivalent</h2>
+    <pre>curl -X POST http://localhost:8080/index.html \
+     -d "user=pettop&amp;msg=hello"</pre>
+
+    <a href="/">← home</a>
+</body>
+</html>

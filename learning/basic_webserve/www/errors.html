@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Error Tests — pettop webserv</title>
+    <link rel="stylesheet" href="/style.css">
+    <style>
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 20px 0; }
+        .card { background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 14px; }
+        .card h3 { margin: 0 0 6px 0; }
+        .card p  { margin: 0 0 10px 0; color: #8b949e; font-size: 0.9em; }
+        button   { background: #21262d; border: 1px solid #30363d; color: #c9d1d9;
+                   padding: 6px 12px; font-family: monospace; cursor: pointer;
+                   border-radius: 4px; width: 100%; }
+        button:hover { background: #30363d; }
+        .status-200 { border-left: 3px solid #3fb950; }
+        .status-403 { border-left: 3px solid #d29922; }
+        .status-404 { border-left: 3px solid #f85149; }
+        .status-405 { border-left: 3px solid #a371f7; }
+        #log { background: #0d1117; border: 1px solid #30363d; border-radius: 6px;
+               padding: 14px; font-size: 0.85em; min-height: 80px;
+               white-space: pre-wrap; color: #8b949e; }
+    </style>
+</head>
+<body>
+    <h1>Error Code Tests</h1>
+    <p>Each button fires a real HTTP request and shows the server response status.</p>
+
+    <div class="grid">
+        <div class="card status-200">
+            <h3>200 OK</h3>
+            <p>GET existing file</p>
+            <button onclick="req('GET','/about.html')">GET /about.html</button>
+        </div>
+
+        <div class="card status-404">
+            <h3>404 Not Found</h3>
+            <p>GET missing file</p>
+            <button onclick="req('GET','/ghost.html')">GET /ghost.html</button>
+        </div>
+
+        <div class="card status-403">
+            <h3>403 Forbidden</h3>
+            <p>Directory traversal attempt</p>
+            <button onclick="req('GET','/../etc/passwd')">GET /../etc/passwd</button>
+        </div>
+
+        <div class="card status-405">
+            <h3>405 Method Not Allowed</h3>
+            <p>PUT is not in allowed methods</p>
+            <button onclick="req('PUT','/')">PUT /</button>
+        </div>
+    </div>
+
+    <h2>Log</h2>
+    <div id="log">Results will appear here...</div>
+
+    <script>
+    async function req(method, path) {
+        const log = document.getElementById('log');
+        try {
+            const r = await fetch(path, { method });
+            const body = await r.text();
+            const line = method + ' ' + path + '  →  ' + r.status + ' ' + r.statusText + '\n';
+            log.textContent = line + log.textContent;
+        } catch(e) {
+            log.textContent = 'Error: ' + e.message + '\n' + log.textContent;
+        }
+    }
+    </script>
+
+    <br><a href="/">← home</a>
+</body>
+</html>

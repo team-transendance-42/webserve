@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>DELETE Test — pettop webserv</title>
+    <link rel="stylesheet" href="/style.css">
+    <style>
+        button { background: #f85149; border: none; color: white; padding: 8px 16px;
+                 font-family: monospace; font-size: 1em; cursor: pointer; border-radius: 4px; }
+        button:hover { background: #da3633; }
+        #result { margin-top: 16px; padding: 12px; background: #161b22;
+                  border-radius: 4px; display: none; }
+    </style>
+</head>
+<body>
+    <h1>DELETE Method Test</h1>
+    <p>Sends a <code>DELETE</code> request via JavaScript fetch.</p>
+
+    <button onclick="sendDelete()">Send DELETE /api/data.json</button>
+    <div id="result"></div>
+
+    <hr>
+    <h2>curl equivalent</h2>
+    <pre>curl -X DELETE http://localhost:8080/api/data.json -v</pre>
+
+    <script>
+    async function sendDelete() {
+        const el = document.getElementById('result');
+        el.style.display = 'block';
+        el.textContent = 'Sending...';
+        try {
+            const r = await fetch('/api/data.json', { method: 'DELETE' });
+            el.textContent = 'Status: ' + r.status + ' ' + r.statusText;
+            el.style.color = r.ok ? '#3fb950' : '#f85149';
+        } catch(e) {
+            el.textContent = 'Error: ' + e.message;
+            el.style.color = '#f85149';
+        }
+    }
+    </script>
+
+    <a href="/">← home</a>
+</body>
+</html>

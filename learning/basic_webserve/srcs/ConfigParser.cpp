@@ -1,4 +1,4 @@
-#include "ConfigParser.hpp"
+#include "../includes/ConfigParser.hpp"
 #include <fstream>
 #include <sstream>
 #include <iostream>
