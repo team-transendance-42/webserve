@@ -25,14 +25,15 @@ class HttpRequest
 {
 public:
     // Thrown on structural parse failures (bad request line etc.)
-    struct ParseError : public std::runtime_error {
+    // inherits from std::runtime_error so you can catch as std::exception if you like
+    struct      ParseError : public std::runtime_error {
         explicit ParseError(const std::string& msg)
             : std::runtime_error(msg) {}
     };
 
     // Feed raw bytes as they arrive from read().
     // Call isComplete() after each feed — only parse once complete.
-    explicit HttpRequest(const std::string& raw = "");
+    explicit    HttpRequest(const std::string& raw = "");
 
     // Append more data (chunked reads from poll loop)
     void        feed(const std::string& chunk);

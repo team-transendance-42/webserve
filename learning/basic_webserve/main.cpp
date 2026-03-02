@@ -1,7 +1,7 @@
 /*
 ** main.cpp
 ** --------
-** Entry point for pettop webserv.
+** Entry point webserv
 **
 ** Compile:
 **   c++ -std=c++17 -Wall -Wextra main.cpp srcs/Server.cpp srcs/HttpRequest.cpp srcs/HttpResponse.cpp srcs/ConfigParser.cpp -o webserv
@@ -51,20 +51,20 @@ static void setNonBlocking(int fd)
 
 static int createListenSocket(const ServerConfig& cfg)
 {
-    int fd = socket(AF_INET, SOCK_STREAM, 0);
+    int fd = socket(AF_INET, SOCK_STREAM, 0); // create TCP socket
     if (fd < 0) { perror("socket"); return -1; }
 
     int opt = 1;
-    setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+    setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)); // allow quick restart
 
-    sockaddr_in addr{};
-    addr.sin_family      = AF_INET;
-    addr.sin_port        = htons(static_cast<uint16_t>(cfg.port));
-    addr.sin_addr.s_addr = inet_addr(cfg.host.c_str());
+    sockaddr_in addr{}; //holds an IPv4 address and port for sockets
+    addr.sin_family      = AF_INET; // sin=socket internet, AF_INET=IPv4
+    addr.sin_port        = htons(static_cast<uint16_t>(cfg.port)); // host to network byte order, short
+    addr.sin_addr.s_addr = inet_addr(cfg.host.c_str()); // convert dotted IP to binary; returns INADDR_NONE on failure
     if (addr.sin_addr.s_addr == INADDR_NONE)
         addr.sin_addr.s_addr = INADDR_ANY;
 
-    if (bind(fd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) < 0)
+    if (bind(fd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) < 0) //ssociates the socket with the address and port
     {
         perror("bind");
         close(fd);
@@ -106,11 +106,10 @@ static bool handleClient(Client& c, const ServerConfig& cfg)
         return true; // connection closed or error → remove
 
     buf[n] = '\0';
-    c.buf += buf;
 
     // Feed bytes into HttpRequest — wait until complete
-    HttpRequest req;
-    req.feed(c.buf);
+    HttpRequest req; // custom class to parse HTTP req
+    req.feed(buf);
     if (!req.isComplete())
         return false; // need more data
 
@@ -170,13 +169,14 @@ static void runServer(const ServerConfig& cfg)
         // Walk backwards so erase() by index is safe
         for (size_t i = fds.size(); i-- > 0;)
         {
-            if (fds[i].revents == 0)
+            if (fds[i].revents == 0) // revents= returned events from poll; 0 means no event
                 continue;
 
             // ── listen fd: accept new connection ──────────────────────────
             if (fds[i].fd == listenFd)
             {
-                sockaddr_in ca{}; socklen_t len = sizeof(ca);
+                sockaddr_in ca{}; // ca=client address
+                socklen_t len = sizeof(ca);
                 int clientFd = accept(listenFd,
                                       reinterpret_cast<sockaddr*>(&ca), &len);
                 if (clientFd < 0) continue;
