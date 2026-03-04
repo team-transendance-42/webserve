@@ -256,6 +256,7 @@ int main(int argc, char* argv[])
     try
     {
         runServer(cfg);
+		std::cout << "---------------------\n";
     }
     catch (const std::exception& e)
     {
