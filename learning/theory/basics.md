@@ -56,8 +56,8 @@ connects your socket to:
 IP address, Port
 
 Example:
-bind(server_fd, 
-, sizeof(address));
+
+bind(server_fd, (sockaddr*)&address, sizeof(address))
 
 Without bind, OS assigns random port.
 
