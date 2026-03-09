@@ -29,8 +29,8 @@ build/
 CMakeFiles/
 CMakeCache.txt
 cmake_install.cmake
-Makefile
 
 # Other
 *.tmp
 *.bak
+webserv
