@@ -6,8 +6,6 @@
 
 
 /**
-for low-level networking, the POSIX socket API is still standard and there’s no direct C++ replacement in the standard library.
-
 socket(AF_INET, SOCK_STREAM, 0) Creates a new socket (communication endpoint).
 AF_INET: Use IPv4 addresses.
 SOCK_STREAM: Use TCP (reliable, connection-based).
@@ -71,7 +69,7 @@ int main()
         {
             std::cout << "Request:\n" << buffer << "\n";
 
-            const std::string body = "Hello";
+            const std::string body = "Hello tra la la";
             const std::string response =
                 "HTTP/1.1 200 OK\r\n"
                 "Content-Length: " + std::to_string(body.size()) + "\r\n"

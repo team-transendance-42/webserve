@@ -55,6 +55,25 @@ void Server::init()
     _setNonBlocking(_listenFd);
 
     // 6. Register listen fd in poll set
+	/**
+	 *struct pollfd
+	struct pollfd
+	{
+		int fd;			        File descriptor to poll. 
+		short int events;		Types of events poller cares about.  
+		short int revents;		Types of events that actually occurred.  
+	};
+	sets up the server’s listening socket for use with poll():
+
+	pollfd pfd{}; — Creates a pollfd struct (for monitoring file descriptors).
+	pfd.fd = _listenFd; — Assigns the server’s listening socket to the struct.
+	pfd.events = POLLIN; — Tells poll() to watch for incoming connections (read events).
+	_fds.push_back(pfd); — Adds this pollfd to the list of fds to monitor.
+	_requests.push_back(""); — Adds a placeholder string (not used for the listening socket, but keeps the vectors aligned).
+	Result: The server can use poll() to detect when a new client is trying to connect.
+	
+	 */
+
     pollfd pfd{};
     pfd.fd     = _listenFd;
     pfd.events = POLLIN;
