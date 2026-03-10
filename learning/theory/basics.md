@@ -238,7 +238,7 @@ private:
     sockaddr_in     _addr;
 };
 
-Why separate from config? Because config is data, Server is a live socket. Multiple ServerConfig blocks on the same port share one Server — your event loop must handle this.
+Why separate from config? Because config is data, Server is a live socket. Multiple ServerConfig blocks on the same port share one Server — the event loop must handle this.
 ---
 
 The Connection Layer (the heart)
