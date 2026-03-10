@@ -1,10 +1,11 @@
 NAME = webserv
-SRC = main.cpp
-HEADERS = 
+SRC = main.cpp \
+	srcs/config/ConfigParser.cpp
+HEADERS = includes/ConfigParser.hpp
 
 OBJ = $(SRC:.cpp=.o)
 CXX = c++
-CXXFLAGS = -std=c++17 -Wall -Wextra -Werror
+CXXFLAGS = -std=c++17 -Wall -Wextra -Werror -Iincludes
 
 all: $(NAME)
 
