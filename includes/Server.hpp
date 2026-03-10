@@ -1,17 +1,22 @@
 #pragma once
 
-#include "ConfigParser.hpp"
 #include <string>
 #include <vector>
-#include <poll.h>       // pollfd, poll()
+#include <map>
+#include <sys/epoll.h>  // epoll_create1, epoll_ctl, epoll_wait, epoll_event: can handle 100,000+ fds, O(1) time complexity
 #include <sys/socket.h> // socket(), bind(), listen(), accept()
 #include <netinet/in.h> // sockaddr_in
 #include <arpa/inet.h>  // inet_addr()
-#include <unistd.h>     // close(), read(), write()
-#include <fcntl.h>      // fcntl() for non-blocking
+#include <unistd.h>     // close()
+#include <fcntl.h>      // fcntl() non-blocking
 #include <stdexcept>
 #include <iostream>
 #include <sstream>
+#include <cerrno>
+#include <cstring>      // strerror()
+#include "ServerConfig.hpp"
+#include "HttpRequest.hpp"
+#include "HttpResponse.hpp"
 
 /*
 ** Server
@@ -25,40 +30,59 @@
 **   srv.run();    // poll loop — blocks until SIGINT or error
 */
 
-class Server
-{
-public:
-    explicit Server(const ServerConfig& config);
-    ~Server();
+// each connected client gets one of these
+struct Client {
+    int         fd;
+    HttpRequest request;
+    std::string write_buf;
+    bool        keep_alive;
 
-    // No copy — owning a raw fd
-    Server(const Server&)            = delete;
-    Server& operator=(const Server&) = delete;
-
-    void init();   // call once before run()
-    void run();    // blocking poll() loop
-    void stop();   // sets _running = false (call from signal handler)
-
-    // Accessors (useful for tests)
-    int  getFd()     const { return _listenFd; }
-    bool isRunning() const { return _running;  }
+    explicit Client(int fd) : fd(fd), keep_alive(false) {}
 
 private:
-    // --- helpers ---
-    void        _acceptClient();
-    void        _handleClient(int clientFd, size_t pollIdx);
-    void        _removeClient(size_t pollIdx);
-    std::string _buildResponse(const std::string& body, int status = 200);
-    static void _setNonBlocking(int fd);
+    Client(const Client &);
+    Client &operator=(const Client &);
+};
 
-    // --- state ---
-    ServerConfig             _config;
-    int                      _listenFd;
-    bool                     _running;
-    std::vector<pollfd>      _fds;      // [0] = listen socket, [1..] = clients
-    std::vector<std::string> _requests; // partial read buffer per client (parallel to _fds)
+class Server {
+	public:
+		explicit Server(const ServerConfig &config);
+		~Server();
 
-    static constexpr int BACKLOG      = 128;
-    static constexpr int POLL_TIMEOUT = 5000; // ms
-    static constexpr size_t READ_BUF  = 4096;
+		void init();    // call once — socket, bind, listen, epoll setup
+		void tick();    // call in a loop — ONE epoll_wait iteration
+		void stop();    // sets _running = false
+
+		int  getFd()     const { return _listenFd; }
+		bool isRunning() const { return _running;  }
+
+	private:
+		void _epollAdd(int fd, uint32_t events);
+		void _epollMod(int fd, uint32_t events);
+		void _epollDel(int fd);
+
+		void _acceptClient();
+		void _readClient  (Client &client);
+		void _writeClient (Client &client);
+		void _closeClient (int fd);
+		void _processRequest(Client &client);
+
+		static void        _setNonBlocking(int fd);
+		static std::string _itoa(int n);
+
+		Server(const Server &);
+		Server &operator=(const Server &);
+
+		enum {
+			BACKLOG      = 128,
+			POLL_TIMEOUT = 100,   // ms — short so main loop checks g_running often
+			MAX_EVENTS   = 64,
+			READ_BUF     = 4096
+		};
+
+		ServerConfig            _config;
+		int                     _listenFd;
+		int                     _epollFd;
+		bool                    _running;
+		std::map<int, Client *> _clients;
 };
