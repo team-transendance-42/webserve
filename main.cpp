@@ -1,4 +1,4 @@
-#include "ConfigParser.hpp"
+#include "includes/config/Config.hpp"
 
 #include <exception>
 #include <iostream>
@@ -24,7 +24,9 @@ int main(int argc, char** argv) {
 			std::cout << "  [" << i << "] "
 					  << server.server_name
 					  << " (" << server.host << ":" << server.listen << ")"
-					  << " with " << server.locations.size() << " location(s)\n";
+					  << " with " << server.locations.size() << " location(s)\n"
+					  << server.locations[1].path << " with " << server.locations[1].directives.size() << " directive(s)\n"
+					  << server.directives.size() << " server-level directive(s)\n";
 		}
 	}
 	catch (const std::exception& ex) {

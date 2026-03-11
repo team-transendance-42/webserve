@@ -1,4 +1,6 @@
-#pragma once
+
+#ifndef CONFIG_HPP
+#define CONFIG_HPP
 
 #include <map>
 #include <string>
@@ -28,3 +30,5 @@ public:
     ConfigFile parseFile(const std::string& filePath) const;
     ConfigFile parseString(const std::string& text) const;
 };
+
+#endif // CONFIG_HPP
