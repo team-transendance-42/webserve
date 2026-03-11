@@ -29,7 +29,7 @@
 ** Lifecycle:
 **   Server srv(config);
 **   srv.init();   // socket → setsockopt → bind → listen → fcntl non-block
-**   srv.tcik();    // poll loop — blocks until SIGINT or error
+**   srv.tick();    // poll loop — blocks until SIGINT or error
 */
 
 class Server {
@@ -59,8 +59,6 @@ class Server {
 
 		static HttpResponse _serveStatic(const std::string &filepath);
 		static std::string  _mimeType   (const std::string &path);
-		static HttpResponse _serve_static (const std::string &filepath);
-		static std::string  _mime_type    (const std::string &path);
 		static void        _setNonBlocking(int fd);
 		static std::string _itoa(int n);
 

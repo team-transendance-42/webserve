@@ -11,7 +11,8 @@ HEADERS = includes/*
 OBJ = $(SRC:.cpp=.o)
 
 CXX = c++
-CXXFLAGS = -std=c++17 -Wall -Wextra -Werror
+# CXXFLAGS = -std=c++17 -Wall -Wextra -Werror
+CXXFLAGS = -std=c++17
 
 all: $(NAME)
 

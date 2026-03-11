@@ -309,7 +309,7 @@ void Server::_processRequest(Client &client) {
         std::map<int,std::string>::const_iterator ep
             = _config.error_pages.find(404);
         if (ep != _config.error_pages.end())
-            client.write_buf = _serve_static(ep->second).serialize();
+            client.write_buf = _serveStatic(ep->second).serialize();
         else
             client.write_buf = HttpResponse::make_404().serialize();
         return;
@@ -324,7 +324,7 @@ void Server::_processRequest(Client &client) {
 
         struct stat ist;
         if (stat(index_path.c_str(), &ist) == 0 && S_ISREG(ist.st_mode)) {
-            client.write_buf = _serve_static(index_path).serialize();
+            client.write_buf = _serveStatic(index_path).serialize();
             return;
         }
 
@@ -339,26 +339,26 @@ void Server::_processRequest(Client &client) {
     }
 
     // ── 9. serve regular file ─────────────────────────────────────────────
-    client.write_buf = _serve_static(filepath).serialize();
+    client.write_buf = _serveStatic(filepath).serialize();
 }
 
-// ── _serve_static — read file, return 200 or 500 ─────────────────────────────
+// ── _serveStatic — read file, return 200 or 500 ─────────────────────────────
 
-HttpResponse Server::_serve_static(const std::string &filepath) {
+HttpResponse Server::_serveStatic(const std::string &filepath) {
     std::ifstream file(filepath.c_str(), std::ios::binary);
     if (!file.is_open())
-        return HttpResponse::make_500();
+        return HttpResponse::make_404();
 
     std::ostringstream ss;
     ss << file.rdbuf();
     std::string content = ss.str();
 
-    return HttpResponse::make_200(content, _mime_type(filepath));
+    return HttpResponse::make_200(content, _mimeType(filepath));
 }
 
-// ── _mime_type — extension → Content-Type ────────────────────────────────────
+// ── _mimeType — extension → Content-Type ────────────────────────────────────
 
-std::string Server::_mime_type(const std::string &path) {
+std::string Server::_mimeType(const std::string &path) {
     size_t dot = path.rfind('.');
     if (dot == std::string::npos) return "application/octet-stream";
 
