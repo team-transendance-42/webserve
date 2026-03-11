@@ -10,57 +10,117 @@ O(n) scan every wakeup          O(1) — only returns READY fds
 
 breaks at ~1000 fds             handles 100,000+ fds fine
 
-// 1. create the epoll instance — returns a fd
-int epfd = epoll_create1(0);
+man epoll
+---------------------------------------------------------
+Imagine you're a security guard watching a building with 1000 doors.
+Checking every door every second = exhausting and slow.
+Instead, you install alarm sensors on doors. Now you just wait — and only act when an alarm rings.
+epoll is that alarm system. Your 3 functions = managing those sensors.
 
-// 2. register/modify/remove fds from the watch list
-epoll_ctl(epfd, EPOLL_CTL_ADD, fd, &event);   // add
-epoll_ctl(epfd, EPOLL_CTL_MOD, fd, &event);   // modify
-epoll_ctl(epfd, EPOLL_CTL_DEL, fd, NULL);     // remove
+_epollAdd — Install a sensor on a door
 
-// 3. wait for events — like poll() but only returns ready fds
-int n = epoll_wait(epfd, events, MAX_EVENTS, timeout_ms);
---------------------------------------------------
+New client connects → _epollAdd(clientFd, EPOLLIN) — watch for their request
+New listening socket → _epollAdd(listenFd, EPOLLIN) — watch for new connections
 
-struct epoll_event {
-    uint32_t events;   // what to watch for
-    epoll_data_t data; // YOUR data — attach anything
-};
+_epollMod — Change what the sensor watches for
 
-// data is a union:
-union epoll_data_t {
-    int       fd;      // most common — store the fd
-    uint32_t  u32;
-    uint64_t  u64;
-    void     *ptr;     // can store a pointer to your Client struct
-};
 ```
 
-### Event flags you need
+A connection has **two phases**:
 ```
-EPOLLIN        → fd has data to read (or new connection on listen fd)
-EPOLLOUT       → fd is ready to write (send buffer has space)
-EPOLLERR       → error on fd
-EPOLLHUP       → hangup — client disconnected
-EPOLLET        → Edge Triggered mode (advanced — explained below)
-EPOLLRDHUP     → peer shut down writing (clean disconnect detection)
-```
+Phase 1: Client → Server    (you need to READ)
+         watch EPOLLIN
 
----
+         client sends "GET / HTTP/1.1..."
+         you read it, build the response
 
-## Level Triggered vs Edge Triggered
+Phase 2: Server → Client    (you need to WRITE)  
+         watch EPOLLOUT
 
-This is the most important epoll concept:
-```
-LEVEL TRIGGERED (default):
-  epoll_wait keeps returning the fd
-  as long as data is still available
-  → safe, easy, slight overhead
-  → read in a loop until you're done, or it fires again next call
+         you send "HTTP/1.1 200 OK..."
+         then switch BACK to EPOLLIN for next request
 
-EDGE TRIGGERED (EPOLLET):
-  epoll_wait fires ONCE when new data arrives
-  does NOT fire again until NEW data comes in
-  → if you don't read ALL data in one shot → fd goes silent forever
-  → MUST read in a loop until EAGAIN
-  → harder but more efficient
+// Client just connected — watch for their request
+_epollAdd(clientFd, EPOLLIN);
+
+// You finished reading, response is ready — switch to write mode
+_epollMod(clientFd, EPOLLOUT);
+
+// You finished sending — switch back to read mode (keep-alive)
+_epollMod(clientFd, EPOLLIN);
+
+// ❌ Bad — EPOLLOUT fires constantly when buffer has space
+//    your loop spins doing nothing, wasting 100% CPU
+ev.events = EPOLLIN | EPOLLOUT;  // don't do this
+
+// ✅ Good — only watch EPOLLOUT when you actually have data to send
+_epollMod(fd, EPOLLOUT);         // then switch back when done
+
+_epollDel — Remove the sensor
+/ Client disconnected (read returned 0)
+_epollDel(clientFd);
+close(clientFd);       // ← always close AFTER del
+----------------------------
+
+
+client connects
+      │
+      ▼
+_epollAdd(clientFd, EPOLLIN)        ← "watch for their request"
+      │
+      ▼
+epoll_wait fires EPOLLIN
+      │
+      ▼
+read() drain loop until EAGAIN      ← non-blocking reads
+      │
+      ▼
+parse HTTP request, build response
+      │
+      ▼
+_epollMod(clientFd, EPOLLOUT)       ← "tell me when I can write"
+      │
+      ▼
+epoll_wait fires EPOLLOUT
+      │
+      ▼
+write() response
+      │
+      ▼
+_epollMod(clientFd, EPOLLIN)        ← keep-alive: back to reading
+      │        OR
+      ▼
+_epollDel(clientFd)                 ← connection: close
+close(clientFd)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

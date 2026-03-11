@@ -5,6 +5,7 @@ Petya:
 * method handling(get, post, delete)
 * response formating ✓
 * routing (file handling logic ??)
+* do we use pramga use once or ifndef def
 
 Noah:
 * config parsing

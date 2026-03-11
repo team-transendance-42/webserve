@@ -1,10 +1,14 @@
-// Server.cpp
+#include <fstream>
+#include <sys/stat.h>   // stat()
+#include <sstream>
 #include "../includes/Server.hpp"
 
 // ── ctor / dtor ───────────────────────────────────────────────────────────────
 
 Server::Server(const ServerConfig &config)
-    : _config(config), _listenFd(-1), _epollFd(-1), _running(false) {}
+    : _config(config), _listenFd(-1), _epollFd(-1), _running(true) {
+		// todo: missing init _clients
+	}
 
 Server::~Server() {
     typedef std::map<int, Client *>::iterator It;
@@ -38,7 +42,7 @@ void Server::init() {
 
     // 4. bind
     struct sockaddr_in addr;
-    std::memset(&addr, 0, sizeof(addr));
+    std::memset(&addr, 0, sizeof(addr)); // todo: do we need it? memory....
     addr.sin_family      = AF_INET;
     addr.sin_port        = htons(_config.port);
     addr.sin_addr.s_addr = inet_addr(_config.host.c_str());
@@ -66,21 +70,31 @@ void Server::init() {
 
 // ── tick ───────────────────────────────────────────────────────────────────────
 
+/**
+ *  EPOLLERR: An error occurred on the file descriptor (e.g., socket error).
+	EPOLLHUP: The file descriptor was "hung up" (connection closed by peer).
+	EPOLLRDHUP: The peer closed its read end (remote shutdown).
+	The & operator in this context is a bitwise AND. It checks if any of the specified event flags (EPOLLERR, EPOLLHUP, EPOLLRDHUP) are set in ev.
+
+	If ev contains any of those flags, the result is non-zero, so the condition is true. This is a common way to test for specific bits in a bitmask.
+ */
+
 void Server::tick() {
     struct epoll_event events[MAX_EVENTS];
 
     // ONE epoll_wait call — returns after POLL_TIMEOUT ms if nothing happens
     // this lets main() check g_running regularly
-    int n = epoll_wait(_epollFd, events, MAX_EVENTS, POLL_TIMEOUT);
+	// numReadyEvents = num of fds ready for i/o: how many events are avail in the events arr
+    int numReadyEvents = epoll_wait(_epollFd, events, MAX_EVENTS, POLL_TIMEOUT);
 
-    if (n < 0) {
+    if (numReadyEvents < 0) {
         if (errno == EINTR) return;  // signal interrupted — main will check g_running
         throw std::runtime_error("epoll_wait() failed: "
             + std::string(strerror(errno)));
     }
-    if (n == 0) return;  // timeout — nothing ready, return to main
+    if (numReadyEvents == 0) return;  // timeout — nothing ready, return to main
 
-    for (int i = 0; i < n; i++) {
+    for (int i = 0; i < numReadyEvents; i++) {
         int      fd = events[i].data.fd;
         uint32_t ev = events[i].events;
 
@@ -236,49 +250,43 @@ void Server::_closeClient(int fd) {
 void Server::_processRequest(Client &client) {
     HttpRequest &req = client.request;
     req.debug_print();
-
     client.keep_alive = req.is_keep_alive();
 
-    // ── method check ──────────────────────────────────────────────────────
+    // ── 1. method check ───────────────────────────────────────────────────
     if (req.method == UNKNOWN) {
         client.write_buf = HttpResponse::make_400().serialize();
         return;
     }
 
-    // ── match location from config ────────────────────────────────────────
+    // ── 2. match location ─────────────────────────────────────────────────
     const Location *loc = _config.match_location(req.path);
     if (!loc) {
         client.write_buf = HttpResponse::make_404().serialize();
         return;
     }
 
-    // ── check allowed methods ─────────────────────────────────────────────
-    bool method_ok = false;
+    // ── 3. allowed methods ────────────────────────────────────────────────
     const char *method_str[] = { "GET", "POST", "DELETE" };
     std::string req_method   = method_str[req.method];
-
+    bool method_ok = false;
     for (size_t i = 0; i < loc->allowed_methods.size(); i++) {
-        if (loc->allowed_methods[i] == req_method) {
-            method_ok = true;
-            break;
-        }
+        if (loc->allowed_methods[i] == req_method) { method_ok = true; break; }
     }
     if (!method_ok) {
         client.write_buf = HttpResponse::make_405().serialize();
         return;
     }
 
-    // ── check body size ───────────────────────────────────────────────────
+    // ── 4. body size ──────────────────────────────────────────────────────
     long max_body = (loc->client_max_body_size >= 0)
                     ? loc->client_max_body_size
                     : _config.client_max_body_size;
-
     if ((long)req.body.size() > max_body) {
         client.write_buf = HttpResponse::make_413().serialize();
         return;
     }
 
-    // ── redirect ──────────────────────────────────────────────────────────
+    // ── 5. redirect ───────────────────────────────────────────────────────
     if (loc->redirect_code != 0) {
         client.write_buf = (loc->redirect_code == 301)
             ? HttpResponse::make_301(loc->redirect_url).serialize()
@@ -286,10 +294,111 @@ void Server::_processRequest(Client &client) {
         return;
     }
 
-    // ── serve static file (stub — full file serving comes next) ──────────
-    client.write_buf = HttpResponse::make_200(
-        "<html><body><h1>" + req.path + "</h1></body></html>"
-    ).serialize();
+    // ── 6. build filesystem path ──────────────────────────────────────────
+    // root + request path, e.g. "./www/one" + "/index.html"
+    std::string root     = loc->root;
+    std::string url_path = req.path;
+
+    // strip trailing slash for stat, re-add for dir logic
+    std::string filepath = root + url_path;
+
+    // ── 7. stat the path ──────────────────────────────────────────────────
+    struct stat st;
+    if (stat(filepath.c_str(), &st) != 0) {
+        // check configured error page
+        std::map<int,std::string>::const_iterator ep
+            = _config.error_pages.find(404);
+        if (ep != _config.error_pages.end())
+            client.write_buf = _serve_static(ep->second).serialize();
+        else
+            client.write_buf = HttpResponse::make_404().serialize();
+        return;
+    }
+
+    // ── 8. directory handling ─────────────────────────────────────────────
+    if (S_ISDIR(st.st_mode)) {
+        // try index file first
+        std::string index_path = filepath;
+        if (index_path[index_path.size()-1] != '/') index_path += '/';
+        index_path += loc->index;
+
+        struct stat ist;
+        if (stat(index_path.c_str(), &ist) == 0 && S_ISREG(ist.st_mode)) {
+            client.write_buf = _serve_static(index_path).serialize();
+            return;
+        }
+
+        // autoindex
+        if (loc->autoindex) {
+            client.write_buf = _autoindex(filepath, url_path).serialize();
+            return;
+        }
+
+        client.write_buf = HttpResponse::make_403().serialize();
+        return;
+    }
+
+    // ── 9. serve regular file ─────────────────────────────────────────────
+    client.write_buf = _serve_static(filepath).serialize();
+}
+
+// ── _serve_static — read file, return 200 or 500 ─────────────────────────────
+
+HttpResponse Server::_serve_static(const std::string &filepath) {
+    std::ifstream file(filepath.c_str(), std::ios::binary);
+    if (!file.is_open())
+        return HttpResponse::make_500();
+
+    std::ostringstream ss;
+    ss << file.rdbuf();
+    std::string content = ss.str();
+
+    return HttpResponse::make_200(content, _mime_type(filepath));
+}
+
+// ── _mime_type — extension → Content-Type ────────────────────────────────────
+
+std::string Server::_mime_type(const std::string &path) {
+    size_t dot = path.rfind('.');
+    if (dot == std::string::npos) return "application/octet-stream";
+
+    std::string ext = path.substr(dot);
+    if (ext == ".html" || ext == ".htm") return "text/html";
+    if (ext == ".css")                   return "text/css";
+    if (ext == ".js")                    return "application/javascript";
+    if (ext == ".json")                  return "application/json";
+    if (ext == ".png")                   return "image/png";
+    if (ext == ".jpg" || ext == ".jpeg") return "image/jpeg";
+    if (ext == ".gif")                   return "image/gif";
+    if (ext == ".ico")                   return "image/x-icon";
+    if (ext == ".txt")                   return "text/plain";
+    if (ext == ".pdf")                   return "application/pdf";
+    return "application/octet-stream";
+}
+
+// ── _autoindex — generate directory listing HTML ──────────────────────────────
+
+HttpResponse Server::_autoindex(const std::string &dirpath,
+                                const std::string &url_path) {
+    DIR *dir = opendir(dirpath.c_str());
+    if (!dir) return HttpResponse::make_403();
+
+    std::ostringstream html;
+    html << "<html><head><title>Index of " << url_path << "</title></head>"
+         << "<body><h1>Index of " << url_path << "</h1><hr><pre>";
+
+    struct dirent *entry;
+    while ((entry = readdir(dir)) != NULL) {
+        std::string name = entry->d_name;
+        if (name == ".") continue;
+        html << "<a href=\"" << url_path;
+        if (url_path[url_path.size()-1] != '/') html << '/';
+        html << name << "\">" << name << "</a>\n";
+    }
+    closedir(dir);
+    html << "</pre><hr></body></html>";
+
+    return HttpResponse::make_200(html.str());
 }
 
 // ── utils ─────────────────────────────────────────────────────────────────────

@@ -9,6 +9,7 @@
 #include <arpa/inet.h>  // inet_addr()
 #include <unistd.h>     // close()
 #include <fcntl.h>      // fcntl() non-blocking
+#include <dirent.h>   // opendir/readdir for autoindex
 #include <stdexcept>
 #include <iostream>
 #include <sstream>
@@ -17,6 +18,7 @@
 #include "ServerConfig.hpp"
 #include "HttpRequest.hpp"
 #include "HttpResponse.hpp"
+#include "Client.hpp"
 
 /*
 ** Server
@@ -29,20 +31,6 @@
 **   srv.init();   // socket → setsockopt → bind → listen → fcntl non-block
 **   srv.tcik();    // poll loop — blocks until SIGINT or error
 */
-
-// each connected client gets one of these
-struct Client {
-    int         fd;
-    HttpRequest request;
-    std::string write_buf;
-    bool        keep_alive;
-
-    explicit Client(int fd) : fd(fd), keep_alive(false) {}
-
-private:
-    Client(const Client &);
-    Client &operator=(const Client &);
-};
 
 class Server {
 	public:
@@ -61,12 +49,18 @@ class Server {
 		void _epollMod(int fd, uint32_t events);
 		void _epollDel(int fd);
 
-		void _acceptClient();
-		void _readClient  (Client &client);
-		void _writeClient (Client &client);
-		void _closeClient (int fd);
-		void _processRequest(Client &client);
+		void 				_acceptClient();
+		void 				_readClient  (Client &client);
+		void 				_writeClient (Client &client);
+		void 				_closeClient (int fd);
+		void 				_processRequest(Client &client);
+		HttpResponse        _autoindex    (const std::string &dirpath,
+                                   const std::string &url_path);
 
+		static HttpResponse _serveStatic(const std::string &filepath);
+		static std::string  _mimeType   (const std::string &path);
+		static HttpResponse _serve_static (const std::string &filepath);
+		static std::string  _mime_type    (const std::string &path);
 		static void        _setNonBlocking(int fd);
 		static std::string _itoa(int n);
 
