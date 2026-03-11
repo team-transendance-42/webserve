@@ -300,7 +300,15 @@ void Server::_processRequest(Client &client) {
     std::string url_path = req.path;
 
     // strip trailing slash for stat, re-add for dir logic
-    std::string filepath = root + url_path;
+    std::string filepath;
+    if (url_path == loc->path) {
+        // If the request matches the location exactly, serve the index file
+        filepath = root + "/" + loc->index;
+    } else {
+        // Otherwise, append the rest of the path
+        filepath = root + url_path.substr(loc->path.length());
+    }
+    
 
     // ── 7. stat the path ──────────────────────────────────────────────────
     struct stat st;

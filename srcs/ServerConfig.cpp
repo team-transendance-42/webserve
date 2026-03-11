@@ -1,8 +1,5 @@
-// srcs/ServerConfig.cpp
 #include "../includes/ServerConfig.hpp"
 
-
-// placeholder: todo
 ServerConfig createDefaultServerConfig() {
     ServerConfig config;
 
@@ -14,17 +11,41 @@ ServerConfig createDefaultServerConfig() {
     config.error_pages[404] = "./www/errors/404.html";
     config.error_pages[500] = "./www/errors/500.html";
 
-    // default location
-    Location loc;
-    loc.path                 = "/";
-    loc.root                 = "./www/one";
-    loc.index                = "index.html";
-    loc.autoindex            = false;
-    loc.client_max_body_size = 1000000;
-    loc.allowed_methods.push_back("GET");
-    loc.allowed_methods.push_back("POST");
-    loc.allowed_methods.push_back("DELETE");
-    config.locations.push_back(loc);
+    // location /
+    Location loc_root;
+    loc_root.path = "/";
+    loc_root.root = "./www/one";
+    loc_root.index = "index.html";
+    loc_root.autoindex = true;
+    loc_root.client_max_body_size = 1000000;
+    loc_root.allowed_methods = {"GET", "POST", "DELETE"};
+    config.locations.push_back(loc_root);
+
+    // location /zombie_kittens
+    Location loc_zombie;
+    loc_zombie.path = "/zombie_kittens";
+    loc_zombie.root = "./www/one/pages";
+    loc_zombie.index = "zombie_kittens.html";
+    loc_zombie.autoindex = false;
+    loc_zombie.allowed_methods = {"GET"};
+    config.locations.push_back(loc_zombie);
+
+    // location /game_start
+    Location loc_game;
+    loc_game.path = "/game_start";
+    loc_game.root = "./www/one/pages";
+    loc_game.index = "game_start.html";
+    loc_game.autoindex = false;
+    loc_game.allowed_methods = {"GET"};
+    config.locations.push_back(loc_game);
+
+        // location /play (redirect)
+    Location loc_play;
+    loc_play.path = "/play";
+    loc_play.redirect_code = 301;
+    loc_play.redirect_url = "/game_start";
+    loc_play.allowed_methods = {"GET"};
+    config.locations.push_back(loc_play);
 
     return config;
 }
