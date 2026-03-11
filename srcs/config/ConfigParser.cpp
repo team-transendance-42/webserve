@@ -251,6 +251,7 @@ void Parser::assignKnownServerFields(ServerConfig& server, const Token& key, con
 		if (values.size() != 1 || !isUnsigned(values[0])) {
 			throw ParseError("client_max_body_size expects one numeric value", key.line, key.column);
 		}
+		// TODO store this value in the ServerConfig structure
 	}
 }
 
