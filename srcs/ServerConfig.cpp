@@ -1,6 +1,8 @@
 // srcs/ServerConfig.cpp
 #include "../includes/ServerConfig.hpp"
 
+
+// placeholder: todo
 ServerConfig createDefaultServerConfig() {
     ServerConfig config;
 

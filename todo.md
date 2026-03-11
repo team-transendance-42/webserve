@@ -1,9 +1,9 @@
 Petya:
-* HTTP server
-* socket setup
-* req parsing
+* HTTP server ✓
+* socket setup ✓
+* req parsing ✓
 * method handling(get, post, delete)
-* response formating
+* response formating ✓
 * routing (file handling logic ??)
 
 Noah:
@@ -12,3 +12,4 @@ Noah:
 * cgi/dynamic content
 * file handling logic ??
 * logging /utilities
+* install Linter: for coding style

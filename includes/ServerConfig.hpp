@@ -10,9 +10,9 @@ struct Location {
     std::string              path;
     std::string              root;
     std::string              index;
-    std::string              upload_store;
-    std::string              cgi_extension;
-    std::string              cgi_pass;
+    //std::string              upload_store; todo: for future use
+    //std::string              cgi_extension;
+    //std::string              cgi_pass;
     std::vector<std::string> allowed_methods;
     bool                     autoindex            = false;
     long                     client_max_body_size = -1;  // -1 = inherit from server
@@ -20,6 +20,7 @@ struct Location {
     std::string              redirect_url;
 };
 
+// hard-coded: are those default values to fall into or?
 struct ServerConfig {
     std::string              host                 = "127.0.0.1";
     int                      port                 = 0;
@@ -44,6 +45,7 @@ struct ServerConfig {
     }
 };
 
+// todo: placeholder to be replaced by filename.conf parser
 ServerConfig createDefaultServerConfig();
 
 #endif

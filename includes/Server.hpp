@@ -22,12 +22,12 @@
 ** Server
 ** ------
 ** Owns one listening socket (fd).
-** Uses poll() to multiplex the listen fd + all client fds.
+** Uses epoll() to multiplex the listen fd + all client fds.
 **
 ** Lifecycle:
 **   Server srv(config);
 **   srv.init();   // socket → setsockopt → bind → listen → fcntl non-block
-**   srv.run();    // poll loop — blocks until SIGINT or error
+**   srv.tcik();    // poll loop — blocks until SIGINT or error
 */
 
 // each connected client gets one of these
