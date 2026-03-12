@@ -35,6 +35,8 @@
 class Server {
 	public:
 		explicit Server(const ServerConfig &config);
+		Server(const Server &) = delete; // no cpy or assign
+		Server &operator=(const Server &) = delete;
 		~Server();
 
 		void init();    // call once — socket, bind, listen, epoll setup
@@ -61,9 +63,6 @@ class Server {
 		static std::string  _mimeType   (const std::string &path);
 		static void        _setNonBlocking(int fd);
 		static std::string _itoa(int n);
-
-		Server(const Server &);
-		Server &operator=(const Server &);
 
 		enum {
 			BACKLOG      = 128,

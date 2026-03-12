@@ -14,7 +14,7 @@ Server::~Server() {
     typedef std::map<int, Client *>::iterator It;
     for (It it = _clients.begin(); it != _clients.end(); ++it) {
         close(it->first);
-        delete it->second;
+        delete it->second;// why we delete client: pointer to heap obj created by new in _acceptClient, we need to free the memory to avoid leak
     }
     if (_listenFd >= 0) close(_listenFd);
     if (_epollFd  >= 0) close(_epollFd);
@@ -259,7 +259,7 @@ void Server::_processRequest(Client &client) {
     }
 
     // ── 2. match location ─────────────────────────────────────────────────
-    const Location *loc = _config.match_location(req.path);
+    const Location *loc = _config.matchLocation(req.path);
     if (!loc) {
         client.write_buf = HttpResponse::make_404().serialize();
         return;

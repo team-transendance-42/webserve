@@ -6,6 +6,8 @@ ServerConfig createDefaultServerConfig() {
     config.host = "127.0.0.1";
     config.port = 8080;
     config.server_names.push_back("one");
+    config.client_max_body_size = 1048576;
+    config.default_server = true;
 
     // error pages
     config.error_pages[404] = "./www/errors/404.html";
@@ -17,8 +19,8 @@ ServerConfig createDefaultServerConfig() {
     loc_root.root = "./www/one";
     loc_root.index = "index.html";
     loc_root.autoindex = true;
-    loc_root.client_max_body_size = 1000000;
-    loc_root.allowed_methods = {"GET", "POST", "DELETE"};
+    // loc_root.client_max_body_size = 1000000;
+    loc_root.allowed_methods = {"GET", "POST"};
     config.locations.push_back(loc_root);
 
     // location /zombie_kittens
@@ -48,4 +50,19 @@ ServerConfig createDefaultServerConfig() {
     config.locations.push_back(loc_play);
 
     return config;
+}
+
+ // find longest matching location for a URI
+const Location *ServerConfig::matchLocation(const std::string &uri) const {
+    const Location *best     = nullptr;
+    size_t          best_len = 0;
+    for (const auto &loc : locations) {
+        if (uri.compare(0, loc.path.size(), loc.path) == 0) {
+            if (loc.path.size() > best_len) {
+                best_len = loc.path.size();
+                best     = &loc;
+            }
+        }
+    }
+    return best;
 }

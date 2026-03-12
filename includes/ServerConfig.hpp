@@ -1,4 +1,3 @@
-// includes/ServerConfig.hpp
 #ifndef SERVERCONFIG_HPP
 #define SERVERCONFIG_HPP
 
@@ -6,6 +5,7 @@
 #include <vector>
 #include <map>
 
+// todo: this is placeholder for future CGI support, not used in current implementation
 struct CgiConfig {
     std::string extension;   // e.g. ".php", ".py"
     std::string interpreter; // e.g. "/usr/bin/python3"
@@ -15,20 +15,20 @@ struct CgiConfig {
 struct Location {
     std::string              path;
     std::string              root;
-	std::string              alias;   
+	std::string              alias;
     std::string              index;
     std::vector<std::string> allowed_methods;
-	std::string              redirect;
     bool                     autoindex            = false;
-    long                     client_max_body_size = -1;  // -1 = inherit from server
     int                      redirect_code        = 0;   // 0 = no redirect
-	bool                     upload_enabled;
-	std::string              upload_path;
     std::string              redirect_url;
-	std::vector<CgiConfig>   cgi;
+    long                     client_max_body_size = -1;  // -1 = inherit from server
+    // todo: upload handling
+	// bool                     upload_enabled;
+	// std::string              upload_path;
+	// std::vector<CgiConfig>   cgi;
 };
 
-// hard-coded: are those default values to fall into or?
+// todo: hard coded values for now, to be replaced by filename.conf parser
 struct ServerConfig {
     std::string              	host                 = "127.0.0.1";
     int                      	port                 = 0;
@@ -39,19 +39,7 @@ struct ServerConfig {
     std::vector<Location>    	locations;
 
     // find longest matching location for a URI
-    const Location *match_location(const std::string &uri) const {
-        const Location *best     = nullptr;
-        size_t          best_len = 0;
-        for (const auto &loc : locations) {
-            if (uri.compare(0, loc.path.size(), loc.path) == 0) {
-                if (loc.path.size() > best_len) {
-                    best_len = loc.path.size();
-                    best     = &loc;
-                }
-            }
-        }
-        return best;
-    }
+    const Location *matchLocation(const std::string &uri) const;
 };
 
 // todo: placeholder to be replaced by filename.conf parser
