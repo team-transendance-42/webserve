@@ -71,6 +71,32 @@ ServerConfig createDefaultServerConfig() {
     notAllowed.allowed_methods = {"GET"};
     config.locations.push_back(notAllowed);
 
+    // disable autoindex for /files to test 403 when no index file
+    Location files;
+    files.path = "/files";
+    files.root = "./www/files";
+    files.index = "index.html";
+    files.autoindex = false;
+    files.allowed_methods = {"GET"};
+    config.locations.push_back(files);  
+
+    // test autoindex for /files_auto
+    Location files_auto;
+    files_auto.path = "/files_auto";
+    files_auto.root = "./www/files";
+    files_auto.autoindex = true;
+    files_auto.allowed_methods = {"GET"};
+    config.locations.push_back(files_auto);
+
+    // test JSON API
+    Location api;
+    api.path = "/api/data_json";
+    api.root = "./www/api";
+    api.index = "data.json";
+    api.autoindex = false;
+    api.allowed_methods = {"GET"};
+    config.locations.push_back(api);
+
     return config;
 }
 
