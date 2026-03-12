@@ -14,7 +14,7 @@ Server::~Server() {
     typedef std::map<int, Client *>::iterator It;
     for (It it = _clients.begin(); it != _clients.end(); ++it) {
         close(it->first);
-        delete it->second;// why we delete client: pointer to heap obj created by new in _acceptClient, we need to free the memory to avoid leak
+        delete it->second;// pointer to heap obj created by new in _acceptClient, we need to free the memory
     }
     if (_listenFd >= 0) close(_listenFd);
     if (_epollFd  >= 0) close(_epollFd);
@@ -265,6 +265,16 @@ void Server::_processRequest(Client &client) {
         return;
     }
 
+    // ── 2.5 forbidden access ──────────────────────────────────────────────
+    if (loc->deny_all == true) {
+        std::map<int,std::string>::const_iterator ep = _config.error_pages.find(403);
+        if (ep != _config.error_pages.end())
+            client.write_buf = _serveStatic(ep->second).serialize();
+        else
+            client.write_buf = HttpResponse::make_403().serialize();
+        return;
+    }
+
     // ── 3. allowed methods ────────────────────────────────────────────────
     const char *method_str[] = { "GET", "POST", "DELETE" };
     std::string req_method   = method_str[req.method];
@@ -313,6 +323,14 @@ void Server::_processRequest(Client &client) {
     // ── 7. stat the path ──────────────────────────────────────────────────
     struct stat st;
     if (stat(filepath.c_str(), &st) != 0) {
+        if (errno == EACCES) {
+            std::map<int,std::string>::const_iterator ep = _config.error_pages.find(403);
+            if (ep != _config.error_pages.end())
+                client.write_buf = _serveStatic(ep->second).serialize();
+            else
+                client.write_buf = HttpResponse::make_403().serialize();
+            return;
+        }
         // check configured error page
         std::map<int,std::string>::const_iterator ep
             = _config.error_pages.find(404);

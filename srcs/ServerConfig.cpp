@@ -10,6 +10,8 @@ ServerConfig createDefaultServerConfig() {
     config.default_server = true;
 
     // error pages
+    config.error_pages[400] = "./www/errors/400.html";
+    config.error_pages[403] = "./www/errors/403.html";
     config.error_pages[404] = "./www/errors/404.html";
     config.error_pages[500] = "./www/errors/500.html";
 
@@ -41,7 +43,7 @@ ServerConfig createDefaultServerConfig() {
     loc_game.allowed_methods = {"GET"};
     config.locations.push_back(loc_game);
 
-        // location /play (redirect)
+    // location /play (redirect)
     Location loc_play;
     loc_play.path = "/play";
     loc_play.redirect_code = 301;
@@ -49,10 +51,30 @@ ServerConfig createDefaultServerConfig() {
     loc_play.allowed_methods = {"GET"};
     config.locations.push_back(loc_play);
 
+    // test not authorized access to /admin
+    Location secret;
+    secret.path = "/secret";
+    secret.root = "./www/one/secret";
+    secret.index = "index.html";
+    secret.autoindex = false;
+    secret.allowed_methods = {"GET"};
+    secret.deny_all = true;
+    config.locations.push_back(secret);
+
+    // test client max body size with /upload
+
+    // test chmod 000 with
+    Location notAllowed;
+    notAllowed.path = "/notAllowed";
+    notAllowed.root = "./www/notAllowed";
+    notAllowed.index = "index.html";
+    notAllowed.allowed_methods = {"GET"};
+    config.locations.push_back(notAllowed);
+
     return config;
 }
 
- // find longest matching location for a URI
+ // find longest matching location for a URI: standard way for servers(nginx)
 const Location *ServerConfig::matchLocation(const std::string &uri) const {
     const Location *best     = nullptr;
     size_t          best_len = 0;

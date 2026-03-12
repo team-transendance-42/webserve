@@ -19,6 +19,7 @@ struct Location {
     std::string              index;
     std::vector<std::string> allowed_methods;
     bool                     autoindex            = false;
+    bool                     deny_all             = false; // for guarding sensitive locations
     int                      redirect_code        = 0;   // 0 = no redirect
     std::string              redirect_url;
     long                     client_max_body_size = -1;  // -1 = inherit from server

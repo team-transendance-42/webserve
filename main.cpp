@@ -32,10 +32,7 @@ int main(int argc, char *argv[])
 
     try
     {
-        // todo: replace with ConfigParser once implemented
-        //       ConfigParser parser;
-        //       std::vector<ServerConfig> configs = parser.parse(configFile);
-        //       ServerConfig &cfg = configs[0];
+        // hardcoded config for testing, to be replaced by filename.conf parser
         ServerConfig cfg = createDefaultServerConfig();
 
         std::cout << "Config loaded:\n"
@@ -47,14 +44,9 @@ int main(int argc, char *argv[])
         std::cout << "\n  locations = " << cfg.locations.size() << "\n\n";
 
         Server server(cfg);
-        server.init();  // socket(), bind(), listen(), epoll setup
-
-        // tick() does ONE epoll_wait then returns — so g_running is
-        // checked every POLL_TIMEOUT ms (100ms) between ticks
+        server.init();
         while (g_running)
             server.tick();
-
-        // clean shutdown — ~Server() closes all fds
         server.stop();
         std::cout << "---------------------\nwebserv shut down cleanly\n";
     }
