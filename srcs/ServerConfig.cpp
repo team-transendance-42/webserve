@@ -71,16 +71,16 @@ ServerConfig createDefaultServerConfig() {
     notAllowed.allowed_methods = {"GET"};
     config.locations.push_back(notAllowed);
 
-    // disable autoindex for /files to test 403 when no index file
+    // disable autoindex for /files to test 403 when no index file: todo: got not mine 403..
     Location files;
     files.path = "/files";
     files.root = "./www/files";
-    files.index = "index.html";
+    // files.index = "index.html";
     files.autoindex = false;
     files.allowed_methods = {"GET"};
     config.locations.push_back(files);  
 
-    // test autoindex for /files_auto
+    // expect to see files structure in www/files
     Location files_auto;
     files_auto.path = "/files_auto";
     files_auto.root = "./www/files";

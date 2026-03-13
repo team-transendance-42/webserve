@@ -1,4 +1,3 @@
-// HttpRequest.hpp
 #pragma once
 #include <string>
 #include <map>
@@ -33,7 +32,7 @@ public:
     void        debug_print()   const;
 
 private:
-    // internal parse state — never exposed outside
+    // internal parse state: needs to be private
     enum ParseState { REQUEST_LINE, HEADERS, BODY, DONE, ERROR };
 
     ParseState  _state;

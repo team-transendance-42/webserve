@@ -19,8 +19,23 @@ ParseResult HttpRequest::feed(const std::string &data) {
 }
 
 // ── internal parse loop ───────────────────────────────────────────────────────
-
+/**
+limit for header size: protects for buffer overflow attacks
+limit for body size: protects for DoS attacks with large payloads
+*/
 ParseResult HttpRequest::_parse() {
+    const size_t MAX_HEADER_SIZE = 8192; // 8 KB
+    const size_t MAX_BODY_SIZE = 1048576; // 1 MB
+
+    if (_buf.size() > MAX_HEADER_SIZE && _state == HEADERS) {
+        _state = ERROR;
+        return PARSE_ERROR;
+    }
+    if (content_length() > MAX_BODY_SIZE) {
+        _state = ERROR;
+        return PARSE_ERROR;
+    }
+
     while (true) {
         switch (_state) {
 
@@ -57,7 +72,6 @@ ParseResult HttpRequest::_parse() {
                 _buf.erase(0, expected);
                 _state = DONE;
             }
-            // fall through to DONE
         case DONE:
             return COMPLETE;
 
@@ -119,6 +133,11 @@ bool HttpRequest::_parse_header_line(const std::string &line) {
 
     std::string key   = line.substr(0, colon);
     std::string value = line.substr(colon + 1);
+
+    if (key.find('\r') != std::string::npos || key.find('\n') != std::string::npos ||
+        value.find('\r') != std::string::npos || value.find('\n') != std::string::npos) {
+        return false; // Reject header with CRLF injection
+    }
 
     size_t s = value.find_first_not_of(" \t");
     size_t e = value.find_last_not_of(" \t\r\n");
