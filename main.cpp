@@ -21,12 +21,19 @@ int main(int argc, char** argv) {
 		std::cout << "Parsed " << config.servers.size() << " server block(s) from " << configPath << "\n";
 		for (std::size_t i = 0; i < config.servers.size(); ++i) {
 			const ServerConfig& server = config.servers[i];
+			std::string primaryServerName = "(no server_name)";
+			if (!server.server_names.empty()) {
+				primaryServerName = server.server_names[0];
+			}
 			std::cout << "  [" << i << "] "
-					  << server.server_name
-					  << " (" << server.host << ":" << server.listen << ")"
-					  << " with " << server.locations.size() << " location(s)\n"
-					  << server.locations[1].path << " with " << server.locations[1].directives.size() << " directive(s)\n"
-					  << server.directives.size() << " server-level directive(s)\n";
+					  << primaryServerName
+					  << " (" << server.host << ":" << server.port << ")"
+					  << " with " << server.locations.size() << " location(s)\n";
+			if (!server.locations.empty()) {
+				const Location& location = server.locations[0];
+				std::cout << "      first location: " << location.path
+						  << " (" << location.allowed_methods.size() << " allowed method(s))\n";
+			}
 		}
 	}
 	catch (const std::exception& ex) {

@@ -7,8 +7,6 @@
 #include <sstream>
 #include <stdexcept>
 
-ServerConfig::ServerConfig() : listen(-1) {}
-
 std::vector<Token> Tokenizer::tokenize() {
 	std::vector<Token> tokens;
 
@@ -165,6 +163,10 @@ ServerConfig Parser::parseServerBlock() {
 	consume(TOKEN_LBRACE, "expected '{' after server");
 
 	ServerConfig server;
+	server.host = "";
+	server.port = -1;
+	server.client_max_body_size = -1;
+	server.default_server = false;
 
 	while (!check(TOKEN_RBRACE)) {
 		if (check(TOKEN_EOF)) {
@@ -174,7 +176,7 @@ ServerConfig Parser::parseServerBlock() {
 		if (checkWord("location")) {
 			server.locations.push_back(parseLocationBlock());
 		} else {
-			parseDirectiveInto(server.directives, &server);
+			parseServerDirective(server);
 		}
 	}
 
@@ -184,19 +186,19 @@ ServerConfig Parser::parseServerBlock() {
 }
 
 // Parse a location block, which should start with 'location' followed by a path, and enclosed in braces
-LocationConfig Parser::parseLocationBlock() {
+Location Parser::parseLocationBlock() {
 	consumeWord("location");
 	const Token& pathToken = consume(TOKEN_WORD, "expected path after location");
 	consume(TOKEN_LBRACE, "expected '{' after location path");
 
-	LocationConfig location;
+	Location location;
 	location.path = pathToken.value;
 
 	while (!check(TOKEN_RBRACE)) {
 		if (check(TOKEN_EOF)) {
 			throw ParseError("unterminated location block", peek().line, peek().column);
 		}
-		parseDirectiveInto(location.directives, static_cast<ServerConfig*>(0));
+		parseLocationDirective(location);
 	}
 
 	consume(TOKEN_RBRACE, "expected '}' after location block");
@@ -208,11 +210,8 @@ bool Parser::checkWord(const std::string& value) const {
 	return (check(TOKEN_WORD) && peek().value == value);
 }
 
-// Parse a directive and store it in the provided directives map
-// Assign known server fields if applicable
-void Parser::parseDirectiveInto(
-	std::map<std::string, std::vector<std::string> >& directives,
-	ServerConfig* server) {
+// Parse a server-level directive and assign known typed fields
+void Parser::parseServerDirective(ServerConfig& server) {
 	const Token& key = consume(TOKEN_WORD, "expected directive name");
 	std::vector<std::string> values;
 
@@ -224,10 +223,23 @@ void Parser::parseDirectiveInto(
 	}
 	consume(TOKEN_SEMICOLON, "expected ';' after directive");
 
-	directives[key.value] = values;
-	if (server) {
-		assignKnownServerFields(*server, key, values);
+	assignKnownServerFields(server, key, values);
+}
+
+// Parse a location-level directive and assign known typed fields
+void Parser::parseLocationDirective(Location& location) {
+	const Token& key = consume(TOKEN_WORD, "expected directive name");
+	std::vector<std::string> values;
+
+	while (!check(TOKEN_SEMICOLON)) {
+		if (check(TOKEN_EOF) || check(TOKEN_LBRACE) || check(TOKEN_RBRACE)) {
+			throw ParseError("expected ';' after directive '" + key.value + "'", peek().line, peek().column);
+		}
+		values.push_back(consume(TOKEN_WORD, "expected directive value").value);
 	}
+	consume(TOKEN_SEMICOLON, "expected ';' after directive");
+
+	assignKnownLocationFields(location, key, values);
 }
 
 // For known server directives, assign their values to the corresponding fields in the ServerConfig structure
@@ -236,34 +248,93 @@ void Parser::assignKnownServerFields(ServerConfig& server, const Token& key, con
 		if (values.size() != 1 || !isUnsigned(values[0])) {
 			throw ParseError("listen expects one numeric value", key.line, key.column);
 		}
-		server.listen = static_cast<int>(toUnsigned(values[0]));
+		server.port = static_cast<int>(toUnsigned(values[0]));
 	} else if (key.value == "host") {
 		if (values.size() != 1) {
 			throw ParseError("host expects one value", key.line, key.column);
 		}
 		server.host = values[0];
 	} else if (key.value == "server_name") {
-		if (values.size() != 1) {
-			throw ParseError("server_name expects one value", key.line, key.column);
+		if (values.empty()) {
+			throw ParseError("server_name expects at least one value", key.line, key.column);
 		}
-		server.server_name = values[0];
+		server.server_names = values;
 	} else if (key.value == "client_max_body_size") {
 		if (values.size() != 1 || !isUnsigned(values[0])) {
 			throw ParseError("client_max_body_size expects one numeric value", key.line, key.column);
 		}
-		// TODO store this value in the ServerConfig structure
+		server.client_max_body_size = static_cast<long>(toUnsigned(values[0]));
+	} else if (key.value == "error_page") {
+		if (values.size() != 2 || !isUnsigned(values[0])) {
+			throw ParseError("error_page expects: <code> <path>", key.line, key.column);
+		}
+		server.error_pages[static_cast<int>(toUnsigned(values[0]))] = values[1];
+	} else if (key.value == "default_server") {
+		if (values.empty()) {
+			server.default_server = true;
+		} else if (values.size() == 1 && (values[0] == "on" || values[0] == "off")) {
+			server.default_server = (values[0] == "on");
+		} else {
+			throw ParseError("default_server expects no value or one of: on|off", key.line, key.column);
+		}
+	}
+}
+
+// For known location directives, assign their values to the corresponding fields in the Location structure
+void Parser::assignKnownLocationFields(Location& location, const Token& key, const std::vector<std::string>& values) {
+	if (key.value == "root") {
+		if (values.size() != 1) {
+			throw ParseError("root expects one value", key.line, key.column);
+		}
+		location.root = values[0];
+	} else if (key.value == "alias") {
+		if (values.size() != 1) {
+			throw ParseError("alias expects one value", key.line, key.column);
+		}
+		location.alias = values[0];
+	} else if (key.value == "index") {
+		if (values.size() != 1) {
+			throw ParseError("index expects one value", key.line, key.column);
+		}
+		location.index = values[0];
+	} else if (key.value == "autoindex") {
+		if (values.size() != 1 || (values[0] != "on" && values[0] != "off")) {
+			throw ParseError("autoindex expects one value: on|off", key.line, key.column);
+		}
+		location.autoindex = (values[0] == "on");
+	} else if (key.value == "deny_all") {
+		if (values.size() != 1 || (values[0] != "on" && values[0] != "off")) {
+			throw ParseError("deny_all expects one value: on|off", key.line, key.column);
+		}
+		location.deny_all = (values[0] == "on");
+	} else if (key.value == "allowed_methods") {
+		if (values.empty()) {
+			throw ParseError("allowed_methods expects at least one method", key.line, key.column);
+		}
+		location.allowed_methods = values;
+	} else if (key.value == "return") {
+		if (values.size() != 2 || !isUnsigned(values[0])) {
+			throw ParseError("return expects: <code> <url>", key.line, key.column);
+		}
+		location.redirect_code = static_cast<int>(toUnsigned(values[0]));
+		location.redirect_url = values[1];
+	} else if (key.value == "client_max_body_size") {
+		if (values.size() != 1 || !isUnsigned(values[0])) {
+			throw ParseError("client_max_body_size expects one numeric value", key.line, key.column);
+		}
+		location.client_max_body_size = static_cast<long>(toUnsigned(values[0]));
 	}
 }
 
 // Validate that the server block has all required directives and that location blocks have valid allowed_methods
 void Parser::validateServer(const ServerConfig& server) {
-	if (server.listen < 0) {
+	if (server.port < 0) {
 		throw ParseError("missing required directive 'listen'", peek().line, peek().column);
 	}
 	if (server.host.empty()) {
 		throw ParseError("missing required directive 'host'", peek().line, peek().column);
 	}
-	if (server.server_name.empty()) {
+	if (server.server_names.empty()) {
 		throw ParseError("missing required directive 'server_name'", peek().line, peek().column);
 	}
 
@@ -273,13 +344,12 @@ void Parser::validateServer(const ServerConfig& server) {
 }
 
 // Validate that the allowed_methods directive in 'location' only contains valid HTTP methods
-void Parser::validateLocation(const LocationConfig& location) {
-	std::map<std::string, std::vector<std::string> >::const_iterator it = location.directives.find("allowed_methods");
-	if (it == location.directives.end()) {
+void Parser::validateLocation(const Location& location) {
+	if (location.allowed_methods.empty()) {
 		return;
 	}
 
-	const std::vector<std::string>& methods = it->second;
+	const std::vector<std::string>& methods = location.allowed_methods;
 	for (std::size_t i = 0; i < methods.size(); ++i) {
 		if (methods[i] != "GET" && methods[i] != "POST" && methods[i] != "DELETE") {
 			throw ParseError("invalid method in allowed_methods: " + methods[i], peek().line, peek().column);

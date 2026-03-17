@@ -47,25 +47,28 @@ private:
     ServerConfig parseServerBlock();
 
 	// Parse a location block, which should start with 'location' followed by a path, and enclosed in braces
-    LocationConfig parseLocationBlock();
+    Location parseLocationBlock();
 
 	// Check if the current token is a word and matches the specified value
     bool checkWord(const std::string& value) const;
 
-	// Parse a directive and store it in the provided directives map
-	// Assign known server fields if applicable
-    void parseDirectiveInto(
-        std::map<std::string, std::vector<std::string> >& directives,
-        ServerConfig* server);
+	// Parse and assign one server-level directive into the typed ServerConfig fields
+    void parseServerDirective(ServerConfig& server);
+
+	// Parse and assign one location-level directive into the typed Location fields
+    void parseLocationDirective(Location& location);
 
 	// For known server directives, assign their values to the corresponding fields in the ServerConfig structure
     void assignKnownServerFields(ServerConfig& server, const Token& key, const std::vector<std::string>& values);
+
+	// For known location directives, assign their values to the corresponding fields in the Location structure
+    void assignKnownLocationFields(Location& location, const Token& key, const std::vector<std::string>& values);
 
 	// Validate that the server block has all required directives and that location blocks have valid allowed_methods
     void validateServer(const ServerConfig& server);
 
 	// Validate that the allowed_methods directive in 'location' only contains valid HTTP methods
-    void validateLocation(const LocationConfig& location);
+    void validateLocation(const Location& location);
 
 	// Check if a string represents an unsigned int
     static bool isUnsigned(const std::string& text);
