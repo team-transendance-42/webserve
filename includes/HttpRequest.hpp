@@ -1,4 +1,5 @@
 #pragma once
+
 #include <string>
 #include <map>
 
@@ -6,6 +7,23 @@
 enum Method      { GET, POST, DELETE, UNKNOWN };
 enum ParseResult { INCOMPLETE, COMPLETE, PARSE_ERROR };
 
+
+/**
+ * _buf is the parser’s internal byte queue.
+Every time recv() gets bytes from socket, feed() appends them into _buf.
+_buf stores raw, not-yet-fully-consumed bytes.
+
+TCP(Transmission Control Protocol) is a byte stream, not message packets.
+One recv() may return half a request.
+Or one recv() may return one full request plus part/all of the next one.
+HTTP keep-alive reuses same connection.
+Client can send request #2 on same socket after request #1.
+Those bytes can arrive before the parser finishes processing #1.
+HTTP pipelining (or fast clients) can send multiple requests back-to-back.
+Example stream in one recv():
+REQ1_HEADERS + REQ1_BODY + REQ2_HEADERS...
+After parsing REQ1, leftover bytes belong to REQ2, so they stay in _buf.
+ */
 class HttpRequest {
 public:
     // ── parsed data — read these after feed() returns COMPLETE ────────────
@@ -18,7 +36,10 @@ public:
 
     HttpRequest();
 
-    // feed raw bytes from recv() — call repeatedly until COMPLETE
+    /**
+	 * parse raw HTTP request bytes coming from the client socket(TCP stream bytes), in recv(client.fd, ...) in server read loop
+	 * feed() appends them to _buf, then _parse() extracts fields.
+	 */
     ParseResult feed(const std::string &data);
     ParseResult feed(const char *data, size_t len);  // convenience overload
 
@@ -32,7 +53,7 @@ public:
     void        debug_print()   const;
 
 private:
-    // internal parse state: needs to be private
+    // internal parse state
     enum ParseState { REQUEST_LINE, HEADERS, BODY, DONE, ERROR };
 
     ParseState  _state;

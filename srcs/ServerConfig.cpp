@@ -10,7 +10,7 @@ ServerConfig createDefaultServerConfig() {
     config.default_server = true;
 
     // error pages
-    config.error_pages[400] = "./www/errors/400.html";
+    config.error_pages[400] = "./www/errors/400.html"; //
     config.error_pages[403] = "./www/errors/403.html";
     config.error_pages[404] = "./www/errors/404.html";
     config.error_pages[500] = "./www/errors/500.html";
@@ -43,7 +43,7 @@ ServerConfig createDefaultServerConfig() {
     loc_game.allowed_methods = {"GET"};
     config.locations.push_back(loc_game);
 
-    // location /play (redirect)
+    // location /play (redirect): 
     Location loc_play;
     loc_play.path = "/play";
     loc_play.redirect_code = 301;
@@ -51,7 +51,10 @@ ServerConfig createDefaultServerConfig() {
     loc_play.allowed_methods = {"GET"};
     config.locations.push_back(loc_play);
 
-    // test not authorized access to /admin
+    /**
+	 *  test not authorized access to /admin
+	 *  because config says: deny_all = true
+	*/	
     Location secret;
     secret.path = "/secret";
     secret.root = "./www/one/secret";
@@ -71,7 +74,7 @@ ServerConfig createDefaultServerConfig() {
     notAllowed.allowed_methods = {"GET"};
     config.locations.push_back(notAllowed);
 
-    // disable autoindex for /files to test 403 when no index file: todo: got not mine 403..
+    // TODO: disable autoindex for /files to test 403 when no index file: todo: got not mine 403..
     Location files;
     files.path = "/files";
     files.root = "./www/files";

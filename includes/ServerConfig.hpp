@@ -1,5 +1,4 @@
-#ifndef SERVERCONFIG_HPP
-#define SERVERCONFIG_HPP
+#pragma once
 
 #include <string>
 #include <vector>
@@ -46,4 +45,3 @@ struct ServerConfig {
 // todo: placeholder to be replaced by filename.conf parser
 ServerConfig createDefaultServerConfig();
 
-#endif

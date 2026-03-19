@@ -9,7 +9,6 @@
 #include <arpa/inet.h>  // inet_addr()
 #include <unistd.h>     // close()
 #include <fcntl.h>      // fcntl() non-blocking
-#include <dirent.h>   // opendir/readdir for autoindex
 #include <stdexcept>
 #include <iostream>
 #include <sstream>
@@ -19,6 +18,7 @@
 #include "HttpRequest.hpp"
 #include "HttpResponse.hpp"
 #include "Client.hpp"
+#include "StaticFileHandler.hpp"
 
 /*
 ** Server
@@ -47,28 +47,23 @@ class Server {
 		bool isRunning() const { return _running;  }
 
 	private:
-		void _epollAdd(int fd, uint32_t events);
-		void _epollMod(int fd, uint32_t events);
-		void _epollDel(int fd);
+		void 				_epollAdd(int fd, uint32_t events);
+		void 				_epollMod(int fd, uint32_t events);
+		void 				_epollDel(int fd);
 
 		void 				_acceptClient();
 		void 				_readClient  (Client &client);
 		void 				_writeClient (Client &client);
 		void 				_closeClient (int fd);
 		void 				_processRequest(Client &client);
-		HttpResponse        _autoindex    (const std::string &dirpath,
-                                   const std::string &url_path);
-
-		static HttpResponse _serveStatic(const std::string &filepath);
-		static std::string  _mimeType   (const std::string &path);
 		static void        _setNonBlocking(int fd);
-		static std::string _itoa(int n);
 
+		// named constants for server tuning
 		enum {
-			BACKLOG      = 128,
-			POLL_TIMEOUT = 100,   // ms — short so main loop checks g_running often
-			MAX_EVENTS   = 64,
-			READ_BUF     = 4096
+			BACKLOG      = 128,   // max queued incoming connections waiting to be accepted; named so to match exact socket API term listen(fd, backlog), Kernel docs/man pages call it “backlog”
+			POLL_TIMEOUT = 100,  // ms — short so main loop checks g_running often
+			MAX_EVENTS   = 64,   // max ready events handled per tick call
+			READ_BUF     = 4096 // chunk size per recv
 		};
 
 		ServerConfig            _config;

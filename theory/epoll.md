@@ -1,3 +1,10 @@
+
+epoll is an event notifier for many sockets.
+You register file descriptors once, then ask the kernel: “which ones are ready now?”
+This avoids scanning every fd each loop, so it scales much better than poll/select for many clients.
+Your server uses non-blocking sockets plus level-triggered epoll (default), so you must read/write until EAGAIN.
+----------------------------------------------------------------
+
 poll()                          epoll()
 ──────                          ───────
 passes ALL fds to kernel        registers fds ONCE with kernel
@@ -12,86 +19,46 @@ breaks at ~1000 fds             handles 100,000+ fds fine
 
 man epoll
 ---------------------------------------------------------
-Imagine you're a security guard watching a building with 1000 doors.
-Checking every door every second = exhausting and slow.
-Instead, you install alarm sensors on doors. Now you just wait — and only act when an alarm rings.
-epoll is that alarm system. Your 3 functions = managing those sensors.
 
-_epollAdd — Install a sensor on a door
+Our epoll Flow (Exact Code Path)
 
-New client connects → _epollAdd(clientFd, EPOLLIN) — watch for their request
-New listening socket → _epollAdd(listenFd, EPOLLIN) — watch for new connections
+Create epoll instance and listening socket in init:
+Server.cpp:27, Server.cpp:64, Server.cpp:432
 
-_epollMod — Change what the sensor watches for
+Main loop calls one tick repeatedly:
+main.cpp:48, main.cpp:49, Server.cpp:82
 
-```
+Wait for ready events:
+Server.cpp:88
 
-A connection has **two phases**:
-```
-Phase 1: Client → Server    (you need to READ)
-         watch EPOLLIN
+If event belongs to listen fd, accept all pending clients:
+Server.cpp:101, Server.cpp:152, Server.cpp:165
 
-         client sends "GET / HTTP/1.1..."
-         you read it, build the response
+If event belongs to a client, run state machine:
+Server.cpp:174, Server.cpp:203, Server.cpp:212, Server.cpp:228
 
-Phase 2: Server → Client    (you need to WRITE)  
-         watch EPOLLOUT
+On disconnect/error, remove from epoll and close:
+Server.cpp:236, Server.cpp:237, Server.cpp:144
+--------------------------------------------------------------
 
-         you send "HTTP/1.1 200 OK..."
-         then switch BACK to EPOLLIN for next request
+Minimal Mental Model
 
-// Client just connected — watch for their request
-_epollAdd(clientFd, EPOLLIN);
+Listening socket only accepts.
+Client socket alternates:
+read request -> build response -> write response -> back to read (keep-alive) or close.
+epoll is just the scheduler that tells you which fd is ready for the next step.
+----------------------------------------------------------------
 
-// You finished reading, response is ready — switch to write mode
-_epollMod(clientFd, EPOLLOUT);
-
-// You finished sending — switch back to read mode (keep-alive)
-_epollMod(clientFd, EPOLLIN);
-
-// ❌ Bad — EPOLLOUT fires constantly when buffer has space
-//    your loop spins doing nothing, wasting 100% CPU
-ev.events = EPOLLIN | EPOLLOUT;  // don't do this
-
-// ✅ Good — only watch EPOLLOUT when you actually have data to send
-_epollMod(fd, EPOLLOUT);         // then switch back when done
-
-_epollDel — Remove the sensor
-/ Client disconnected (read returned 0)
-_epollDel(clientFd);
-close(clientFd);       // ← always close AFTER del
-----------------------------
+tests:
+Start server and open one browser tab; follow logs for one full read/write cycle.
+Open multiple tabs quickly; confirm only ready sockets are processed each tick.
+Test keep-alive with repeated requests; verify same fd goes read -> write -> read.
+Force disconnect mid-request; verify close path removes fd cleanly.
 
 
-client connects
-      │
-      ▼
-_epollAdd(clientFd, EPOLLIN)        ← "watch for their request"
-      │
-      ▼
-epoll_wait fires EPOLLIN
-      │
-      ▼
-read() drain loop until EAGAIN      ← non-blocking reads
-      │
-      ▼
-parse HTTP request, build response
-      │
-      ▼
-_epollMod(clientFd, EPOLLOUT)       ← "tell me when I can write"
-      │
-      ▼
-epoll_wait fires EPOLLOUT
-      │
-      ▼
-write() response
-      │
-      ▼
-_epollMod(clientFd, EPOLLIN)        ← keep-alive: back to reading
-      │        OR
-      ▼
-_epollDel(clientFd)                 ← connection: close
-close(clientFd)
+
+
+
 
 
 

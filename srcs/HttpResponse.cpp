@@ -20,7 +20,7 @@ HttpResponse &HttpResponse::set_body(const std::string &content,
                                      const std::string &type) {
     body = content;
     headers["Content-Type"]   = type;
-    headers["Content-Length"] = _itoa(static_cast<int>(content.size()));
+    headers["Content-Length"] = std::to_string(content.size());
     return *this;
 }
 
@@ -73,13 +73,27 @@ HttpResponse HttpResponse::make_405() {
     return r;
 }
 
+HttpResponse HttpResponse::make_413() {
+    HttpResponse r;
+    r.set_status(413).set_body(_error_body(413, "Payload Too Large"));
+    return r;
+}
+
 HttpResponse HttpResponse::make_500() {
     HttpResponse r;
     r.set_status(500).set_body(_error_body(500, "Internal Server Error"));
     return r;
 }
 
-// ── serialize — builds the raw string you hand to send() ─────────────────────
+/**
+ *  ── serialize — builds full HTTP/1.1 message for send() ─────────────────
+ Format produced:
+   1) Status line:   "HTTP/1.1 <code> <reason>\r\n"
+   2) Header lines:  "Key: Value\r\n" for each header map entry
+   3) Header/body separator: "\r\n"
+   4) Body bytes appended as-is
+ The returned string is a complete response payload ready for socket send().
+ */
 
 std::string HttpResponse::serialize() const {
     std::string reason = _reason(status_code);
@@ -104,35 +118,26 @@ std::string HttpResponse::_reason(int code) {
         case 204: return "No Content";
         case 301: return "Moved Permanently";
         case 302: return "Found";
-        case 304: return "Not Modified";
+        case 304: return "Not Modified"; // todo: learn it
         case 400: return "Bad Request";
         case 403: return "Forbidden";
         case 404: return "Not Found";
         case 405: return "Method Not Allowed";
         case 413: return "Payload Too Large";
         case 500: return "Internal Server Error";
-        case 502: return "Bad Gateway";
-        case 504: return "Gateway Timeout";
+        //case 502: return "Bad Gateway"; // todo: not implemented
+        //case 504: return "Gateway Timeout";
         default:  return "Unknown";
     }
 }
 
-std::string HttpResponse::_itoa(int n) {
-    std::ostringstream oss;
-    oss << n;
-    return oss.str();
-}
-
+/**
+ * 
+ */
 std::string HttpResponse::_error_body(int code, const std::string &reason) {
     std::ostringstream oss;
     oss << "<html><body><h1>"
         << code << " " << reason
         << "</h1></body></html>";
     return oss.str();
-}
-
-HttpResponse HttpResponse::make_413() {
-    HttpResponse r;
-    r.set_status(413).set_body(_error_body(413, "Payload Too Large"));
-    return r;
 }

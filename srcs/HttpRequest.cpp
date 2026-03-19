@@ -21,7 +21,7 @@ ParseResult HttpRequest::feed(const std::string &data) {
 // ── internal parse loop ───────────────────────────────────────────────────────
 /**
 limit for header size: protects for buffer overflow attacks
-limit for body size: protects for DoS attacks with large payloads
+limit for body size: protects for DoS attacks( Denial of Service: an attacker tries to make a service unavailable to normal users, usually by overwhelming it with too many requests or exhausting resources.) with large payloads
 */
 ParseResult HttpRequest::_parse() {
     const size_t MAX_HEADER_SIZE = 8192; // 8 KB
@@ -74,7 +74,6 @@ ParseResult HttpRequest::_parse() {
             }
         case DONE:
             return COMPLETE;
-
         case ERROR:
             return PARSE_ERROR;
         }
@@ -125,7 +124,16 @@ bool HttpRequest::_parse_path(const std::string &raw) {
 // ── header line ──────────────────────────────────────────────────────────────
 
 /**
- * todo: what it taks from 
+ * Parses one HTTP header line: "Key: Value".
+ *
+ * Steps:
+ * - Finds ':' separator; if missing, the header is invalid.
+ * - Splits into `key` and `value`.
+ * - Rejects CR/LF inside key/value (prevents header injection).
+ * - Trims leading/trailing spaces from value.
+ * - Stores header using lowercase key for case-insensitive lookup.
+ *
+ * Returns true on success, false on malformed header.
  */
 bool HttpRequest::_parse_header_line(const std::string &line) {
     size_t colon = line.find(':');
@@ -160,8 +168,8 @@ bool HttpRequest::has_header(const std::string &key) const {
 }
 
 size_t HttpRequest::content_length() const {
-    std::string v = get_header("content-length");
-    return v.empty() ? 0 : static_cast<size_t>(std::atol(v.c_str()));
+    std::string val = get_header("content-length");
+    return val.empty() ? 0 : static_cast<size_t>(std::atol(val.c_str()));
 }
 
 bool HttpRequest::is_keep_alive() const {
@@ -172,6 +180,11 @@ bool HttpRequest::is_keep_alive() const {
     return conn == "keep-alive";
 }
 
+/**
+ *  Sets length to 0 (becomes "").
+	Keeps the object valid and reusable.
+	Usually does not guarantee freeing capacity immediately.
+ */
 void HttpRequest::clear() {
     method = UNKNOWN;
     path.clear();
@@ -187,6 +200,18 @@ bool HttpRequest::_line_ready() const {
     return _buf.find("\r\n") != std::string::npos;
 }
 
+/**
+ * Returns the next CRLF-terminated line from the internal buffer.
+ * CR is \r (carriage return, ASCII 13) LF is \n (line feed, ASCII 10)
+	In HTTP, each header line ends with \r\n, and headers end with an empty line: \r\n\r\n.
+ *
+ * Behavior:
+ * - Finds the first "\r\n" sequence in _buf.
+ * - Copies everything before it into `line`.
+ * - Erases the consumed bytes plus the CRLF (pos + 2) from _buf.
+ *
+ * Note: Caller should ensure a full line is available first (via _line_ready()).
+ */
 std::string HttpRequest::_next_line() {
     size_t pos       = _buf.find("\r\n");
     std::string line = _buf.substr(0, pos);
@@ -194,6 +219,10 @@ std::string HttpRequest::_next_line() {
     return line;
 }
 
+/**
+ * from cpp algorithm/transform
+ *transform(InputIt first1, InputIt last1, OutputIt d_first, UnaryOperation unary_op) 
+ */
 std::string HttpRequest::_to_lower(const std::string &s) const {
     std::string out = s;
     std::transform(out.begin(), out.end(), out.begin(), ::tolower);
@@ -211,6 +240,6 @@ void HttpRequest::debug_print() const {
     for (It it = headers.begin(); it != headers.end(); ++it)
         std::cout << "  " << it->first << ": " << it->second << "\n";
     if (!body.empty())
-        std::cout << "  body   : " << body << "\n";
+        std::cout << " *** body ***  : " << body << "\n";
     std::cout << "===================\n";
 }

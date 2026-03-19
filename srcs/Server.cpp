@@ -1,6 +1,4 @@
-#include <fstream>
 #include <sys/stat.h>   // stat()
-#include <sstream>
 #include "../includes/Server.hpp"
 
 // ── ctor / dtor ───────────────────────────────────────────────────────────────
@@ -49,7 +47,7 @@ void Server::init() {
 
     if (bind(_listenFd, (struct sockaddr *)&addr, sizeof(addr)) < 0)
         throw std::runtime_error("bind() failed on "
-            + _config.host + ":" + _itoa(_config.port)
+            + _config.host + ":" + std::to_string(_config.port)
             + " — " + strerror(errno));
 
     // 5. listen
@@ -269,7 +267,7 @@ void Server::_processRequest(Client &client) {
     if (loc->deny_all == true) {
         std::map<int,std::string>::const_iterator ep = _config.error_pages.find(403);
         if (ep != _config.error_pages.end())
-            client.write_buf = _serveStatic(ep->second).serialize();
+            client.write_buf = StaticFileHandler::serveStatic(ep->second).serialize();
         else
             client.write_buf = HttpResponse::make_403().serialize();
         return;
@@ -326,7 +324,7 @@ void Server::_processRequest(Client &client) {
         if (errno == EACCES) {
             std::map<int,std::string>::const_iterator ep = _config.error_pages.find(403);
             if (ep != _config.error_pages.end())
-                client.write_buf = _serveStatic(ep->second).serialize();
+                client.write_buf = StaticFileHandler::serveStatic(ep->second).serialize();
             else
                 client.write_buf = HttpResponse::make_403().serialize();
             return;
@@ -335,7 +333,7 @@ void Server::_processRequest(Client &client) {
         std::map<int,std::string>::const_iterator ep
             = _config.error_pages.find(404);
         if (ep != _config.error_pages.end())
-            client.write_buf = _serveStatic(ep->second).serialize();
+            client.write_buf = StaticFileHandler::serveStatic(ep->second).serialize();
         else
             client.write_buf = HttpResponse::make_404().serialize();
         return;
@@ -350,13 +348,13 @@ void Server::_processRequest(Client &client) {
 
         struct stat ist;
         if (stat(index_path.c_str(), &ist) == 0 && S_ISREG(ist.st_mode)) {
-            client.write_buf = _serveStatic(index_path).serialize();
+            client.write_buf = StaticFileHandler::serveStatic(index_path).serialize();
             return;
         }
 
         // autoindex
         if (loc->autoindex) {
-            client.write_buf = _autoindex(filepath, url_path).serialize();
+            client.write_buf = StaticFileHandler::autoindex(filepath, url_path).serialize();
             return;
         }
 
@@ -365,66 +363,7 @@ void Server::_processRequest(Client &client) {
     }
 
     // ── 9. serve regular file ─────────────────────────────────────────────
-    client.write_buf = _serveStatic(filepath).serialize();
-}
-
-// ── _serveStatic — read file, return 200 or 500 ─────────────────────────────
-
-HttpResponse Server::_serveStatic(const std::string &filepath) {
-    std::ifstream file(filepath.c_str(), std::ios::binary);
-    if (!file.is_open())
-        return HttpResponse::make_404();
-
-    std::ostringstream ss;
-    ss << file.rdbuf();
-    std::string content = ss.str();
-
-    return HttpResponse::make_200(content, _mimeType(filepath));
-}
-
-// ── _mimeType — extension → Content-Type ────────────────────────────────────
-
-std::string Server::_mimeType(const std::string &path) {
-    size_t dot = path.rfind('.');
-    if (dot == std::string::npos) return "application/octet-stream";
-
-    std::string ext = path.substr(dot);
-    if (ext == ".html" || ext == ".htm") return "text/html";
-    if (ext == ".css")                   return "text/css";
-    if (ext == ".js")                    return "application/javascript";
-    if (ext == ".json")                  return "application/json";
-    if (ext == ".png")                   return "image/png";
-    if (ext == ".jpg" || ext == ".jpeg") return "image/jpeg";
-    if (ext == ".gif")                   return "image/gif";
-    if (ext == ".ico")                   return "image/x-icon";
-    if (ext == ".txt")                   return "text/plain";
-    if (ext == ".pdf")                   return "application/pdf";
-    return "application/octet-stream";
-}
-
-// ── _autoindex — generate directory listing HTML ──────────────────────────────
-
-HttpResponse Server::_autoindex(const std::string &dirpath,
-                                const std::string &url_path) {
-    DIR *dir = opendir(dirpath.c_str());
-    if (!dir) return HttpResponse::make_403();
-
-    std::ostringstream html;
-    html << "<html><head><title>Index of " << url_path << "</title></head>"
-         << "<body><h1>Index of " << url_path << "</h1><hr><pre>";
-
-    struct dirent *entry;
-    while ((entry = readdir(dir)) != NULL) {
-        std::string name = entry->d_name;
-        if (name == ".") continue;
-        html << "<a href=\"" << url_path;
-        if (url_path[url_path.size()-1] != '/') html << '/';
-        html << name << "\">" << name << "</a>\n";
-    }
-    closedir(dir);
-    html << "</pre><hr></body></html>";
-
-    return HttpResponse::make_200(html.str());
+    client.write_buf = StaticFileHandler::serveStatic(filepath).serialize();
 }
 
 // ── utils ─────────────────────────────────────────────────────────────────────
@@ -437,8 +376,3 @@ void Server::_setNonBlocking(int fd) {
         throw std::runtime_error("fcntl F_SETFL failed");
 }
 
-std::string Server::_itoa(int n) {
-    std::ostringstream oss;
-    oss << n;
-    return oss.str();
-}

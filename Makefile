@@ -2,6 +2,7 @@ NAME = webserv
 
 SRC = srcs/ServerConfig.cpp \
       srcs/Server.cpp \
+	srcs/StaticFileHandler.cpp \
       srcs/HttpRequest.cpp \
       srcs/HttpResponse.cpp \
       main.cpp
