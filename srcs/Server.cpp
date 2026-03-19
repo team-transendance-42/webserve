@@ -266,9 +266,14 @@ void Server::_processRequest(Client &client) {
     // ── 2.5 forbidden access ──────────────────────────────────────────────
     if (loc->deny_all == true) {
         std::map<int,std::string>::const_iterator ep = _config.error_pages.find(403);
-        if (ep != _config.error_pages.end())
-            client.write_buf = StaticFileHandler::serveStatic(ep->second).serialize();
-        else
+        if (ep != _config.error_pages.end()) {
+            HttpResponse r = StaticFileHandler::serveStatic(ep->second);
+            if (r.status_code == 200)
+                r.set_status(403);
+            else
+                r = HttpResponse::make_403();
+            client.write_buf = r.serialize();
+        } else
             client.write_buf = HttpResponse::make_403().serialize();
         return;
     }
@@ -323,18 +328,28 @@ void Server::_processRequest(Client &client) {
     if (stat(filepath.c_str(), &st) != 0) {
         if (errno == EACCES) {
             std::map<int,std::string>::const_iterator ep = _config.error_pages.find(403);
-            if (ep != _config.error_pages.end())
-                client.write_buf = StaticFileHandler::serveStatic(ep->second).serialize();
-            else
+            if (ep != _config.error_pages.end()) {
+                HttpResponse r = StaticFileHandler::serveStatic(ep->second);
+                if (r.status_code == 200)
+                    r.set_status(403);
+                else
+                    r = HttpResponse::make_403();
+                client.write_buf = r.serialize();
+            } else
                 client.write_buf = HttpResponse::make_403().serialize();
             return;
         }
         // check configured error page
         std::map<int,std::string>::const_iterator ep
             = _config.error_pages.find(404);
-        if (ep != _config.error_pages.end())
-            client.write_buf = StaticFileHandler::serveStatic(ep->second).serialize();
-        else
+        if (ep != _config.error_pages.end()) {
+            HttpResponse r = StaticFileHandler::serveStatic(ep->second);
+            if (r.status_code == 200)
+                r.set_status(404);
+            else
+                r = HttpResponse::make_404();
+            client.write_buf = r.serialize();
+        } else
             client.write_buf = HttpResponse::make_404().serialize();
         return;
     }
