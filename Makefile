@@ -2,6 +2,12 @@ NAME = webserv
 
 SRC = srcs/ServerConfig.cpp \
       srcs/Server.cpp \
+	srcs/EpollLoop.cpp \
+	srcs/RequestRouter.cpp \
+	srcs/ProcessRequest.cpp \
+	srcs/ErrorResponseBuilder.cpp \
+	srcs/PathResolver.cpp \
+	srcs/ConnectionManager.cpp \
 	srcs/StaticFileHandler.cpp \
       srcs/HttpRequest.cpp \
       srcs/HttpResponse.cpp \

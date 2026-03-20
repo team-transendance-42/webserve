@@ -28,7 +28,8 @@ void process(Client c) {}
 process(Client(5)); // Correct: explicitly create Client object
 
 if not needed implicit conversions, it’s best practice to use explicit.
-In programming, “implicit” means something happens automatically, without you writing it directly. 
+In programming, “implicit” means something happens automatically, without you writing it directly.
+todo: client doesnt init request and write_buff !!
 */
 struct Client {
     int         fd;

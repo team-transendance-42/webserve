@@ -10,6 +10,7 @@ ServerConfig createDefaultServerConfig() {
     config.default_server = true;
 
     // error pages
+	// todo: add with 300 pages....
     config.error_pages[400] = "./www/errors/400.html"; //
     config.error_pages[403] = "./www/errors/403.html";
     config.error_pages[404] = "./www/errors/404.html";

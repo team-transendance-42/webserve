@@ -19,6 +19,10 @@
 #include "HttpResponse.hpp"
 #include "Client.hpp"
 #include "StaticFileHandler.hpp"
+#include "RequestRouter.hpp"
+#include "ConnectionManager.hpp"
+#include "EpollLoop.hpp"
+#include "ProcessRequest.hpp"
 
 /*
 ** Server
@@ -47,15 +51,7 @@ class Server {
 		bool isRunning() const { return _running;  }
 
 	private:
-		void 				_epollAdd(int fd, uint32_t events);
-		void 				_epollMod(int fd, uint32_t events);
-		void 				_epollDel(int fd);
-
 		void 				_acceptClient();
-		void 				_readClient  (Client &client);
-		void 				_writeClient (Client &client);
-		void 				_closeClient (int fd);
-		void 				_processRequest(Client &client);
 		static void        _setNonBlocking(int fd);
 
 		// named constants for server tuning
@@ -67,8 +63,11 @@ class Server {
 		};
 
 		ServerConfig            _config;
+		RequestRouter           _router;
 		int                     _listenFd;
-		int                     _epollFd;
+		EpollLoop               _epoll;
 		bool                    _running;
 		std::map<int, Client *> _clients;
+		ProcessRequest          _requestProcessor;
+		ConnectionManager       _connectionManager;
 };

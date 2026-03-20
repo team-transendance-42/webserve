@@ -1,7 +1,7 @@
 [
-  {"name": "ZombieKitty", "mood": "hungry", "emoji": "63A", "action": "chasing brains"},
-  {"name": "Kittenstein", "mood": "playful", "emoji": "638", "action": "building a cat army"},
-  {"name": "Meowpocalypse", "mood": "sleepy", "emoji": "640", "action": "dreaming of world domination"},
-  {"name": "GhoulCat", "mood": "spooky", "emoji": "63B", "action": "haunting the yarn"},
-  {"name": "PurrDead", "mood": "curious", "emoji": "63C", "action": "exploring the graveyard"}
+  {"name": "ZombieKitty", "mood": "hungry", "emoji": "\uD83D\uDE3A", "action": "chasing brains"},
+  {"name": "Kittenstein", "mood": "playful", "emoji": "\uD83D\uDE38", "action": "building a cat army"},
+  {"name": "Meowpocalypse", "mood": "sleepy", "emoji": "\uD83D\uDE34", "action": "dreaming of world domination"},
+  {"name": "GhoulCat", "mood": "spooky", "emoji": "\uD83D\uDE3B", "action": "haunting the yarn"},
+  {"name": "PurrDead", "mood": "curious", "emoji": "\uD83D\uDE3C", "action": "exploring the graveyard"}
 ]
