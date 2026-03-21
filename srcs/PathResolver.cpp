@@ -11,5 +11,5 @@ std::string PathResolver::resolveFilePath(const Location &loc,
     if (request_path == loc.path)
         return loc.root + "/" + loc.index;
 
-    return loc.root + request_path.substr(loc.path.length()); // extract from loc.path.len till end of str
+    return loc.root + request_path.substr(loc.path.length()); // /files/index.html -> ./www/files/index.html
 }

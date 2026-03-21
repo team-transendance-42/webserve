@@ -7,6 +7,9 @@
 
 #include "Client.hpp"
 
+/**
+Switches client connection between reading and writing states, and handles closing connections on errors or disconnects.
+*/
 class ConnectionManager {
 public:
     ConnectionManager(std::map<int, Client *> &clients,

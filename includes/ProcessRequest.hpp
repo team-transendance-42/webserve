@@ -1,12 +1,11 @@
 #pragma once
 
 #include "Client.hpp"
-#include "RequestRouter.hpp"
 #include "ServerConfig.hpp"
 
 class ProcessRequest {
 public:
-    ProcessRequest(const ServerConfig &config, const RequestRouter &router);
+    ProcessRequest(const ServerConfig &config);
 
     void handle(Client &client) const;
 
@@ -22,5 +21,4 @@ private:
                         Client &client) const;
 
     const ServerConfig &_config;
-    const RequestRouter &_router;
 };

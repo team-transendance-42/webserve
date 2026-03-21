@@ -1,112 +1,131 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Petya Katsarova webserve</title>
-    <link rel="stylesheet" href="/style.css">
-    <style>
-        table   { border-collapse: collapse; width: 100%; margin: 16px 0; }
-        th, td  { text-align: left; padding: 8px 12px; border-bottom: 1px solid #30363d; }
-        th      { color: #58a6ff; }
-        .m-get  { color: #3fb950; }
-        .m-post { color: #d29922; }
-        .m-del  { color: #f85149; }
-        .badge  { display: inline-block; padding: 2px 8px; border-radius: 3px;
-                  font-size: 0.8em; font-weight: bold; }
-        .s200   { background: #1a4020; color: #3fb950; }
-        .s404   { background: #3d1a1a; color: #f85149; }
-        .s403   { background: #3d2e0a; color: #d29922; }
-        .s405   { background: #2a1a3d; color: #a371f7; }
-    </style>
+	<meta charset="UTF-8">
+	<title>Zombie Kittens Webserv</title>
+	<style>
+		body {
+			background: #18122B;
+			color: #F6F6F6;
+			font-family: 'Comic Sans MS', cursive, sans-serif;
+			margin: 0;
+			padding: 0;
+			min-height: 100vh;
+			box-shadow: 0 0 80px 10px #ffb6c1 inset, 0 0 120px 20px #8a2be2 inset;
+		}
+            h1 {
+            color: #F4FFE8;
+            text-shadow: 0 0 12px #F4FFE8, 0 0 8px #F4FFE8;
+			font-size: 2.8em;
+			margin-top: 32px;
+			text-align: center;
+		}
+		.kitten {
+			font-size: 2.2em;
+			margin: 0 0.3em;
+			vertical-align: middle;
+			filter: drop-shadow(0 0 6px #ffb6c1);
+		}
+		.desc {
+			text-align: center;
+			font-size: 1.2em;
+			margin-bottom: 24px;
+		}
+		table {
+			border-collapse: collapse;
+			width: 100%;
+			margin: 24px 0;
+			background: rgba(34, 34, 34, 0.92);
+			border-radius: 12px;
+			overflow: hidden;
+			box-shadow: 0 0 24px 2px #8a2be2;
+		}
+		th, td {
+			text-align: left;
+			padding: 10px 16px;
+			border-bottom: 1px solid #30363d;
+		}
+        th {
+            color: #FFD6E8;
+			font-size: 1.1em;
+		}
+        a, a:visited { color: #F4FFE8; }
+        .m-get  { color: #F4FFE8; }
+        .m-post { color: #F4FFE8; }
+		.badge  { display: inline-block; padding: 2px 8px; border-radius: 3px;
+				  font-size: 0.9em; font-weight: bold; }
+        .s200   { background: #1a4020; color: #F4FFE8; }
+        .s301   { background: #1a2b40; color: #F4FFE8; }
+        .s403   { background: #3d2e0a; color: #F6F6F6; }
+        .s404   { background: #3d1a1a; color: #F6F6F6; }
+	</style>
 </head>
 <body>
-    <h1>ONE</h1>
-    <p>C++17 HTTP/1.1 server — built for the 42 webserv project</p>
-
+    <h1><span class="kitten">😺</span> Zombie Kittens Webserv <span class="kitten">🧟‍⬛</span></h1>
+    <div class="desc">C++17 HTTP/1.1 server — Configured locations from ServerConfig.cpp</div>
     <hr>
-
-    <h2>Pages</h2>
-    <table>
-        <tr><th>Method</th><th>Path</th><th>Description</th><th>Expected</th></tr>
+    <h2>Configured Locations</h2>
+     <table>
+        <tr><th>Method</th><th>URL</th><th>Expected Behavior</th></tr>
         <tr>
-            <td><span class="m-get badge">GET</span></td>
+            <td><span class="m-get badge">GET</span> <span class="m-post badge">POST</span></td>
             <td><a href="/">/</a></td>
-            <td>This page</td>
-            <td><span class="badge s200">200</span></td>
+            <td>Home page (www/one/index.html)</td>
         </tr>
         <tr>
             <td><span class="m-get badge">GET</span></td>
-            <td><a href="/zombie_kittens">/zombie_kittens.html</a></td>
-            <td>Z Kittens Page</td>
-            <td><span class="badge s200">200</span></td>
+            <td><a href="/zombie_kittens">/zombie_kittens</a></td>
+            <td>Zombie Kittens page (www/one/pages/zombie_kittens.html)</td>
+        </tr>
+            <td><span class="m-get badge">GET</span></td>
+            <td><a href="/game_start">/game_start</a></td>
+            <td>Game Start page (www/one/pages/game_start.html)</td>
+        </tr>
+        <tr>
+            <td><span class="m-get badge">GET</span> <span class="m-post badge">POST</span></td>
+            <td><a href="/zk_apply_form">/zk_apply_form</a></td>
+            <td>Application form (www/one/zk_apply_form.html)</td>
         </tr>
         <tr>
             <td><span class="m-get badge">GET</span></td>
-            <td><a href="/style.css">/style.css</a></td>
-            <td>Stylesheet (text/css)</td>
-            <td><span class="badge s200">200</span></td>
+            <td><a href="/play">/play</a></td>
+            <td>Redirects to /game_start (HTTP 301)</td>
         </tr>
         <tr>
             <td><span class="m-get badge">GET</span></td>
-            <td><a href="/sub/">/sub/</a></td>
-            <td>Directory → resolves to /sub/index.html</td>
-            <td><span class="badge s200">200</span></td>
+            <td><a href="/missing">/missing</a></td>
+            <td>404 Not Found</td>
         </tr>
         <tr>
             <td><span class="m-get badge">GET</span></td>
-            <td><a href="/upload.html">/upload.html</a></td>
-            <td>POST form test</td>
-            <td><span class="badge s200">200</span></td>
+            <td><a href="/secrets">/secrets</a></td>
+            <td>Forbidden (deny_all, returns 403)</td>
         </tr>
         <tr>
             <td><span class="m-get badge">GET</span></td>
-            <td><a href="/delete.html">/delete.html</a></td>
-            <td>DELETE method test</td>
-            <td><span class="badge s200">200</span></td>
+            <td><a href="/notAllowed">/notAllowed</a></td>
+            <td>Shows www/notAllowed/index.html</td>
         </tr>
         <tr>
             <td><span class="m-get badge">GET</span></td>
-            <td><a href="/errors.html">/errors.html</a></td>
-            <td>Interactive error code tester</td>
-            <td><span class="badge s200">200</span></td>
+            <td><a href="/files">/files</a></td>
+            <td>Shows www/files (no autoindex, 403 if no index.html)</td>
+        </tr>
+        <tr>
+            <td><span class="m-get badge">GET</span></td>
+            <td><a href="/files_auto">/files_auto</a></td>
+            <td>Directory listing of www/files (autoindex on)</td>
+        </tr>
+        <tr>
+            <td><span class="m-get badge">GET</span></td>
+            <td><a href="/api/data_json">/api/data_json</a></td>
+            <td>Shows www/api/data.json</td>
         </tr>
     </table>
-
-    <h2>API</h2>
-    <table>
-        <tr><th>Method</th><th>Path</th><th>Description</th><th>Expected</th></tr>
-        <tr>
-            <td><span class="m-get badge">GET</span></td>
-            <td><a href="/api/data.json">/api/data.json</a></td>
-            <td>Server info JSON</td>
-            <td><span class="badge s200">200</span></td>
-        </tr>
-        <tr>
-            <td><span class="m-get badge">GET</span></td>
-            <td><a href="/api/status.json">/api/status.json</a></td>
-            <td>Status JSON</td>
-            <td><span class="badge s200">200</span></td>
-        </tr>
-    </table>
-
-    <h2>Error cases</h2>
-    <table>
-        <tr><th>Method</th><th>Path</th><th>Description</th><th>Expected</th></tr>
-        <tr>
-            <td><span class="m-get badge">GET</span></td>
-            <td><a href="/missing.html">/missing.html</a></td>
-            <td>File does not exist</td>
-            <td><span class="badge s404">404</span></td>
-        </tr>
-        <tr>
-            <td><span class="m-get badge">GET</span></td>
-            <td><a href="/../etc/passwd">/../etc/passwd</a></td>
-            <td>Directory traversal</td>
-            <td><span class="badge s403">403</span></td>
-        </tr>
-    </table>
-
     <hr>
-    <p>Stack: <code>ConfigParser</code> → <code>HttpRequest</code> → <code>HttpResponse</code> → <code>poll()</code> loop</p>
+    <div style="text-align:center; margin: 32px 0 0 0; font-size: 1.1em;">
+        <span class="kitten">😺</span> <b>Zombie Kittens</b> are always watching... <span class="kitten">🧟‍⬛</span>
+    </div>
+    <hr>
 </body>
 </html>

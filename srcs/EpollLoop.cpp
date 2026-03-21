@@ -22,7 +22,13 @@ void EpollLoop::init() {
 								 + std::string(strerror(errno)));
 }
 
-// _fd is private: not access from outside: no getter: todo : what is better?
+/**
+ * Waits for events on the epoll file descriptor.
+ * @param events Pointer to the array of epoll_event structures.
+ * @param max_events Maximum number of events to return.
+ * @param timeout_ms Timeout in milliseconds.
+ * @return Number of events returned.
+ */
 int EpollLoop::wait(struct epoll_event *events, int max_events, int timeout_ms) const {
 	return epoll_wait(_fd, events, max_events, timeout_ms);
 }
@@ -36,6 +42,11 @@ void EpollLoop::add(int fd, uint32_t events) const {
 								 + std::string(strerror(errno)));
 }
 
+/**
+ * Modifies the events for a file descriptor in the epoll set.
+ * @param fd File descriptor to modify.
+ * @param events Events to set.
+ */
 void EpollLoop::mod(int fd, uint32_t events) const {
 	struct epoll_event ev;
 	ev.events = events;
@@ -45,6 +56,10 @@ void EpollLoop::mod(int fd, uint32_t events) const {
 								 + std::string(strerror(errno)));
 }
 
+/**
+ * Removes a file descriptor from the epoll set.
+ * @param fd File descriptor to remove.
+ */
 void EpollLoop::del(int fd) const {
 	if (epoll_ctl(_fd, EPOLL_CTL_DEL, fd, NULL) < 0)
 		std::cerr << "[epoll] DEL failed fd=" << fd

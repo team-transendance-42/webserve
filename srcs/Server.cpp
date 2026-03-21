@@ -8,7 +8,7 @@ Server::Server(const ServerConfig &config)
             _listenFd(-1),
         _epoll(),
             _running(true),
-            _requestProcessor(_config, _router),
+            _requestProcessor(_config),
             _connectionManager(
                     _clients,
                 [this](int fd, uint32_t events) { _epoll.mod(fd, events); },
@@ -48,7 +48,10 @@ void Server::init() {
     std::memset(&addr, 0, sizeof(addr)); // todo: do we need it? memory....
     addr.sin_family      = AF_INET;
     addr.sin_port        = htons(_config.port);
-    addr.sin_addr.s_addr = inet_addr(_config.host.c_str());
+    if (_config.host == "localhost")
+        addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    else
+        addr.sin_addr.s_addr = inet_addr(_config.host.c_str());
 
     if (bind(_listenFd, (struct sockaddr *)&addr, sizeof(addr)) < 0)
         throw std::runtime_error("bind() failed on "

@@ -6,13 +6,24 @@
 #include "../includes/ProcessRequest.hpp"
 #include "../includes/StaticFileHandler.hpp"
 
-// Stores shared config/router references used by request-processing helpers.
-ProcessRequest::ProcessRequest(const ServerConfig &config, const RequestRouter &router)
-    : _config(config), _router(router) {}
 
-// Resolves request path to a location or writes a 404 response.
+// Anonymous namespace (namespace { ... }) gurantees “visible only inside this .cpp file”.
+namespace {
+std::string methodToString(Method method) {
+    switch (method) {
+        case GET: return "GET";
+        case POST: return "POST";
+        case DELETE: return "DELETE";
+        default: return "";
+    }
+}
+}
+
+ProcessRequest::ProcessRequest(const ServerConfig &config)
+    : _config(config) {}
+
 const Location *ProcessRequest::_resolveLocationOrError(const HttpRequest &req, Client &client) const {
-    const Location *loc = _router.matchLocation(req.path);
+    const Location *loc = _config.matchLocation(req.path);
     if (!loc) {
         client.write_buf = ErrorResponseBuilder::buildErrorResponse(404, _config).serialize();
         return NULL;
@@ -24,13 +35,23 @@ const Location *ProcessRequest::_resolveLocationOrError(const HttpRequest &req, 
 bool ProcessRequest::_validateLocationRulesOrError(const HttpRequest &req,
                                                    const Location &loc,
                                                    Client &client) const {
-    if (loc.deny_all == true) {
-        client.write_buf = ErrorResponseBuilder::buildErrorResponse(403, _config).serialize();
+    // Check method first: if method not allowed, return 405
+    std::string req_method = methodToString(req.method);
+    bool allowed = false;
+    for (size_t i = 0; i < loc.allowed_methods.size(); i++) {
+        if (loc.allowed_methods[i] == req_method) {
+            allowed = true;
+            break;
+        }
+    }
+    if (!allowed) {
+        client.write_buf = ErrorResponseBuilder::buildErrorResponse(405, _config).serialize();
         return false;
     }
 
-    if (!_router.isMethodAllowed(loc, req.method)) {
-        client.write_buf = HttpResponse::make_405().serialize();
+    // Then check deny_all: if access forbidden, return 403
+    if (loc.deny_all == true) {
+        client.write_buf = ErrorResponseBuilder::buildErrorResponse(403, _config).serialize();
         return false;
     }
 
@@ -47,8 +68,11 @@ bool ProcessRequest::_validateLocationRulesOrError(const HttpRequest &req,
 
 // Returns a redirect response when location has redirect rules.
 bool ProcessRequest::_handleRedirectIfNeeded(const Location &loc, Client &client) const {
-    if (_router.hasRedirect(loc)) {
-        client.write_buf = _router.makeRedirectResponse(loc).serialize();
+    if (loc.redirect_code != 0) {
+        if (loc.redirect_code == 301)
+            client.write_buf = HttpResponse::make_301(loc.redirect_url).serialize();
+        else
+            client.write_buf = HttpResponse::make_302(loc.redirect_url).serialize();
         return true;
     }
     return false;
