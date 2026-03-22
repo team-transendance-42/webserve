@@ -19,7 +19,6 @@
 #include "HttpResponse.hpp"
 #include "Client.hpp"
 #include "StaticFileHandler.hpp"
-#include "RequestRouter.hpp"
 #include "ConnectionManager.hpp"
 #include "EpollLoop.hpp"
 #include "ProcessRequest.hpp"
@@ -65,7 +64,6 @@ class Server {
 		int                     _listenFd;
 		bool                    _running;
 		ServerConfig            _config;
-		RequestRouter           _router;
 		EpollLoop               _epoll;
 		std::map<int, Client *> _clients;
 		ProcessRequest          _requestProcessor;

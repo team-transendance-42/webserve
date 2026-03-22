@@ -4,7 +4,6 @@
 
 Server::Server(const ServerConfig &config)
         : _config(config),
-            _router(_config),
             _listenFd(-1),
         _epoll(),
             _running(true),
