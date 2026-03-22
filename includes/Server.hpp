@@ -62,11 +62,11 @@ class Server {
 			READ_BUF     = 4096 // chunk size per recv
 		};
 
+		int                     _listenFd;
+		bool                    _running;
 		ServerConfig            _config;
 		RequestRouter           _router;
-		int                     _listenFd;
 		EpollLoop               _epoll;
-		bool                    _running;
 		std::map<int, Client *> _clients;
 		ProcessRequest          _requestProcessor;
 		ConnectionManager       _connectionManager;

@@ -4,14 +4,14 @@
 #include "HttpRequest.hpp"
 #include "HttpResponse.hpp"
 
+/**
+ * Validates HTTP methods and handles request redirects based on location rules.
+ */
 class RequestRouter {
 public:
     explicit RequestRouter(const ServerConfig &config);
 
-    const Location *matchLocation(const std::string &path) const;
     bool isMethodAllowed(const Location &loc, Method method) const;
-    bool hasRedirect(const Location &loc) const;
-    HttpResponse makeRedirectResponse(const Location &loc) const;
 
 private:
     const ServerConfig &_config;

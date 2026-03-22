@@ -2,10 +2,6 @@
 
 RequestRouter::RequestRouter(const ServerConfig &config) : _config(config) {}
 
-const Location *RequestRouter::matchLocation(const std::string &path) const {
-    return _config.matchLocation(path);
-}
-
 /**
  * Method is a plain enum
  */
@@ -19,16 +15,6 @@ bool RequestRouter::isMethodAllowed(const Location &loc, Method method) const {
             return true;
     }
     return false;
-}
-
-bool RequestRouter::hasRedirect(const Location &loc) const {
-    return loc.redirect_code != 0;
-}
-
-HttpResponse RequestRouter::makeRedirectResponse(const Location &loc) const {
-    if (loc.redirect_code == 301)
-        return HttpResponse::make_301(loc.redirect_url);
-    return HttpResponse::make_302(loc.redirect_url);
 }
 
 std::string RequestRouter::_methodToString(Method method) {
