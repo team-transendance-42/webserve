@@ -2,7 +2,6 @@
 #include <sys/stat.h>
 
 #include "../includes/ErrorResponseBuilder.hpp"
-#include "../includes/PathResolver.hpp"
 #include "../includes/ProcessRequest.hpp"
 #include "../includes/StaticFileHandler.hpp"
 
@@ -78,6 +77,14 @@ bool ProcessRequest::_handleRedirectIfNeeded(const Location &loc, Client &client
     return false;
 }
 
+std::string ProcessRequest::_resolveFilePath(const Location &loc,
+                                             const std::string &request_path) const {
+    if (request_path == loc.path)
+        return loc.root + "/" + loc.index;
+
+    return loc.root + request_path.substr(loc.path.length());
+}
+
 // Stats the resolved path and maps filesystem errors to HTTP errors.
 bool ProcessRequest::_resolvePathStatOrError(const std::string &filepath,
                                              Client &client,
@@ -140,7 +147,7 @@ void ProcessRequest::handle(Client &client) const {
     if (_handleRedirectIfNeeded(*loc, client)) return;
 
     std::string url_path = req.path;
-    std::string filepath = PathResolver::resolveFilePath(*loc, url_path);
+    std::string filepath = _resolveFilePath(*loc, url_path);
 
     struct stat st;
     if (!_resolvePathStatOrError(filepath, client, st)) return;

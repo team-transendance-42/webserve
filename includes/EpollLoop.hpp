@@ -4,9 +4,8 @@
 #include <sys/epoll.h>
 
 /**
- * EpollLoop is a simple wrapper around the Linux epoll API to manage an epoll instance.
- * It provides methods to initialize the epoll instance, wait for events, and add/modify/delete file descriptors.
- * This class abstracts away the low-level details of using epoll and provides a cleaner interface for the server's main loop.
+ * a simple wrapper around the Linux epoll API to manage an epoll instance.
+ * provides methods to initialize the epoll instance, wait for events, and add/modify/delete file descriptors.
  */
 class EpollLoop {
 public:

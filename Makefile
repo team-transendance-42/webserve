@@ -5,7 +5,6 @@ SRC = srcs/ServerConfig.cpp \
 	srcs/EpollLoop.cpp \
 	srcs/ProcessRequest.cpp \
 	srcs/ErrorResponseBuilder.cpp \
-	srcs/PathResolver.cpp \
 	srcs/ConnectionManager.cpp \
 	srcs/StaticFileHandler.cpp \
       srcs/HttpRequest.cpp \
