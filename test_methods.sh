@@ -20,15 +20,15 @@ test_count=0
 passed=0
 
 # Function to test a method on a location
-test_method() {
-    local method=$1
+test_method() { # $1 = method, $2 = path, $3 = resp code
+    local method=$1 # assing func's first arg
     local location=$2
     local expected_code=$3
     
     test_count=$((test_count + 1))
     echo -n "Test $test_count: $method $location ... "
     
-    response=$(curl -s -w "\n%{http_code}" -X "$method" "$BASE_URL$location")
+    response=$(curl -s -w "\n%{http_code}" -X "$method" "$BASE_URL$location") # make http req in silent mode, _w .. add hte http status code at the end
     http_code=$(echo "$response" | tail -n1)
     body=$(echo "$response" | head -n-1)
     
@@ -41,7 +41,7 @@ test_method() {
 }
 
 echo "--- Testing DELETE on GET-only locations (expected 405) ---"
-test_method "DELETE" "/" "405"
+test_method "DELETE" "/" "405" # method not allowed 405
 test_method "DELETE" "/zombie_kittens" "405"
 test_method "DELETE" "/game_start" "405"
 test_method "DELETE" "/play" "405"
@@ -60,7 +60,7 @@ test_method "POST" "/secret" "405"
 test_method "POST" "/api/data_json" "405"
 
 echo ""
-echo "--- Testing allowed methods (expected 200 or 403 for deny_all) ---"
+echo "--- Testing allowed methods (expected 200 or 403 for denyAll) ---"
 test_method "POST" "/" "200"
 test_method "POST" "/zk_apply_form" "200"
 test_method "GET" "/zk_apply_form" "200"

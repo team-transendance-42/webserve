@@ -1,19 +1,12 @@
 #pragma once
 
-#include <string>
-#include <vector>
 #include <map>
-#include <sys/epoll.h>  // epoll_create1, epoll_ctl, epoll_wait, epoll_event: can handle 100,000+ fds, O(1) time complexity
+#include <sys/epoll.h>  // epoll_create1, epoll_ctl, epoll_wait, epoll_event: can handle 100,000+ fds, O(1) time complexity, but only on linux
 #include <sys/socket.h> // socket(), bind(), listen(), accept()
 #include <netinet/in.h> // sockaddr_in
 #include <arpa/inet.h>  // inet_addr()
 #include <unistd.h>     // close()
 #include <fcntl.h>      // fcntl() non-blocking
-#include <stdexcept>
-#include <iostream>
-#include <sstream>
-#include <cerrno>
-#include <cstring>      // strerror()
 #include "ServerConfig.hpp"
 #include "HttpRequest.hpp"
 #include "HttpResponse.hpp"
@@ -57,7 +50,7 @@ class Server {
 		enum {
 			BACKLOG      = 128,   // max queued incoming connections waiting to be accepted; named so to match exact socket API term listen(fd, backlog), Kernel docs/man pages call it “backlog”
 			POLL_TIMEOUT = 100,  // ms — short so main loop checks g_running often
-			MAX_EVENTS   = 64,   // max ready events handled per tick call
+			maxEvents   = 64,   // max ready events handled per tick call
 			READ_BUF     = 4096 // chunk size per recv
 		};
 
@@ -66,6 +59,6 @@ class Server {
 		ServerConfig            _config;
 		EpollLoop               _epoll;
 		std::map<int, Client *> _clients;
-		ProcessRequest          _requestProcessor;
+		ProcessRequest          _processRequest;
 		ConnectionManager       _connectionManager;
 };

@@ -4,11 +4,11 @@
 
 HttpResponse ErrorResponseBuilder::buildErrorResponse(int code,
 													  const ServerConfig &config) {
-	std::map<int, std::string>::const_iterator ep = config.error_pages.find(code);
-	if (ep != config.error_pages.end()) {
+	std::map<int, std::string>::const_iterator ep = config.errorPages.find(code);
+	if (ep != config.errorPages.end()) {
 		HttpResponse custom = StaticFileHandler::serveStatic(ep->second);
-		if (custom.status_code == 200) {
-			custom.set_status(code);
+	if (custom.statusCode == 200) {
+		custom.setStatus(code);
 			return custom;
 		}
 	}

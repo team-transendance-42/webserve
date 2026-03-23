@@ -1,30 +1,22 @@
 #include <cerrno>
+#include <iostream>
 #include <sys/stat.h>
 
 #include "../includes/ErrorResponseBuilder.hpp"
 #include "../includes/ProcessRequest.hpp"
 #include "../includes/StaticFileHandler.hpp"
 
-
-// Anonymous namespace (namespace { ... }) gurantees “visible only inside this .cpp file”.
-namespace {
-std::string methodToString(Method method) {
-    switch (method) {
-        case GET: return "GET";
-        case POST: return "POST";
-        case DELETE: return "DELETE";
-        default: return "";
-    }
-}
-}
-
+/**
+ * Serialized = converting structured data into a flat byte/text format that can be sent or stored. HttpResponse is an object (status, headers, body).
+.serialize() turns it into raw HTTP text
+ */
 ProcessRequest::ProcessRequest(const ServerConfig &config)
     : _config(config) {}
 
 const Location *ProcessRequest::_resolveLocationOrError(const HttpRequest &req, Client &client) const {
     const Location *loc = _config.matchLocation(req.path);
     if (!loc) {
-        client.write_buf = ErrorResponseBuilder::buildErrorResponse(404, _config).serialize();
+        client.writeBuf = ErrorResponseBuilder::buildErrorResponse(404, _config).serialize();
         return NULL;
     }
     return loc;
@@ -35,30 +27,36 @@ bool ProcessRequest::_validateLocationRulesOrError(const HttpRequest &req,
                                                    const Location &loc,
                                                    Client &client) const {
     // Check method first: if method not allowed, return 405
-    std::string req_method = methodToString(req.method);
+    std::string reqMethod = ProcessRequest::methodToString(req.method);
     bool allowed = false;
-    for (size_t i = 0; i < loc.allowed_methods.size(); i++) {
-        if (loc.allowed_methods[i] == req_method) {
+    for (size_t i = 0; i < loc.allowedMethod.size(); i++) {
+        if (loc.allowedMethod[i] == reqMethod) {
             allowed = true;
             break;
         }
     }
     if (!allowed) {
-        client.write_buf = ErrorResponseBuilder::buildErrorResponse(405, _config).serialize();
+        client.writeBuf = ErrorResponseBuilder::buildErrorResponse(405, _config).serialize();
         return false;
     }
 
-    // Then check deny_all: if access forbidden, return 403
-    if (loc.deny_all == true) {
-        client.write_buf = ErrorResponseBuilder::buildErrorResponse(403, _config).serialize();
+    // Then check denyAll: if access forbidden, return 403
+    if (loc.denyAll == true) {
+        client.writeBuf = ErrorResponseBuilder::buildErrorResponse(403, _config).serialize();
         return false;
     }
 
-    long max_body = (loc.client_max_body_size >= 0)
-                    ? loc.client_max_body_size
-                    : _config.client_max_body_size;
-    if ((long)req.body.size() > max_body) {
-        client.write_buf = HttpResponse::make_413().serialize();
+    long maxBody = (loc.clientMaxBodySize>= 0)
+                    ? loc.clientMaxBodySize
+                    : _config.clientMaxBodySize;
+    if ((long)req.body.size() > maxBody) {
+        std::cerr << "[413] payload too large"
+                  << " path=" << req.path
+                  << " body_size=" << req.body.size()
+                  << " max_allowed=" << maxBody
+                  << " content_length_header=" << req.content_length()
+                  << "\n";
+        client.writeBuf = ErrorResponseBuilder::buildErrorResponse(413, _config).serialize();
         return false;
     }
 
@@ -69,20 +67,20 @@ bool ProcessRequest::_validateLocationRulesOrError(const HttpRequest &req,
 bool ProcessRequest::_handleRedirectIfNeeded(const Location &loc, Client &client) const {
     if (loc.redirect_code != 0) {
         if (loc.redirect_code == 301)
-            client.write_buf = HttpResponse::make_301(loc.redirect_url).serialize();
+            client.writeBuf = HttpResponse::make_301(loc.redirect_url).serialize();
         else
-            client.write_buf = HttpResponse::make_302(loc.redirect_url).serialize();
+            client.writeBuf = HttpResponse::make_302(loc.redirect_url).serialize();
         return true;
     }
     return false;
 }
 
 std::string ProcessRequest::_resolveFilePath(const Location &loc,
-                                             const std::string &request_path) const {
-    if (request_path == loc.path)
+                                             const std::string &requestPath) const {
+    if (requestPath == loc.path)
         return loc.root + "/" + loc.index;
 
-    return loc.root + request_path.substr(loc.path.length());
+    return loc.root + requestPath.substr(loc.path.length());
 }
 
 // Stats the resolved path and maps filesystem errors to HTTP errors.
@@ -91,10 +89,10 @@ bool ProcessRequest::_resolvePathStatOrError(const std::string &filepath,
                                              struct stat &st) const {
     if (stat(filepath.c_str(), &st) != 0) {
         if (errno == EACCES) {
-            client.write_buf = ErrorResponseBuilder::buildErrorResponse(403, _config).serialize();
+            client.writeBuf = ErrorResponseBuilder::buildErrorResponse(403, _config).serialize();
             return false;
         }
-        client.write_buf = ErrorResponseBuilder::buildErrorResponse(404, _config).serialize();
+        client.writeBuf = ErrorResponseBuilder::buildErrorResponse(404, _config).serialize();
         return false;
     }
     return true;
@@ -102,31 +100,39 @@ bool ProcessRequest::_resolvePathStatOrError(const std::string &filepath,
 
 // Serves file content or directory index/autoindex fallback for resolved path.
 void ProcessRequest::_serveFromStat(const Location &loc,
-                                    const std::string &url_path,
+                                    const std::string &urlPath,
                                     const std::string &filepath,
                                     const struct stat &st,
                                     Client &client) const {
     if (!S_ISDIR(st.st_mode)) {
-        client.write_buf = StaticFileHandler::serveStatic(filepath).serialize();
+        HttpResponse fileResponse = StaticFileHandler::serveStatic(filepath);
+        if (fileResponse.statusCode >= 400)
+            client.writeBuf = ErrorResponseBuilder::buildErrorResponse(fileResponse.statusCode, _config).serialize();
+        else
+            client.writeBuf = fileResponse.serialize();
         return;
     }
 
-    std::string index_path = filepath;
-    if (index_path[index_path.size() - 1] != '/') index_path += '/';
-    index_path += loc.index;
+    std::string indexPath = filepath;
+    if (indexPath[indexPath.size() - 1] != '/') indexPath += '/';
+    indexPath += loc.index;
 
     struct stat ist;
-    if (stat(index_path.c_str(), &ist) == 0 && S_ISREG(ist.st_mode)) {
-        client.write_buf = StaticFileHandler::serveStatic(index_path).serialize();
+    if (stat(indexPath.c_str(), &ist) == 0 && S_ISREG(ist.st_mode)) {
+        HttpResponse indexResponse = StaticFileHandler::serveStatic(indexPath);
+        if (indexResponse.statusCode >= 400)
+            client.writeBuf = ErrorResponseBuilder::buildErrorResponse(indexResponse.statusCode, _config).serialize();
+        else
+            client.writeBuf = indexResponse.serialize();
         return;
     }
 
     if (loc.autoindex) {
-        client.write_buf = StaticFileHandler::autoindex(filepath, url_path).serialize();
+        client.writeBuf = StaticFileHandler::autoindex(filepath, urlPath).serialize();
         return;
     }
 
-    client.write_buf = ErrorResponseBuilder::buildErrorResponse(403, _config).serialize();
+    client.writeBuf = ErrorResponseBuilder::buildErrorResponse(403, _config).serialize();
 }
 
 // Orchestrates full request handling from validation to final response build.
@@ -136,7 +142,7 @@ void ProcessRequest::handle(Client &client) const {
     client.keep_alive = req.is_keep_alive();
 
     if (req.method == UNKNOWN) {
-        client.write_buf = HttpResponse::make_400().serialize();
+        client.writeBuf = HttpResponse::make_400().serialize();
         return;
     }
 
@@ -146,11 +152,21 @@ void ProcessRequest::handle(Client &client) const {
     if (!_validateLocationRulesOrError(req, *loc, client)) return;
     if (_handleRedirectIfNeeded(*loc, client)) return;
 
-    std::string url_path = req.path;
-    std::string filepath = _resolveFilePath(*loc, url_path);
+    std::string urlPath = req.path;
+    std::string filepath = _resolveFilePath(*loc, urlPath);
 
     struct stat st;
     if (!_resolvePathStatOrError(filepath, client, st)) return;
 
-    _serveFromStat(*loc, url_path, filepath, st, client);
+    _serveFromStat(*loc, urlPath, filepath, st, client);
+}
+
+// converts enum values to std::string
+std::string ProcessRequest::methodToString(Method method) {
+    switch (method) {
+        case GET: return "GET";
+        case POST: return "POST";
+        case DELETE: return "DELETE";
+        default: return "";
+    }
 }

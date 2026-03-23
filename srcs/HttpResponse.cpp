@@ -1,22 +1,22 @@
 #include "../includes/HttpResponse.hpp"
 #include <sstream>
 
-HttpResponse::HttpResponse() : status_code(200) {}
+HttpResponse::HttpResponse() : statusCode(200) {}
 
 // ── chaining setters ──────────────────────────────────────────────────────────
 
-HttpResponse &HttpResponse::set_status(int code) {
-    status_code = code;
+HttpResponse &HttpResponse::setStatus(int code) {
+    statusCode = code;
     return *this;
 }
 
-HttpResponse &HttpResponse::set_header(const std::string &key,
+HttpResponse &HttpResponse::setHeader(const std::string &key,
                                        const std::string &value) {
     headers[key] = value;
     return *this;
 }
 
-HttpResponse &HttpResponse::set_body(const std::string &content,
+HttpResponse &HttpResponse::setBody(const std::string &content,
                                      const std::string &type) {
     body = content;
     headers["Content-Type"]   = type;
@@ -29,59 +29,59 @@ HttpResponse &HttpResponse::set_body(const std::string &content,
 HttpResponse HttpResponse::make_200(const std::string &body,
                                     const std::string &type) {
     HttpResponse r;
-    r.set_status(200).set_body(body, type);
+    r.setStatus(200).setBody(body, type);
     return r;
 }
 
 HttpResponse HttpResponse::make_301(const std::string &location) {
     HttpResponse r;
-    r.set_status(301);
-    r.set_header("Location", location);
-    r.set_body(_error_body(301, "Moved Permanently"));
+    r.setStatus(301);
+    r.setHeader("Location", location);
+    r.setBody(_errorBody(301, "Moved Permanently"));
     return r;
 }
 
 HttpResponse HttpResponse::make_302(const std::string &location) {
     HttpResponse r;
-    r.set_status(302);
-    r.set_header("Location", location);
-    r.set_body(_error_body(302, "Found"));
+    r.setStatus(302);
+    r.setHeader("Location", location);
+    r.setBody(_errorBody(302, "Found"));
     return r;
 }
 
 HttpResponse HttpResponse::make_400() {
     HttpResponse r;
-    r.set_status(400).set_body(_error_body(400, "Bad Request"));
+    r.setStatus(400).setBody(_errorBody(400, "Bad Request"));
     return r;
 }
 
 HttpResponse HttpResponse::make_403() {
     HttpResponse r;
-    r.set_status(403).set_body(_error_body(403, "Forbidden"));
+    r.setStatus(403).setBody(_errorBody(403, "Forbidden"));
     return r;
 }
 
 HttpResponse HttpResponse::make_404() {
     HttpResponse r;
-    r.set_status(404).set_body(_error_body(404, "Not Found"));
+    r.setStatus(404).setBody(_errorBody(404, "Not Found"));
     return r;
 }
 
 HttpResponse HttpResponse::make_405() {
     HttpResponse r;
-    r.set_status(405).set_body(_error_body(405, "Method Not Allowed"));
+    r.setStatus(405).setBody(_errorBody(405, "Method Not Allowed"));
     return r;
 }
 
 HttpResponse HttpResponse::make_413() {
     HttpResponse r;
-    r.set_status(413).set_body(_error_body(413, "Payload Too Large"));
+    r.setStatus(413).setBody(_errorBody(413, "Payload Too Large"));
     return r;
 }
 
 HttpResponse HttpResponse::make_500() {
     HttpResponse r;
-    r.set_status(500).set_body(_error_body(500, "Internal Server Error"));
+    r.setStatus(500).setBody(_errorBody(500, "Internal Server Error"));
     return r;
 }
 
@@ -96,10 +96,10 @@ HttpResponse HttpResponse::make_500() {
  */
 
 std::string HttpResponse::serialize() const {
-    std::string reason = _reason(status_code);
+    std::string reason = _reason(statusCode);
 
     std::ostringstream oss;
-    oss << "HTTP/1.1 " << status_code << " " << reason << "\r\n";
+    oss << "HTTP/1.1 " << statusCode << " " << reason << "\r\n";
 
     for (std::map<std::string,std::string>::const_iterator it = headers.begin();
          it != headers.end(); ++it)
@@ -134,7 +134,7 @@ std::string HttpResponse::_reason(int code) {
 /**
  * 
  */
-std::string HttpResponse::_error_body(int code, const std::string &reason) {
+std::string HttpResponse::_errorBody(int code, const std::string &reason) {
     std::ostringstream oss;
     oss << "<html><body><h1>"
         << code << " " << reason

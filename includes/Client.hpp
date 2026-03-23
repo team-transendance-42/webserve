@@ -29,12 +29,36 @@ process(Client(5)); // Correct: explicitly create Client object
 
 if not needed implicit conversions, it’s best practice to use explicit.
 In programming, “implicit” means something happens automatically, without you writing it directly.
-todo: client doesnt init request and write_buff !!
+todo: client doesnt init request and writeBuff !!
+---------------------- data flow chain (bytes -> text)
+the conversion happens layer-by-layer:
+1. ssize_t bytes = recv(client.fd, &chunk[0], chunk.size(), 0); // bytes = number of bytes read into buffer
+
+2. Bytes are wrapped in a std::string (ConnectionManager.cpp): std::string chunk(read_buf_size, '\0'); // empty string buffer
+recv(..., &chunk[0], chunk.size(), 0); // receive into string's char array
+
+3. Passed to parser (ConnectionManager.cpp:46): ParseResult result = client.request.feed(&chunk[0], static_cast<size_t>(bytes));
+// feed() takes char* and length
+
+4. Parser appends to internal _buf (HttpRequest.hpp): std::string _buf;  // accumulates raw bytes until a complete HTTP request is parsed
+
+5. Parser extracts text fields (when feed() returns COMPLETE): // From _buf, parser fills these:
+std::string method;         // "GET", "POST", etc.
+std::string path;           // "/index.html"
+std::map<std::string, std::string> headers;  // "Content-Type": "application/json"
+std::string body;           // request body as text
+---
+HTTP is text protocol (ASCII headers + binary body).
+C++ std::string can store both text and binary data (it's just bytes).
+Parser treats _buf as raw byte stream, extracts text line-by-line.
+Headers and body remain as strings in Client struct.
+---
+bytes → string chunk → feed() → buf accumulation → parse → fields extracted → stored in client.request.
 */
 struct Client {
     int         fd;
     HttpRequest request;
-    std::string write_buf;
+    std::string writeBuf;
     bool        keep_alive;
 
     explicit Client(int fd) : fd(fd), keep_alive(false) {}

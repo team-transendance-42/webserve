@@ -75,16 +75,17 @@
         <tr>
             <td><span class="m-get badge">GET</span></td>
             <td><a href="/zombie_kittens">/zombie_kittens</a></td>
-            <td>Zombie Kittens page (www/one/pages/zombie_kittens.html)</td>
+            <td>Zombie Kittens page (www/one/pages/zombieKittens.html)</td>
         </tr>
+        <tr>
             <td><span class="m-get badge">GET</span></td>
             <td><a href="/game_start">/game_start</a></td>
-            <td>Game Start page (www/one/pages/game_start.html)</td>
+            <td>Game Start page (www/one/pages/gameStart.html)</td>
         </tr>
         <tr>
             <td><span class="m-get badge">GET</span> <span class="m-post badge">POST</span></td>
             <td><a href="/zk_apply_form">/zk_apply_form</a></td>
-            <td>Application form (www/one/zk_apply_form.html)</td>
+            <td>Application form page (www/one/pages/zkApplyForm.html)</td>
         </tr>
         <tr>
             <td><span class="m-get badge">GET</span></td>
@@ -99,12 +100,17 @@
         <tr>
             <td><span class="m-get badge">GET</span></td>
             <td><a href="/secrets">/secrets</a></td>
-            <td>Forbidden (deny_all, returns 403)</td>
+            <td>Forbidden (deny all in .config, returns 403)</td>
         </tr>
         <tr>
             <td><span class="m-get badge">GET</span></td>
-            <td><a href="/notAllowed">/notAllowed</a></td>
-            <td>Shows www/notAllowed/index.html</td>
+            <td><a href="/not_allowed">/not_allowed</a></td>
+            <td>Shows www/notAllowed/index.html with chmod 000: 403 code err</td>
+        </tr>
+        <tr>
+            <td><span class="m-get badge">GET</span> <span class="m-post badge">POST</span></td>
+            <td><a href="/post_body_too_large">/post_body_too_large</a></td>
+            <td>413 oversized-body test page (www/one/postBodyTooLarge.html)</td>
         </tr>
         <tr>
             <td><span class="m-get badge">GET</span></td>

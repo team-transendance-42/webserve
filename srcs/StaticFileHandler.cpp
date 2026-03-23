@@ -31,6 +31,13 @@ HttpResponse StaticFileHandler::serveStatic(const std::string &filepath) {
     if (S_ISDIR(st.st_mode)) // test in which case i really need it
         return HttpResponse::make_403();
 
+    // Ensure permission-denied on file read maps to 403, not generic 500.
+    if (access(filepath.c_str(), R_OK) != 0) {
+        if (errno == EACCES)
+            return HttpResponse::make_403();
+        return HttpResponse::make_500();
+    }
+
     std::ifstream file(filepath.c_str(), std::ios::binary); //Open the file at filepath in binary mode.
     if (!file.is_open())
         return HttpResponse::make_500();

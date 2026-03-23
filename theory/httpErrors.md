@@ -20,7 +20,7 @@ client took too long to send request.
 relevant when request body is expected/required but Content-Length is missing and you do not support chunked handling for that case.
 
 413 Content Too Large
-for 42, this is the classic one for client_max_body_size. RFC 9110 uses the name Content Too Large.
+for 42, this is the classic one for clientMaxBodySize. RFC 9110 uses the name Content Too Large.
 
 414 URI Too Long
 request target/path too long.

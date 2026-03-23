@@ -25,13 +25,17 @@ limit for body size: protects for DoS attacks( Denial of Service: an attacker tr
 */
 ParseResult HttpRequest::_parse() {
     const size_t MAX_HEADER_SIZE = 8192; // 8 KB
-    const size_t MAX_BODY_SIZE = 1048576; // 1 MB
+    const size_t MAX_BODY_SIZE = 10 * 1024 * 1024; // 10 MB parser safety cap; policy 413 is enforced later in ProcessRequest
 
     if (_buf.size() > MAX_HEADER_SIZE && _state == HEADERS) {
         _state = ERROR;
         return PARSE_ERROR;
     }
     if (content_length() > MAX_BODY_SIZE) {
+        std::cerr << "[400] parser rejected request: Content-Length exceeds parser cap"
+                  << " content_length=" << content_length()
+                  << " parser_max=" << MAX_BODY_SIZE
+                  << "\n";
         _state = ERROR;
         return PARSE_ERROR;
     }

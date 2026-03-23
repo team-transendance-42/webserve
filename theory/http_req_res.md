@@ -16,4 +16,4 @@ Your parser accumulates in _buf and only returns COMPLETE when it has the full r
 
 Step 3 — Request complete → _processRequest()
 
-_processRequest() reads client.request and writes into client.write_buf:
+_processRequest() reads client.request and writes into client.writeBuf:

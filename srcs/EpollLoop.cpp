@@ -25,12 +25,13 @@ void EpollLoop::init() {
 /**
  * Waits for events on the epoll file descriptor.
  * @param events Pointer to the array of epoll_event structures.
- * @param max_events Maximum number of events to return.
- * @param timeout_ms Timeout in milliseconds.
+ * @param maxEvents Maximum number of events to return.
+ * @param timeoutMs Timeout in milliseconds.
  * @return Number of events returned.
+ * wrapper which abstracts away _fd
  */
-int EpollLoop::wait(struct epoll_event *events, int max_events, int timeout_ms) const {
-	return epoll_wait(_fd, events, max_events, timeout_ms);
+int EpollLoop::wait(struct epoll_event *events, int maxEvents, int timeoutMs) const {
+	return epoll_wait(_fd, events, maxEvents, timeoutMs);
 }
 
 void EpollLoop::add(int fd, uint32_t events) const {

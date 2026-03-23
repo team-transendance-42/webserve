@@ -7,22 +7,22 @@
  *  no need to for full canonical form:
  *  It owns only STL types (std::string, std::map) and an int.
 	No raw pointer ownership, no custom resource management.
-	Compiler-generated copy constructor / assignment / destructor are correct here (Rule of Zero).
+	Compiler-generated copy constructor / assignment / destructor (Rule of Zero).
 
  */
 class HttpResponse {
 public:
-    int                                status_code;
+    int                                statusCode;
     std::map<std::string, std::string> headers;
     std::string                        body;
 
     HttpResponse();
 
     // convenience setters — return *this for chaining
-    HttpResponse &set_status(int code);
-    HttpResponse &set_body  (const std::string &content,
-                             const std::string &content_type = "text/html");
-    HttpResponse &set_header(const std::string &key,
+    HttpResponse &setStatus(int code);
+    HttpResponse &setBody  (const std::string &content,
+                             const std::string &contentType = "text/html");
+    HttpResponse &setHeader(const std::string &key,
                              const std::string &value);
 
     // static builders — common responses in one line
@@ -43,5 +43,5 @@ public:
 
 private:
     static std::string _reason(int code);
-    static std::string _error_body(int code, const std::string &reason);
+    static std::string _errorBody(int code, const std::string &reason);
 };

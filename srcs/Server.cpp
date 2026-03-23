@@ -1,18 +1,29 @@
+
 #include "../includes/Server.hpp"
+#include <iostream>
+#include <stdexcept>
+#include <cstring>
 
 // ── ctor / dtor ───────────────────────────────────────────────────────────────
 
+/**
+ * lambda expression: [this](int fd, uint32_t events) { _epoll.mod(fd, events); }
+ * [ ] = capture list that specifies what variables/pointers the lambda can access
+this = captures the pointer to the current object (the Server instance)
+Effect: Inside the lambda body, you can access all member variables and methods of Server like _epoll, _clients, etc.
+Without [this], calling _epoll.mod() would fail—the lambda wouldn't know what _epoll is
+ */
 Server::Server(const ServerConfig &config)
         : _config(config),
             _listenFd(-1),
-        _epoll(),
+        	_epoll(),
             _running(true),
-            _requestProcessor(_config),
+            _processRequest(_config),
             _connectionManager(
                     _clients,
                 [this](int fd, uint32_t events) { _epoll.mod(fd, events); },
                 [this](int fd) { _epoll.del(fd); },
-                [this](Client &client) { _requestProcessor.handle(client); }) {
+                _processRequest) {
 		// todo: missing init _clients
 	}
 
@@ -90,12 +101,12 @@ void Server::init() {
 */
 
 void Server::tick() {
-    struct epoll_event events[MAX_EVENTS];
+    struct epoll_event events[maxEvents];
 
     // ONE epoll_wait call — returns after POLL_TIMEOUT ms if nothing happens
     // this lets main() check g_running regularly
 	// numReadyEvents = num of fds ready for i/o: how many events are avail in the events arr
-    int numReadyEvents = _epoll.wait(events, MAX_EVENTS, POLL_TIMEOUT);
+    int numReadyEvents = _epoll.wait(events, maxEvents, POLL_TIMEOUT);
 
     if (numReadyEvents < 0) {
         if (errno == EINTR) return;  // signal interrupted — main will check g_running
@@ -155,7 +166,6 @@ void Server::_acceptClient() {
 
 // ── utils ─────────────────────────────────────────────────────────────────────
 
-// todo: catch somewhere the throw
 void Server::_setNonBlocking(int fd) {
     int flags = fcntl(fd, F_GETFL, 0);
     if (flags < 0)

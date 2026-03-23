@@ -16,12 +16,12 @@ struct Location {
     std::string              root;
 	std::string              alias;
     std::string              index;
-    std::vector<std::string> allowed_methods;
+    std::vector<std::string> allowedMethod;
     bool                     autoindex            = false;
-    bool                     deny_all             = false; // for guarding sensitive locations
+    bool                     denyAll             = false; // for guarding sensitive locations
     int                      redirect_code        = 0;   // 0 = no redirect
     std::string              redirect_url;
-    long                     client_max_body_size = -1;  // -1 = inherit from server
+    long                     clientMaxBodySize= -1;  // -1 = inherit from server
     // todo: upload handling
 	// bool                     upload_enabled;
 	// std::string              upload_path;
@@ -32,9 +32,9 @@ struct Location {
 struct ServerConfig {
     std::string              	host                 = "127.0.0.1";
     int                      	port                 = 0;
-    long                     	client_max_body_size = 1048576;  // 1MB default
+    long                     	clientMaxBodySize= 1048576;  // 1MB default
     std::vector<std::string> 	server_names;
-    std::map<int,std::string>	error_pages;
+    std::map<int,std::string>	errorPages;
     bool                      	default_server; 
     std::vector<Location>    	locations;
 

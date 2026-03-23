@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>413 Payload Overload!</title>
+    <style>
+        body {
+            background: #111;
+            color: #fff;
+            font-family: 'Comic Sans MS', cursive, sans-serif;
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            box-shadow: 0 0 80px 10px #ffb6c1 inset, 0 0 120px 20px #8a2be2 inset;
+        }
+        .container {
+            max-width: 700px;
+            margin: 60px auto;
+            background: rgba(34, 34, 34, 0.92);
+            border-radius: 20px;
+            box-shadow: 0 0 40px 10px #ffb6c1, 0 0 60px 20px #6a5acd;
+            padding: 40px;
+            text-align: center;
+        }
+        h1 {
+            font-size: 2.8em;
+            color: #ffb6c1;
+            text-shadow: 0 0 12px #ffb6c1, 0 0 8px #8a2be2;
+            margin-bottom: 0.2em;
+            margin-top: 0;
+        }
+        .emoji {
+            font-size: 2.5em;
+            margin: 20px 0;
+            animation: wiggle 0.5s infinite;
+        }
+        @keyframes wiggle {
+            0%, 100% { transform: rotate(0deg); }
+            25% { transform: rotate(-5deg); }
+            75% { transform: rotate(5deg); }
+        }
+        .warning {
+            font-size: 1.2em;
+            line-height: 1.7;
+            margin: 20px 0;
+            color: #ffb6c1;
+        }
+        .warning strong {
+            color: #ff6b9d;
+            text-shadow: 0 0 8px #ff6b9d;
+        }
+        .payloadPreview {
+            background: rgba(0, 0, 0, 0.7);
+            border: 2px solid #8a2be2;
+            border-radius: 8px;
+            padding: 12px;
+            margin: 20px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85em;
+            text-align: left;
+            word-break: break-all;
+            color: #00ff88;
+            max-height: 100px;
+            overflow: auto;
+        }
+        .sendBtn {
+            background: linear-gradient(90deg, #8a2be2 0%, #ffb6c1 100%);
+            color: #fff;
+            border: none;
+            border-radius: 12px;
+            padding: 16px 32px;
+            font-size: 1.2em;
+            cursor: pointer;
+            box-shadow: 0 4px 16px #ffb6c1, 0 0 8px #00bfff;
+            font-weight: bold;
+            transition: transform 0.2s;
+        }
+        .sendBtn:hover {
+            background: linear-gradient(90deg, #ffb6c1 0%, #8a2be2 100%);
+            transform: scale(1.05);
+        }
+        .funky-msg {
+            color: #00bfff;
+            margin-top: 15px;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <div style="text-align:left; margin: 18px 0 0 24px;">
+        <a href="/" style="color:#ffb6c1; font-weight:bold; text-decoration:none; font-size:1.1em;">&larr; Home</a>
+    </div>
+    <div class="container">
+        <h1>💀 PAYLOAD OVERLOAD! 💀</h1>
+        <div class="emoji">🧟📦💥🧟</div>
+        <div class="warning">
+            <strong>DANGER!</strong> You're about to feed the zombie kittens a MASSIVE snack!<br>
+            Payload size: <strong id="sizeDisplay">1.05 MB</strong><br>
+            Server limit: <strong>1 MB</strong><br>
+            <span style="color: #ffb6c1;">They will be VERY angry! 🐾</span>
+        </div>
+        <div class="payloadPreview" id="payloadPreview">Loading payload preview...</div>
+        <form id="bigPostForm" method="POST" action="/post_body_too_large">
+            <input id="payload" type="hidden" name="payload" value="">
+            <button type="submit" class="sendBtn">🚀 UNLEASH THE BEAST! 🚀</button>
+        </form>
+        <div class="funky-msg">
+            ⚠️ The kittens are watching... they expect a <span style="color: #ff6b9d;">413 response</span> 💀
+        </div>
+    </div>
+
+    <script>
+        (function () {
+            var size = 1100000; // 1.1 MB
+            var payload = 'a'.repeat(size);
+            
+            // Set hidden input
+            document.getElementById('payload').value = payload;
+            
+            // Show preview: first 80 chars + dots + size
+            var preview = payload.substring(0, 80) + '....[' + (size / (1024 * 1024)).toFixed(2) + ' MB]';
+            document.getElementById('payloadPreview').textContent = preview;
+            
+            // Update size display
+            document.getElementById('sizeDisplay').textContent = (size / (1024 * 1024)).toFixed(2) + ' MB';
+        })();
+    </script>
+</body>
+</html>
