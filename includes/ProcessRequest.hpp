@@ -1,7 +1,10 @@
 #pragma once
 
 #include "Client.hpp"
+#include "CgiExecutor.hpp"
 #include "ServerConfig.hpp"
+
+#include <sys/stat.h>
 
 class ProcessRequest {
 public:
@@ -15,6 +18,15 @@ private:
     bool _handleRedirectIfNeeded(const Location &loc, Client &client) const;
     std::string _resolveFilePath(const Location &loc, const std::string &request_path) const;
     bool _resolvePathStatOrError(const std::string &filepath, Client &client, struct stat &st) const;
+    bool _shouldExecuteCgi(const Location &loc, const std::string &filepath) const;
+    bool _executeCgiOrError(const HttpRequest &req,
+                            const Location &loc,
+                            const std::string &filepath,
+                            Client &client) const;
+    CgiRequest _buildCgiRequest(const HttpRequest &req,
+                                const std::string &filepath) const;
+    bool _buildHttpResponseFromCgiOutput(const std::string &raw,
+                                         HttpResponse &response) const;
     void _serveFromStat(const Location &loc,
                         const std::string &url_path,
                         const std::string &filepath,

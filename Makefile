@@ -15,7 +15,8 @@ SRC = srcs/ServerConfig.cpp \
 
 HEADERS = includes/*
 
-OBJ = $(SRC:.cpp=.o)
+OBJ_DIR = obj
+OBJ = $(addprefix $(OBJ_DIR)/,$(SRC:.cpp=.o))
 
 CXX = c++
 # CXXFLAGS = -std=c++17 -Wall -Wextra -Werror
@@ -26,11 +27,13 @@ all: $(NAME)
 $(NAME): $(OBJ)
 	$(CXX) $(CXXFLAGS) -o $@ $^
 
-%.o: %.cpp $(HEADERS) Makefile
+
+$(OBJ_DIR)/%.o: %.cpp $(HEADERS) Makefile
+	@mkdir -p $(dir $@)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 clean:
-	rm -f $(OBJ)
+	rm -rf $(OBJ_DIR)
 
 fclean: clean
 	rm -f $(NAME)

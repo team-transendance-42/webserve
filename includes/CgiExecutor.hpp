@@ -1,6 +1,6 @@
 #pragma once
 
-#include "config/Config.hpp"
+#include "ServerConfig.hpp"
 
 #include <cstddef>
 #include <map>
