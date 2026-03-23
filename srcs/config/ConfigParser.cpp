@@ -323,6 +323,16 @@ void Parser::assignKnownLocationFields(Location& location, const Token& key, con
 			throw ParseError("client_max_body_size expects one numeric value", key.line, key.column);
 		}
 		location.client_max_body_size = static_cast<long>(toUnsigned(values[0]));
+	} else if (key.value == "cgi_extension") {
+		if (values.size() != 1) {
+			throw ParseError("cgi_extension expects one value", key.line, key.column);
+		}
+		location.cgi_extension = values[0];
+	} else if (key.value == "cgi_pass") {
+		if (values.size() != 1) {
+			throw ParseError("cgi_pass expects one value", key.line, key.column);
+		}
+		location.cgi_pass = values[0];
 	}
 }
 
@@ -345,6 +355,14 @@ void Parser::validateServer(const ServerConfig& server) {
 
 // Validate that the allowed_methods directive in 'location' only contains valid HTTP methods
 void Parser::validateLocation(const Location& location) {
+	if (!location.cgi_extension.empty() && location.cgi_extension[0] != '.') {
+		throw ParseError("cgi_extension must start with '.'", peek().line, peek().column);
+	}
+
+	if (location.cgi_extension.empty() != location.cgi_pass.empty()) {
+		throw ParseError("cgi_extension and cgi_pass must be set together", peek().line, peek().column);
+	}
+
 	if (location.allowed_methods.empty()) {
 		return;
 	}

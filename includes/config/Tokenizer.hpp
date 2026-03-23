@@ -1,6 +1,4 @@
-
-#ifndef TOKENIZER_HPP
-#define TOKENIZER_HPP
+#pragma once
 
 #include <string>
 #include <vector>
@@ -49,5 +47,3 @@ public:
 	// Main tokenization loop
     std::vector<Token> tokenize();
 };
-
-#endif // TOKENIZER_HPP

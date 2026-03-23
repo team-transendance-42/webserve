@@ -1,6 +1,4 @@
-
-#ifndef PARSER_HPP
-#define PARSER_HPP
+#pragma once
 
 #include "Config.hpp"
 #include "Tokenizer.hpp"
@@ -82,5 +80,3 @@ public:
 	// Main parsing function, returns the fully parsed ConfigFile
     ConfigFile parseConfig();
 };
-
-#endif // PARSER_HPP

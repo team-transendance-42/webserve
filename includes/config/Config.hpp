@@ -1,25 +1,8 @@
-
-#ifndef CONFIG_HPP
-#define CONFIG_HPP
+#pragma once
 
 #include <map>
 #include <string>
 #include <vector>
-
-// struct LocationConfig {
-//     std::string                                     path;
-//     std::map<std::string, std::vector<std::string> > directives;
-// };
-
-// struct ServerConfig {
-//     int                                             listen;
-//     std::string                                     host;
-//     std::string                                     server_name;
-//     std::map<std::string, std::vector<std::string> > directives;
-//     std::vector<LocationConfig>                     locations;
-
-//     ServerConfig();
-// };
 
 // todo: this is placeholder for future CGI support, not used in current implementation
 struct CgiConfig {
@@ -32,6 +15,8 @@ struct Location {
     std::string              root;
 	std::string              alias;
     std::string              index;
+    std::string              cgi_extension;
+    std::string              cgi_pass;
     std::vector<std::string> allowed_methods;
     bool                     autoindex            = false;
     bool                     deny_all             = false; // for guarding sensitive locations
@@ -42,6 +27,10 @@ struct Location {
 	// bool                     upload_enabled;
 	// std::string              upload_path;
 	// std::vector<CgiConfig>   cgi;
+
+    bool hasCgi() const {
+        return (!cgi_extension.empty() && !cgi_pass.empty());
+    }
 };
 
 // todo: hard coded values for now, to be replaced by filename.conf parser
@@ -67,5 +56,3 @@ public:
     ConfigFile parseFile(const std::string& filePath) const;
     ConfigFile parseString(const std::string& text) const;
 };
-
-#endif // CONFIG_HPP
