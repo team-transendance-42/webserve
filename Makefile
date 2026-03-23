@@ -2,13 +2,15 @@ NAME = webserv
 
 SRC = srcs/ServerConfig.cpp \
       srcs/Server.cpp \
-	srcs/EpollLoop.cpp \
-	srcs/ProcessRequest.cpp \
-	srcs/ErrorResponseBuilder.cpp \
-	srcs/ConnectionManager.cpp \
-	srcs/StaticFileHandler.cpp \
+	  srcs/EpollLoop.cpp \
+	  srcs/ProcessRequest.cpp \
+	  srcs/ErrorResponseBuilder.cpp \
+	  srcs/ConnectionManager.cpp \
+	  srcs/StaticFileHandler.cpp \
       srcs/HttpRequest.cpp \
       srcs/HttpResponse.cpp \
+	  srcs/config/ConfigParser.cpp \
+	  srcs/CgiExecutor.cpp \
       main.cpp
 
 HEADERS = includes/*
