@@ -43,8 +43,7 @@ int main(int argc, char *argv[])
     sigaction(SIGTERM, &sa, nullptr);
 
     // Config file from argv or default
-    std::string configFile = (argc == 2) ? argv[1] : "srcs/config/default/default.conf";
-    // std::string configFile = (argc == 2) ? argv[1] : "default.conf";
+    std::string configFile = (argc == 2) ? argv[1] : "default.conf";
 
     std::cout << "--- webserv — loading " << configFile << " ---\n";
 
