@@ -78,10 +78,14 @@ CgiResult CgiExecutor::execute(const CgiRequest& request, const Location& locati
 
     if (pipe(stdinPipe) != 0 || pipe(stdoutPipe) != 0) {
         result.error_message = "failed to create CGI pipes";
-        if (stdinPipe[0] >= 0) close(stdinPipe[0]);
-        if (stdinPipe[1] >= 0) close(stdinPipe[1]);
-        if (stdoutPipe[0] >= 0) close(stdoutPipe[0]);
-        if (stdoutPipe[1] >= 0) close(stdoutPipe[1]);
+        if (stdinPipe[0] >= 0)
+            close(stdinPipe[0]);
+        if (stdinPipe[1] >= 0)
+            close(stdinPipe[1]);
+        if (stdoutPipe[0] >= 0)
+            close(stdoutPipe[0]);
+        if (stdoutPipe[1] >= 0)
+            close(stdoutPipe[1]);
         return (result);
     }
 
