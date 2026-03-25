@@ -17,15 +17,13 @@
 #include "ProcessRequest.hpp"
 
 /*
-** Server
-** ------
-** Owns one listening socket (fd).
-** Uses epoll() to multiplex the listen fd + all client fds.
-**
-** Lifecycle:
-**   Server srv(config);
-**   srv.init();   // socket → setsockopt → bind → listen → fcntl non-block
-**   srv.tick();    // poll loop — blocks until SIGINT or error
+* Owns one listening socket (fd).
+* Uses epoll() to multiplex the listen fd + all client fds.
+*
+* Lifecycle:
+*   Server srv(config);
+*   srv.init();   // socket → setsockopt → bind → listen → fcntl non-block
+*   srv.tick();    // poll loop — blocks until SIGINT or error
 */
 
 class Server {
@@ -39,9 +37,6 @@ class Server {
 		void tick();    // call in a loop — ONE epoll_wait iteration
 		void stop();    // sets _running = false
 
-		int  getFd()     const { return _listenFd; }
-		bool isRunning() const { return _running;  }
-
 	private:
 		void 				_acceptClient();
 		static void        _setNonBlocking(int fd);
@@ -49,7 +44,7 @@ class Server {
 		// named constants for server tuning
 		enum {
 			BACKLOG      = 128,   // max queued incoming connections waiting to be accepted; named so to match exact socket API term listen(fd, backlog), Kernel docs/man pages call it “backlog”
-			POLL_TIMEOUT = 100,  // ms — short so main loop checks g_running often
+			POLL_TIMEOUT = 100,  // ms —  how often to check for shutdown signal (SIGINT) in main loop; if too long, server may be slow to respond to shutdown; if too short, may cause more CPU wakeups and slightly higher CPU usage when idle
 			maxEvents   = 64,   // max ready events handled per tick call
 			READ_BUF     = 4096 // chunk size per recv
 		};

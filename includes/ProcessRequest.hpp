@@ -1,8 +1,9 @@
 #pragma once
 
+#include "Client.hpp"
+#include "ServerConfig.hpp"
+
 /*
-* ProcessRequest
-* --------------
 * Converts a parsed HttpRequest (stored in Client) into a serialized HTTP response. (convert from in-mem cpp obj into plain text http format that can be sent over socket)
 *
 * Responsibilities:
@@ -13,10 +14,6 @@
 *
 * This class does not manage sockets or epoll; Server/ConnectionManager handle I/O.
 */
-
-#include "Client.hpp"
-#include "ServerConfig.hpp"
-
 class ProcessRequest {
 public:
     ProcessRequest(const ServerConfig &config);

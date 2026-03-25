@@ -1,8 +1,8 @@
-#include "../includes/HttpRequest.hpp"
 #include <sstream>
 #include <algorithm>
 #include <iostream>
 #include <cstdlib>
+#include "../includes/HttpRequest.hpp"
 
 HttpRequest::HttpRequest() : method(UNKNOWN), _state(REQUEST_LINE) {}
 

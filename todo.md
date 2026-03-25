@@ -1,3 +1,5 @@
+https://github.com/team-transendance-42/webserve
+
 Petya:
 * HTTP server ✓
 * socket setup ✓
@@ -6,6 +8,7 @@ Petya:
 * response formating ✓
 * routing (file handling logic ??)
 * do we use pramga use once or ifndef def
+-> server/client timeout handling !!! nb !!!
 
 Noah:
 * config parsing

@@ -1,5 +1,4 @@
 #include "../includes/ErrorResponseBuilder.hpp"
-
 #include "../includes/StaticFileHandler.hpp"
 
 HttpResponse ErrorResponseBuilder::buildErrorResponse(int code,

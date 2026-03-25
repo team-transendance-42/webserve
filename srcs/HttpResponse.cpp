@@ -4,7 +4,7 @@
 // todo: no set up fo headers and body
 HttpResponse::HttpResponse() : statusCode(200) {}
 
-// ── chaining setters ──────────────────────────────────────────────────────────
+// ── setters ──────────────────────────────────────────────────────────
 
 HttpResponse &HttpResponse::setStatus(int code) {
     statusCode = code;

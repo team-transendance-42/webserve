@@ -4,13 +4,6 @@
 #include <vector>
 #include <map>
 
-// todo: this is placeholder for future CGI support, not used in current implementation
-struct CgiConfig {
-    std::string extension;   // e.g. ".php", ".py"
-    std::string interpreter; // e.g. "/usr/bin/python3"
-};
-
-
 struct Location {
     std::string              path;
     std::string              root;

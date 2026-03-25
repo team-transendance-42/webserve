@@ -4,7 +4,6 @@
 #include <cstdint>
 #include <functional>
 #include <map>
-
 #include "Client.hpp"
 
 class ProcessRequest;

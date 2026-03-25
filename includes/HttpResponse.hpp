@@ -10,6 +10,13 @@
 	Compiler-generated copy constructor / assignment / destructor (Rule of Zero).
 
  */
+ /**
+ * HTTP response to be sent to the client
+ * Stores status code, headers, and body content
+ * Provides setters for building responses and static helpers for common status codes (200, 404, etc)
+ * Used by the server to serialize(convert resp. obj into a sibnel raw string) and send HTTP responses after request handling.
+ */
+ 
 class HttpResponse {
 public:
     int                                statusCode;
@@ -18,7 +25,7 @@ public:
 
     HttpResponse();
 
-    // convenience setters — return *this for chaining
+    // setters — return *this for chaining
     HttpResponse &setStatus(int code);
     HttpResponse &setBody  (const std::string &content,
                              const std::string &contentType = "text/html");

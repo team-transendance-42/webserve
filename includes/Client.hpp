@@ -1,7 +1,7 @@
-// includes/Client.hpp
 #pragma once
-#include "HttpRequest.hpp"
+
 #include <string>
+#include "HttpRequest.hpp"
 
 /**
 In C++, struct and class are almost identical. The only difference is:
@@ -37,6 +37,12 @@ Headers and body remain as strings in Client struct.
 ---
 bytes → string chunk → feed() → buf accumulation → parse → fields extracted → stored in client.request.
 */
+
+/**
+ * Represents a single client connection to the server.
+ * Holds the socket file descriptor, parsed HTTP request, response buffer, and keep-alive state.
+ * Used by ConnectionManager to track and manage each active client.
+ */
 struct Client {
     int         fd;
     HttpRequest request;

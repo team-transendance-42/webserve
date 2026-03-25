@@ -24,9 +24,16 @@ Example stream in one recv():
 REQ1_HEADERS + REQ1_BODY + REQ2_HEADERS...
 After parsing REQ1, leftover bytes belong to REQ2, so they stay in _buf.
  */
+
+ /**
+ * parsed HTTP request received from a client.
+ * Handles parsing of raw TCP byte streams into HTTP method, path, headers, and body fields.
+ * Used by the server to process incoming requests, support keep-alive, and extract request data for routing/handling.
+ * Provides helpers for header lookup, content length, and connection state.
+ */
 class HttpRequest {
 public:
-    // ── parsed data — read these after feed() returns COMPLETE ────────────
+    // ── parsed data — read these after feed() returns 
     Method                             method;
     std::string                        path;
     std::string                        query_string;
@@ -36,12 +43,8 @@ public:
 
     HttpRequest();
 
-    /**
-	 * parse raw HTTP request bytes coming from the client socket(TCP stream bytes), in recv(client.fd, ...) in server read loop
-	 * feed() appends them to _buf, then _parse() extracts fields.
-	 */
     ParseResult feed(const std::string &data);
-    ParseResult feed(const char *data, size_t len);  // convenience overload
+    ParseResult feed(const char *data, size_t len);
 
     // helpers
     std::string get_header    (const std::string &key) const;

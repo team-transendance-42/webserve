@@ -1,10 +1,7 @@
-
 #include "../includes/Server.hpp"
 #include <iostream>
 #include <stdexcept>
 #include <cstring>
-
-// ── ctor / dtor ───────────────────────────────────────────────────────────────
 
 /**
  * lambda expression: [this](int fd, uint32_t events) { _epoll.mod(fd, events); }
@@ -135,6 +132,12 @@ void Server::tick() {
         if (ev & EPOLLIN)  _connectionManager.readClient(client, READ_BUF);
         if (ev & EPOLLOUT) _connectionManager.writeClient(client);
     }
+
+    // Simulate server hang: do not respond, just sleep forever to trigger client timeout
+    // while (true) {
+    //     sleep(1000); 
+    // }
+    // (This code will never reach the response handling)
 }
 
 void Server::stop() {
