@@ -8,9 +8,11 @@ Petya:
 * do we use pramga use once or ifndef def
 
 Noah:
-* config parsing
-* error handling
+* config parsing ✓
 * cgi/dynamic content
-* file handling logic ??
-* logging /utilities
+* error handling ✓
+* file upload(s)
+* logging / utilities
 * install Linter: for coding style
+
+* After testing config/cgi parsing, look into file upload + php CGI
