@@ -28,10 +28,8 @@ public:
     // static builders — common responses in one line
     static HttpResponse make_200(const std::string &body,
                                  const std::string &type = "text/html");
-    static HttpResponse make_301(const std::string &location); // moved permanantly:Typical use: old route replaced forever.
-    static HttpResponse make_302(const std::string &location); // found, temp redirect
-    static HttpResponse make_400(); // bad request
-	//static HttpResponse make_401(); // 401 unauthorized: Client can retry with valid credentials: not implemented, do we need it?
+    static HttpResponse make_redirect(int code, const std::string &location); // no html body, just headers
+    static HttpResponse make_400(); // bad request: todo: add testing scenarios that trigger 400
     static HttpResponse make_403(); // forbidden: server knows who you are (or auth is irrelevant), but access is denied.
     static HttpResponse make_404(); // not found
     static HttpResponse make_405(); // method not allowed

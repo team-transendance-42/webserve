@@ -23,8 +23,9 @@ struct Location {
     std::string              redirect_url;
     long                     clientMaxBodySize= -1;  // -1 = inherit from server
     // todo: upload handling
-	// bool                     upload_enabled;
-	// std::string              upload_path;
+	bool                     upload_enabled = false;
+	std::string              upload_path; // absolute path on server to save uploaded files, e.g. "/var/www/uploads";
+    std::vector<std::string>  upload_allowed_types; // e.g. {".jpg", ".png", ".pdf"}
 	// std::vector<CgiConfig>   cgi;
 };
 

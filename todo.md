@@ -14,3 +14,11 @@ Noah:
 * file handling logic ??
 * logging /utilities
 * install Linter: for coding style
+
+kill working webserv:
+
+ss -ltnp | grep ':8080'
+kill 12345
+
+or better:
+kill "$(ss -ltnp | awk '/:8080/ {gsub(/.*pid=|,.*/,"",$NF); print $NF; exit}')"

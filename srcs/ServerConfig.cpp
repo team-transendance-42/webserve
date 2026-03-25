@@ -114,7 +114,7 @@ ServerConfig createDefaultServerConfig() {
     missing.allowedMethod = {"GET"};
     config.locations.push_back(missing);
 
-    //  403 when no index file: todo: got not mine 403..
+    //  403 when no index file
     Location files;
     files.path = "/files";
     files.root = "./www/files";
@@ -138,6 +138,17 @@ ServerConfig createDefaultServerConfig() {
     api.autoindex = false;
     api.allowedMethod = {"GET"};
     config.locations.push_back(api);
+
+    // test upload doc on the server
+    Location upload;
+    upload.path = "/upload";
+    upload.root = "./www/one";
+    upload.index = "upload.html";
+    upload.upload_enabled = true;
+    upload.upload_path = "./www/uploads";
+    upload.clientMaxBodySize = 5 * 1024 * 1024; // 5 MiB for uploads
+    upload.allowedMethod = {"GET", "POST"};
+    config.locations.push_back(upload);
 
     return config;
 }

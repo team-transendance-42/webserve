@@ -8,6 +8,7 @@ TESTS=(
   "/|GET|200|root index"
   "/zombie_kittens|GET|200|specific page"
   "/game_start|GET|200|specific page"
+  "/upload|GET|200|upload form page"
   "/play|GET|301|redirect"
   "/secret|GET|403|denyAll config location had dany all (access not allowed)"
   "/not_allowed|GET|403|filesystem permission denied"
@@ -57,6 +58,20 @@ if [[ "$largeCode" == "413" ]]; then
   ((pass++))
 else
   printf "%-18s %-8s %-9s %-9s %-8s %s\n" "/zk_apply_form" "POST" "413" "$largeCode" "FAIL" "oversized body over maxBody"
+  ((fail++))
+fi
+
+tmpUploadFile="$(mktemp)"
+printf "zombie kitten upload test\n" > "$tmpUploadFile"
+uploadCode="$(curl -sS -X POST -F "file=@${tmpUploadFile}" -o /dev/null -w "%{http_code}" \
+  "$BASE_URL/upload" 2>/dev/null || echo "000")"
+rm -f "$tmpUploadFile"
+
+if [[ "$uploadCode" == "201" ]]; then
+  printf "%-18s %-8s %-9s %-9s %-8s %s\n" "/upload" "POST" "201" "$uploadCode" "PASS" "multipart file upload"
+  ((pass++))
+else
+  printf "%-18s %-8s %-9s %-9s %-8s %s\n" "/upload" "POST" "201" "$uploadCode" "FAIL" "multipart file upload"
   ((fail++))
 fi
 
