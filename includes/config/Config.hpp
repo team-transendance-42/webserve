@@ -4,9 +4,8 @@
 #include <string>
 #include <vector>
 
-// todo: this is placeholder for future CGI support, not used in current implementation
 struct CgiConfig {
-    std::string extension;   // e.g. ".php", ".py"
+    std::string extension;   // e.g. ".py"
     std::string interpreter; // e.g. "/usr/bin/python3"
 };
 
@@ -26,14 +25,12 @@ struct Location {
     // todo: upload handling
 	// bool                     upload_enabled;
 	// std::string              upload_path;
-	// std::vector<CgiConfig>   cgi;
 
     bool hasCgi() const {
         return (!cgi_extension.empty() && !cgi_pass.empty());
     }
 };
 
-// todo: hard coded values for now, to be replaced by filename.conf parser
 struct ServerConfig {
     std::string              	host;
     int                      	port;

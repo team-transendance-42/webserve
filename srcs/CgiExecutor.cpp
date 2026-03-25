@@ -13,6 +13,7 @@
 #include <unistd.h>
 #include <vector>
 
+// Return current time in milliseconds
 long long nowMs() {
     struct timespec ts;
     if (clock_gettime(CLOCK_MONOTONIC, &ts) != 0) {
@@ -21,6 +22,7 @@ long long nowMs() {
     return (static_cast<long long>(ts.tv_sec) * 1000LL + static_cast<long long>(ts.tv_nsec / 1000000LL));
 }
 
+// Convert size_t to string
 std::string toString(std::size_t value) {
     std::ostringstream oss;
     oss << value;
@@ -31,6 +33,7 @@ CgiExecutor::CgiExecutor(std::size_t max_output_bytes, int timeout_ms)
     : _max_output_bytes(max_output_bytes), _timeout_ms(timeout_ms) {
 }
 
+// Sanitize header names by converting to uppercase and replacing '-' with '_'
 std::string CgiExecutor::sanitizeHeaderName(const std::string& key) {
     std::string result;
     result.reserve(key.size());
@@ -43,10 +46,10 @@ std::string CgiExecutor::sanitizeHeaderName(const std::string& key) {
             result.push_back(static_cast<char>(std::toupper(ch)));
         }
     }
-
     return (result);
 }
 
+// Write the entire string to the file descriptor, handling partial writes and EINTR
 bool CgiExecutor::writeAll(int fd, const std::string& data) {
     std::size_t offset = 0;
     while (offset < data.size()) {
@@ -65,6 +68,7 @@ bool CgiExecutor::writeAll(int fd, const std::string& data) {
     return (true);
 }
 
+// Execute the CGI script and capture its output
 CgiResult CgiExecutor::execute(const CgiRequest& request, const Location& location) const {
     CgiResult result;
 
@@ -76,6 +80,7 @@ CgiResult CgiExecutor::execute(const CgiRequest& request, const Location& locati
     int stdinPipe[2] = {-1, -1};
     int stdoutPipe[2] = {-1, -1};
 
+    // Setup pipes for CGI stdin and stdout
     if (pipe(stdinPipe) != 0 || pipe(stdoutPipe) != 0) {
         result.error_message = "failed to create CGI pipes";
         if (stdinPipe[0] >= 0)
@@ -89,6 +94,7 @@ CgiResult CgiExecutor::execute(const CgiRequest& request, const Location& locati
         return (result);
     }
 
+    // Fork the process to execute the CGI script in the child process
     pid_t pid = fork();
     if (pid < 0) {
         result.error_message = "failed to fork CGI process";
@@ -99,11 +105,13 @@ CgiResult CgiExecutor::execute(const CgiRequest& request, const Location& locati
         return (result);
     }
 
+    // In the child process, set up the environment and execute the CGI script
     if (pid == 0) {
         if (dup2(stdinPipe[0], STDIN_FILENO) < 0 || dup2(stdoutPipe[1], STDOUT_FILENO) < 0) {
             _exit(127);
         }
 
+        // Close unused pipe ends in the child process
         close(stdinPipe[0]);
         close(stdinPipe[1]);
         close(stdoutPipe[0]);
@@ -112,6 +120,7 @@ CgiResult CgiExecutor::execute(const CgiRequest& request, const Location& locati
         std::vector<std::string> envStorage;
         envStorage.reserve(16 + request.headers.size());
 
+        // Standard CGI environment variables
         envStorage.push_back("REQUEST_METHOD=" + request.method);
         envStorage.push_back("QUERY_STRING=" + request.query_string);
         envStorage.push_back("CONTENT_TYPE=" + request.content_type);
@@ -124,6 +133,7 @@ CgiResult CgiExecutor::execute(const CgiRequest& request, const Location& locati
         envStorage.push_back("SERVER_PORT=" + request.server_port);
         envStorage.push_back("REMOTE_ADDR=" + request.remote_addr);
 
+        // Add HTTP headers as environment variables with "HTTP_" prefix
         for (std::map<std::string, std::string>::const_iterator it = request.headers.begin(); it != request.headers.end(); ++it) {
             std::string key = sanitizeHeaderName(it->first);
             if (key == "CONTENT_TYPE" || key == "CONTENT_LENGTH") {
@@ -132,6 +142,7 @@ CgiResult CgiExecutor::execute(const CgiRequest& request, const Location& locati
             envStorage.push_back("HTTP_" + key + "=" + it->second);
         }
 
+        // Convert envStorage to the format required by execve (array of C strings)
         std::vector<char*> envp;
         envp.reserve(envStorage.size() + 1);
         for (std::size_t i = 0; i < envStorage.size(); ++i) {
@@ -144,13 +155,16 @@ CgiResult CgiExecutor::execute(const CgiRequest& request, const Location& locati
         argv.push_back(const_cast<char*>(request.script_path.c_str()));
         argv.push_back(NULL);
 
+        // Execute the CGI script
         execve(location.cgi_pass.c_str(), &argv[0], &envp[0]);
         _exit(127);
     }
 
+    // In the parent process, close unused pipe ends
     close(stdinPipe[0]);
     close(stdoutPipe[1]);
 
+    // Write the request body to the CGI process's stdin
     bool writeOk = writeAll(stdinPipe[1], request.body);
     close(stdinPipe[1]);
     if (!writeOk) {
@@ -161,6 +175,7 @@ CgiResult CgiExecutor::execute(const CgiRequest& request, const Location& locati
         return (result);
     }
 
+    // Use poll to wait for output from the CGI process with a timeout
     pollfd pfd;
     pfd.fd = stdoutPipe[0];
     pfd.events = POLLIN;
@@ -170,6 +185,7 @@ CgiResult CgiExecutor::execute(const CgiRequest& request, const Location& locati
     std::string output;
     char buffer[4096];
 
+    // Loop to read output from the CGI process, checking for timeout and output size limits
     while (true) {
         long long elapsed = nowMs() - startedAt;
         if (_timeout_ms >= 0 && elapsed >= _timeout_ms) {
@@ -178,6 +194,7 @@ CgiResult CgiExecutor::execute(const CgiRequest& request, const Location& locati
             break;
         }
 
+        // Calculate remaining time for poll timeout
         int waitMs = 100;
         if (_timeout_ms >= 0) {
             long long remaining = _timeout_ms - elapsed;
@@ -187,6 +204,7 @@ CgiResult CgiExecutor::execute(const CgiRequest& request, const Location& locati
         }
 
         int pollRc = poll(&pfd, 1, waitMs);
+        // If there's data to read from the CGI process, read it and append to output
         if (pollRc > 0 && (pfd.revents & POLLIN)) {
             ssize_t n = read(stdoutPipe[0], buffer, sizeof(buffer));
             if (n > 0) {
@@ -205,12 +223,14 @@ CgiResult CgiExecutor::execute(const CgiRequest& request, const Location& locati
                 kill(pid, SIGKILL);
                 break;
             }
+        // If poll indicates an error, handle it (except for EINTR which can be ignored)
         } else if (pollRc < 0 && errno != EINTR) {
             result.error_message = "poll failed while waiting for CGI stdout";
             kill(pid, SIGKILL);
             break;
         }
 
+        // Check if the CGI process has exited and capture its exit code
         int status = 0;
         pid_t done = waitpid(pid, &status, WNOHANG);
         if (done == pid) {
@@ -241,6 +261,7 @@ CgiResult CgiExecutor::execute(const CgiRequest& request, const Location& locati
 
     close(stdoutPipe[0]);
 
+    // Wait for the child process to exit and capture its exit code if not already captured
     int status = 0;
     waitpid(pid, &status, 0);
     if (result.exit_code < 0 && WIFEXITED(status)) {
