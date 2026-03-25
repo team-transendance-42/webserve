@@ -122,13 +122,23 @@ ServerConfig createDefaultServerConfig() {
     files.allowedMethod = {"GET"};
     config.locations.push_back(files);  
 
-    // expect to see directory listing of www/files with autoindex on
-    Location files_auto;
-    files_auto.path = "/files_auto";
-    files_auto.root = "./www/files";
-    files_auto.autoindex = true;
-    files_auto.allowedMethod = {"GET"};
-    config.locations.push_back(files_auto);
+    // page with custom delete UI for files directory
+    Location deleteFile;
+    deleteFile.path = "/delete_file";
+    deleteFile.root = "./www/files";
+    deleteFile.index = "index.html";
+    deleteFile.allowedMethod = {"GET"};
+    config.locations.push_back(deleteFile);
+
+    // directory listing + DELETE endpoint used by delete_file page
+    Location filesAuto;
+    filesAuto.path = "/files_auto";
+    filesAuto.root = "./www/files";
+    filesAuto.autoindex = true;
+    filesAuto.allowedMethod = {"GET", "POST", "DELETE"};
+    filesAuto.upload_enabled = true;
+    filesAuto.upload_path = "./www/files";
+    config.locations.push_back(filesAuto);
 
     // test JSON API
     Location api;

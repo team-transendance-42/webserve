@@ -3,7 +3,7 @@
 /*
 * ProcessRequest
 * --------------
-* Converts a parsed HttpRequest (stored in Client) into a serialized HTTP response. (convert from in-mem cpp ojb into plain text http format that can be sent over socket)
+* Converts a parsed HttpRequest (stored in Client) into a serialized HTTP response. (convert from in-mem cpp obj into plain text http format that can be sent over socket)
 *
 * Responsibilities:
 *   - Match URI to Location
@@ -28,6 +28,7 @@ private:
     bool _validateLocationRulesOrError(const HttpRequest &req, const Location &loc, Client &client) const;
     bool _handleRedirectIfNeeded(const Location &loc, Client &client) const;
     bool _handleUploadIfNeeded(const HttpRequest &req, const Location &loc, Client &client) const;
+    bool _handleDeleteIfNeeded(const HttpRequest &req, const Location &loc, Client &client) const;
     bool _sanitizeFilename(std::string &filename) const;
     bool _extractMultipartFile(const HttpRequest &req,
                                std::string &filename,

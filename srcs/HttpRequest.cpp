@@ -233,7 +233,7 @@ std::string HttpRequest::_to_lower(const std::string &s) const {
     return out;
 }
 
-void HttpRequest::debug_print() const {
+void HttpRequest::debugPrint() const {
     const char *m[] = { "GET", "POST", "DELETE", "UNKNOWN" };
     std::cout << "=== HttpRequest ===\n"
               << "  method : " << m[method]     << "\n"

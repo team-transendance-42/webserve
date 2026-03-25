@@ -5,13 +5,14 @@
 #include <iostream>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 #include "../includes/ErrorResponseBuilder.hpp"
 #include "../includes/ProcessRequest.hpp"
 #include "../includes/StaticFileHandler.hpp"
 
 /**
- * Serialized = converting structured data into a flat byte/text format that can be sent or stored. HttpResponse is an object (status, headers, body).
+ * Serialized = converting structured data(like obj) into a flat byte/text format that can be sent or stored. HttpResponse is an object (status, headers, body).
 .serialize() turns it into raw HTTP text
  */
 ProcessRequest::ProcessRequest(const ServerConfig &config)
@@ -54,12 +55,6 @@ bool ProcessRequest::_validateLocationRulesOrError(const HttpRequest &req,
                     ? loc.clientMaxBodySize
                     : _config.clientMaxBodySize;
     if ((long)req.body.size() > maxBody) {
-        std::cerr << "[413] payload too large"
-                  << " path=" << req.path
-                  << " body_size=" << req.body.size()
-                  << " max_allowed=" << maxBody
-                  << " content_length_header=" << req.content_length()
-                  << "\n";
         client.writeBuf = ErrorResponseBuilder::buildErrorResponse(413, _config).serialize();
         return false;
     }
@@ -254,12 +249,73 @@ bool ProcessRequest::_handleUploadIfNeeded(const HttpRequest &req,
     return true;
 }
 
+bool ProcessRequest::_handleDeleteIfNeeded(const HttpRequest &req,
+                                           const Location &loc,
+                                           Client &client) const {
+    if (req.method != DELETE || loc.path != "/files_auto") return false;
+
+    std::string urlPath = req.path;
+
+    // Step 1 hardening: accept only /files_auto/<single-safe-filename>
+    if (urlPath.size() <= loc.path.size() || urlPath[loc.path.size()] != '/') {
+        client.writeBuf = ErrorResponseBuilder::buildErrorResponse(400, _config).serialize();
+        return true;
+    }
+
+    std::string filename = urlPath.substr(loc.path.size() + 1);
+    if (!_sanitizeFilename(filename)) {
+        client.writeBuf = ErrorResponseBuilder::buildErrorResponse(400, _config).serialize();
+        return true;
+    }
+
+    // Never allow deleting the configured index file for this location.
+    if (!loc.index.empty() && filename == loc.index) {
+        client.writeBuf = ErrorResponseBuilder::buildErrorResponse(403, _config).serialize();
+        return true;
+    }
+
+    std::string filepath = loc.root + "/" + filename;
+    if (unlink(filepath.c_str()) == 0) {
+        HttpResponse response;
+        response.setStatus(204)
+                .setHeader("Content-Length", "0");
+        client.writeBuf = response.serialize();
+    } else if (errno == ENOENT) {
+        client.writeBuf = ErrorResponseBuilder::buildErrorResponse(404, _config).serialize();
+    } else if (errno == EACCES || errno == EPERM) {
+        client.writeBuf = ErrorResponseBuilder::buildErrorResponse(403, _config).serialize();
+    } else {
+        client.writeBuf = ErrorResponseBuilder::buildErrorResponse(500, _config).serialize();
+    }
+    return true;
+}
+
 std::string ProcessRequest::_resolveFilePath(const Location &loc,
                                              const std::string &requestPath) const {
-    if (requestPath == loc.path)
-        return loc.root + "/" + loc.index;
 
-    return loc.root + requestPath.substr(loc.path.length());
+    std::string resolved;
+    if (requestPath == loc.path) {
+        resolved = loc.root + "/" + loc.index;
+        std::cerr << "[ProcessRequest::_resolveFilePath--1] '" << requestPath << "' => '" << resolved << "'\n";
+        return resolved;
+    }
+
+    std::string suffix = requestPath.substr(loc.path.length());
+    if (!suffix.empty() && suffix[0] != '/' &&
+        (loc.path.empty() || loc.path[loc.path.size() - 1] != '/')) {
+        suffix = "/" + suffix;
+    }
+
+    if (!loc.root.empty() && loc.root[loc.root.size() - 1] == '/' &&
+        !suffix.empty() && suffix[0] == '/') {
+        resolved = loc.root.substr(0, loc.root.size() - 1) + suffix;
+        std::cerr << "[ProcessRequest::_resolveFilePath--2] '" << requestPath << "' => '" << resolved << "'\n";
+        return resolved;
+    }
+
+    resolved = loc.root + + "/" + suffix;
+    std::cerr << "[ProcessRequest::_resolveFilePath--3] '" << requestPath << "' => '" << resolved << "'\n";
+    return resolved;
 }
 
 // Stats the resolved path and maps filesystem errors to HTTP errors.
@@ -317,7 +373,7 @@ void ProcessRequest::_serveFromStat(const Location &loc,
 // Orchestrates full request handling from validation to final response build.
 void ProcessRequest::handle(Client &client) const {
     HttpRequest &req = client.request;
-    // req.debug_print();
+    // req.debugPrint();
     client.keep_alive = req.is_keep_alive();
 
     if (req.method == UNKNOWN) {
@@ -331,6 +387,8 @@ void ProcessRequest::handle(Client &client) const {
     if (!_validateLocationRulesOrError(req, *loc, client)) return;
     if (_handleRedirectIfNeeded(*loc, client)) return;
     if (_handleUploadIfNeeded(req, *loc, client)) return;
+
+    if (_handleDeleteIfNeeded(req, *loc, client)) return;
 
     std::string urlPath = req.path;
     std::string filepath = _resolveFilePath(*loc, urlPath);

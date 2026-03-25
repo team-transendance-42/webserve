@@ -22,3 +22,10 @@ kill 12345
 
 or better:
 kill "$(ss -ltnp | awk '/:8080/ {gsub(/.*pid=|,.*/,"",$NF); print $NF; exit}')"
+
+delete:
+204 No Content (or 200 with body) on success
+404 if file missing
+403 if permission denied / path escape attempt
+405 if method not allowed by location
+409 if target is a directory

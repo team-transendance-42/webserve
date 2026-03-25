@@ -17,7 +17,7 @@ public:
     ConnectionManager(std::map<int, Client *> &clients,
                       std::function<void(int, uint32_t)> epollMod,
                       std::function<void(int)> epollDel,
-                      ProcessRequest &requestProcessor);
+                      ProcessRequest &processorReq);
 
     void readClient(Client &client, std::size_t readBufSize);
     void writeClient(Client &client);

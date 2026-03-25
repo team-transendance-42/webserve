@@ -3,16 +3,8 @@
 <head>
 	<meta charset="UTF-8">
 	<title>Zombie Kittens Webserv</title>
+    <link rel="stylesheet" href="/common.css">
 	<style>
-		body {
-			background: #18122B;
-			color: #F6F6F6;
-			font-family: 'Comic Sans MS', cursive, sans-serif;
-			margin: 0;
-			padding: 0;
-			min-height: 100vh;
-			box-shadow: 0 0 80px 10px #ffb6c1 inset, 0 0 120px 20px #8a2be2 inset;
-		}
             h1 {
             color: #F4FFE8;
             text-shadow: 0 0 12px #F4FFE8, 0 0 8px #F4FFE8;
@@ -121,6 +113,11 @@
             <td><span class="m-get badge">GET</span></td>
             <td><a href="/files_auto">/files_auto</a></td>
             <td>Directory listing of www/files (autoindex on)</td>
+        </tr>
+		        <tr>
+            <td><span class="m-get badge">DELETE</span></td>
+            <td><a href="/delete_file">/delete_file</a></td>
+            <td>Display files and delete them</td>
         </tr>
         <tr>
             <td><span class="m-get badge">GET</span></td>

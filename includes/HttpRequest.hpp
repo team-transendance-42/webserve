@@ -50,7 +50,7 @@ public:
     bool        is_keep_alive ()                        const;
 
     void        clear();        // reset for next request (keep-alive)
-    void        debug_print()   const;
+    void        debugPrint()   const;
 
 private:
     // internal parse state
