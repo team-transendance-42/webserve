@@ -123,12 +123,12 @@
         }
 
         function deleteFile(name) {
-            return fetch('/files_auto/' + encodeURIComponent(name), { method: 'DELETE' })
+            return fetch('/delete_create_file/' + encodeURIComponent(name), { method: 'DELETE' })
                 .then(() => location.reload());
         }
 
         function createFile(name, content) {
-            return fetch('/files_auto', {
+            return fetch('/delete_create_file', {
                 method: 'POST',
                 headers: {
                     'X-Filename': name,
@@ -157,7 +157,7 @@
                 .catch(() => setCreateStatus('Could not create file.'));
         });
 
-        fetch('/files_auto/')
+        fetch('/files_auto/') // uses autoindex to get file list as HTML, then parses it to extract file names (since we dont have JSON API for files list)
             .then((r) => r.text())
             .then((html) => {
                 const doc = new DOMParser().parseFromString(html, 'text/html');

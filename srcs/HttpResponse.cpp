@@ -68,6 +68,12 @@ HttpResponse HttpResponse::make_405() {
     return r;
 }
 
+HttpResponse HttpResponse::make_408() {
+    HttpResponse r;
+    r.setStatus(408).setBody(_errorBody(408, "Request Timeout"));
+    return r;
+}
+
 HttpResponse HttpResponse::make_413() {
     HttpResponse r;
     r.setStatus(413).setBody(_errorBody(413, "Payload Too Large"));
@@ -118,6 +124,7 @@ std::string HttpResponse::_reason(int code) {
         case 403: return "Forbidden";
         case 404: return "Not Found";
         case 405: return "Method Not Allowed";
+        case 408: return "Request Timeout";
         case 413: return "Payload Too Large";
         case 500: return "Internal Server Error";
         //case 502: return "Bad Gateway"; // todo: not implemented

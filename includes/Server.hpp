@@ -9,7 +9,6 @@
 #include <fcntl.h>      // fcntl() non-blocking
 #include "ServerConfig.hpp"
 #include "HttpRequest.hpp"
-#include "HttpResponse.hpp"
 #include "Client.hpp"
 #include "StaticFileHandler.hpp"
 #include "ConnectionManager.hpp"
@@ -46,7 +45,8 @@ class Server {
 			BACKLOG      = 128,   // max queued incoming connections waiting to be accepted; named so to match exact socket API term listen(fd, backlog), Kernel docs/man pages call it “backlog”
 			POLL_TIMEOUT = 100,  // ms —  how often to check for shutdown signal (SIGINT) in main loop; if too long, server may be slow to respond to shutdown; if too short, may cause more CPU wakeups and slightly higher CPU usage when idle
 			maxEvents   = 64,   // max ready events handled per tick call
-			READ_BUF     = 4096 // chunk size per recv
+			READ_BUF     = 4096, // chunk size per recv
+			SERVER_TIMEOUT = 6 // seconds of idle time before server closes client connection
 		};
 
 		int                     _listenFd;
@@ -55,5 +55,5 @@ class Server {
 		EpollLoop               _epoll;
 		std::map<int, Client *> _clients;
 		ProcessRequest          _processRequest;
-		ConnectionManager       _connectionManager;
+		ConnectionManager      _connectionManager;
 };

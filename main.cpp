@@ -43,7 +43,6 @@ int main(int argc, char *argv[])
 
     // Config file from argv or default
     std::string configFile = (argc == 2) ? argv[1] : "default.conf";
-    std::cout << "--- webserv — loading " << configFile << " ---\n";
 
     try
     {

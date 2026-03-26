@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <sys/epoll.h>
+#include <cstring>
 
 /**
  * a simple wrapper around the Linux epoll API to manage an epoll instance.
@@ -23,4 +24,5 @@ public:
 
 private:
 	int _fd;
+	static struct epoll_event make_event(int fd, uint32_t events);
 };

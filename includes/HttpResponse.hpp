@@ -40,6 +40,7 @@ public:
     static HttpResponse make_403(); // forbidden: server knows who you are (or auth is irrelevant), but access is denied.
     static HttpResponse make_404(); // not found
     static HttpResponse make_405(); // method not allowed
+    static HttpResponse make_408(); // request timeout: client idle for too long, server closes connection
     static HttpResponse make_413(); // payload too large
     static HttpResponse make_500();
 

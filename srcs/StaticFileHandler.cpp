@@ -20,7 +20,7 @@
  */
 
 HttpResponse StaticFileHandler::serveStatic(const std::string &filepath) {
-        std::cerr << "[StaticFileHandler] Requested file path: " << filepath << std::endl;
+        // std::cerr << "[StaticFileHandler] Requested file path: " << filepath << std::endl;
     struct stat st; // POSIX API structure (size, mode/type, timestamps, etc.).
     if (stat(filepath.c_str(), &st) != 0) { //0 = success, -1 = failure and sets errno. 
         if (errno == ENOENT || errno == ENOTDIR) // error no entry(path or file doesnt exist, error no dir(/www/index.html/abc))

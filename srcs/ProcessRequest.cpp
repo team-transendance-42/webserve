@@ -19,7 +19,7 @@ ProcessRequest::ProcessRequest(const ServerConfig &config)
     : _config(config) {}
 
 const Location *ProcessRequest::_resolveLocationOrError(const HttpRequest &req, Client &client) const {
-        std::cerr << "[DEBUG] Incoming request path: '" << req.path << "'" << std::endl;
+        // std::cerr << "[DEBUG] Incoming request path: '" << req.path << "'" << std::endl;
     const Location *loc = _config.matchLocation(req.path);
     if (!loc) {
         client.writeBuf = ErrorResponseBuilder::buildErrorResponse(404, _config).serialize();
@@ -224,13 +224,18 @@ bool ProcessRequest::_handleDeleteIfNeeded(const HttpRequest &req,
     return true;
 }
 
-std::string ProcessRequest::_resolveFilePath(const Location &loc,
-                                             const std::string &requestPath) const {
-
+// Given a location and request path, build the absolute file path to serve.
+// Example:
+//   loc.path = "/delete_create_file", loc.root = "./www/files", loc.index = "index.html"
+//   requestPath = "/delete_create_file/foo.txt"
+//   => returns "./www/files/foo.txt"
+//   requestPath = "/delete_create_file"
+//   => returns "./www/files/index.html"
+std::string ProcessRequest::_resolveFilePath(const Location &loc, const std::string &requestPath) const {
     std::string resolved;
     if (requestPath == loc.path) {
         resolved = loc.root + "/" + loc.index;
-        std::cerr << "[ProcessRequest::_resolveFilePath--1] '" << requestPath << "' => '" << resolved << "'\n";
+        // std::cerr << "[ProcessRequest::_resolveFilePath--1] '" << requestPath << "' => '" << resolved << "'\n";
         return resolved;
     }
 
@@ -243,12 +248,12 @@ std::string ProcessRequest::_resolveFilePath(const Location &loc,
     if (!loc.root.empty() && loc.root[loc.root.size() - 1] == '/' &&
         !suffix.empty() && suffix[0] == '/') {
         resolved = loc.root.substr(0, loc.root.size() - 1) + suffix;
-        std::cerr << "[ProcessRequest::_resolveFilePath--2] '" << requestPath << "' => '" << resolved << "'\n";
+        // std::cerr << "[ProcessRequest::_resolveFilePath--2] '" << requestPath << "' => '" << resolved << "'\n";
         return resolved;
     }
 
     resolved = loc.root + + "/" + suffix;
-    std::cerr << "[ProcessRequest::_resolveFilePath--3] '" << requestPath << "' => '" << resolved << "'\n";
+    // std::cerr << "[ProcessRequest::_resolveFilePath--3] '" << requestPath << "' => '" << resolved << "'\n";
     return resolved;
 }
 

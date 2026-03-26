@@ -29,7 +29,7 @@ ConnectionManager::ConnectionManager(std::map<int, Client *> &clients,
 
 void ConnectionManager::readClient(Client &client, std::size_t readBufSize) {
 	std::string chunk(readBufSize, '\0'); // chunk is a var; create a string of length readBufSize, fill it with '\0' chars.
-
+	client.lastTimestamp = std::time(0); // update last activity time on each read
 	while (true) {
 		ssize_t bytes = recv(client.fd, &chunk[0], chunk.size(), 0); // n = {num of bytes received, 0 = orderly shutdown by peer, -1 err }
 
@@ -69,6 +69,7 @@ void ConnectionManager::readClient(Client &client, std::size_t readBufSize) {
 	That is how the server moves a client socket between “wait for request bytes” and “wait until response can be sent.”
  */
 void ConnectionManager::writeClient(Client &client) {
+	client.lastTimestamp = std::time(0); // update last activity time on each write
 	while (!client.writeBuf.empty()) {
 		ssize_t sent = send(client.fd,
 							client.writeBuf.c_str(),

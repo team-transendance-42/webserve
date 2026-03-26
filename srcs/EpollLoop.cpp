@@ -35,12 +35,10 @@ int EpollLoop::wait(struct epoll_event *events, int maxEvents, int timeoutMs) co
 }
 
 void EpollLoop::add(int fd, uint32_t events) const {
-	struct epoll_event ev;
-	ev.events = events;
-	ev.data.fd = fd;
+	struct epoll_event ev = make_event(fd, events);
 	if (epoll_ctl(_fd, EPOLL_CTL_ADD, fd, &ev) < 0)
 		throw std::runtime_error("epoll_ctl ADD failed: "
-								 + std::string(strerror(errno)));
+									 + std::string(strerror(errno)));
 }
 
 /**
@@ -49,12 +47,10 @@ void EpollLoop::add(int fd, uint32_t events) const {
  * @param events Events to set.
  */
 void EpollLoop::mod(int fd, uint32_t events) const {
-	struct epoll_event ev;
-	ev.events = events;
-	ev.data.fd = fd;
+	struct epoll_event ev = make_event(fd, events);
 	if (epoll_ctl(_fd, EPOLL_CTL_MOD, fd, &ev) < 0)
 		throw std::runtime_error("epoll_ctl MOD failed: "
-								 + std::string(strerror(errno)));
+									 + std::string(strerror(errno)));
 }
 
 /**
@@ -65,4 +61,12 @@ void EpollLoop::del(int fd) const {
 	if (epoll_ctl(_fd, EPOLL_CTL_DEL, fd, NULL) < 0)
 		std::cerr << "[epoll] DEL failed fd=" << fd
 				  << ": " << strerror(errno) << "\n";
+}
+
+struct epoll_event EpollLoop::make_event(int fd, uint32_t events) {
+	struct epoll_event ev;
+	std::memset(&ev, 0, sizeof(ev));
+	ev.events = events;
+	ev.data.fd = fd;
+	return ev;
 }

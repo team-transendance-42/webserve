@@ -5,6 +5,7 @@
 403 Forbidden — Permission denied
 404 Not Found — Resource not found
 405 Method Not Allowed — Method not allowed for this endpoint
+408 Request Timeout response before closing (for HTTP compliance).
 409 Conflict — Conflict (e.g., trying to delete a directory)
 413 Payload Too Large — Request body too big
 500 Internal Server Error — Server error

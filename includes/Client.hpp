@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <ctime>
 #include "HttpRequest.hpp"
 
 /**
@@ -48,8 +49,13 @@ struct Client {
     HttpRequest request;
     std::string writeBuf;
     bool        keep_alive;
+    // int         bytesSent; // for tracking partial writes   todo !!
+    // int         bytesToSend; // for tracking total response size todo !!
+    // int         bytesWritten; // for tracking how many bytes have been written so far todo !!
+    // int         bytesLeft; // for tracking how many bytes are left to write todo !!
+    time_t      lastTimestamp; // for tracking last activity time (for timeouts): init to curr time; time_t: depend on system, usually a typedef for a numeric type representing seconds since epoch (Jan 1, 1970). time() returns current time as time_t.(often long or long long)
 
-    explicit Client(int fd) : fd(fd), keep_alive(false) {}
+    explicit Client(int fd) : fd(fd), keep_alive(false), lastTimestamp(std::time(0)) {}
 
     Client(const Client &) = delete;
     Client &operator=(const Client &) = delete;

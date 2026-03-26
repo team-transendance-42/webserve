@@ -1,4 +1,5 @@
 #include "../includes/Server.hpp"
+#include "../includes/HttpResponse.hpp"
 #include <iostream>
 #include <stdexcept>
 #include <cstring>
@@ -7,22 +8,26 @@
  * lambda expression: [this](int fd, uint32_t events) { _epoll.mod(fd, events); }
  * [ ] = capture list that specifies what variables/pointers the lambda can access
 this = captures the pointer to the current object (the Server instance)
-Effect: Inside the lambda body, you can access all member variables and methods of Server like _epoll, _clients, etc.
+Effect: Inside the lambda body, we can access all member variables and methods of Server like _epoll, _clients, etc.
 Without [this], calling _epoll.mod() would fail—the lambda wouldn't know what _epoll is
+
+Each browser tab or curl command is a separate client (separate TCP connection, separate fd).
+When a client disconnects, we remove its fd from epoll and close it.
+Server fd: only for new connections.
+Client fd: for reading requests and writing responses.
+epoll manages all active fds and notifies you when they’re ready for I/O.
  */
 Server::Server(const ServerConfig &config)
-        : _config(config),
-            _listenFd(-1),
-        	_epoll(),
-            _running(true),
-            _processRequest(_config),
-            _connectionManager(
-                    _clients,
-                [this](int fd, uint32_t events) { _epoll.mod(fd, events); },
-                [this](int fd) { _epoll.del(fd); },
-                _processRequest) {
-		// todo: missing init _clients
-	}
+    : _config(config),
+        _listenFd(-1),
+        _epoll(),
+        _running(true),
+        _processRequest(_config),
+        _connectionManager(
+                _clients,
+            [this](int fd, uint32_t events) { _epoll.mod(fd, events); },
+            [this](int fd) { _epoll.del(fd); },
+            _processRequest) {} // map *clients is auto initialized as empty, we will add client objects to it in _acceptClient when new clients connect
 
 Server::~Server() {
     typedef std::map<int, Client *>::iterator It;
@@ -36,45 +41,39 @@ Server::~Server() {
 // ── init ──────────────────────────────────────────────────────────────────────
 
 void Server::init() {
-    // 1. epoll instance
-    _epoll.init();
+    _epoll.init(); // create epoll instance, store fd internally
 
-    // 2. TCP socket
-    _listenFd = socket(AF_INET, SOCK_STREAM, 0);
+    _listenFd = socket(AF_INET, SOCK_STREAM, 0); // 2. TCP socket
     if (_listenFd < 0)
         throw std::runtime_error("socket() failed: "
             + std::string(strerror(errno)));
 
-    // 3. SO_REUSEADDR — no "address already in use" on restart
     int opt = 1;
-    if (setsockopt(_listenFd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0)
+    if (setsockopt(_listenFd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0) // 3. SO_REUSEADDR — a socket option,  lets quick restart the server on the same port, even if the previous socket is in TIME_WAIT state.
         throw std::runtime_error("setsockopt() failed");
 
     // 4. bind
-    struct sockaddr_in addr;
-    std::memset(&addr, 0, sizeof(addr)); // todo: why do we need memory here in this func? memory....  (stack obj, auto free when func returns)
-    addr.sin_family      = AF_INET;
-    addr.sin_port        = htons(_config.port);
+    struct sockaddr_in addr; // hold the address info for the socket.
+    std::memset(&addr, 0, sizeof(addr)); // Sets all bytes of addr to zero (clears memory). This prevents garbage values and ensures all fields are initialized.
+    addr.sin_family      = AF_INET; //Sets the address family to IPv4
+    addr.sin_port        = htons(_config.port); // htons converts the port number from host byte order to network byte order (big-endian). This is necessary for correct communication over the network, as different machines may have different byte orders.
     if (_config.host == "localhost")
         addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
     else
         addr.sin_addr.s_addr = inet_addr(_config.host.c_str());
 
-    if (bind(_listenFd, (struct sockaddr *)&addr, sizeof(addr)) < 0)
+    if (bind(_listenFd, (struct sockaddr *)&addr, sizeof(addr)) < 0) //s ssigns address/port to server socket (_listenFd).  “I want to receive connections on this IP and port"
         throw std::runtime_error("bind() failed on "
             + _config.host + ":" + std::to_string(_config.port)
             + " — " + strerror(errno));
 
-    // 5. listen
-    if (listen(_listenFd, BACKLOG) < 0)
+    if (listen(_listenFd, BACKLOG) < 0) // // 5. listen, ready to accept connections. BACKLOG = max pending connections in queue before new ones are refused.
         throw std::runtime_error("listen() failed: "
             + std::string(strerror(errno)));
 
-    // 6. non-blocking
     _setNonBlocking(_listenFd);
 
-    // 7. register server with epoll
-    _epoll.add(_listenFd, EPOLLIN);
+    _epoll.add(_listenFd, EPOLLIN); // 7. register server with epoll to wait for incoming connection events (EPOLLIN on _listenFd means new client is trying to connect)
 
     std::cout << "[Server] '" << _config.server_names[0]
               << "' listening on " << _config.host
@@ -104,6 +103,20 @@ void Server::tick() {
     // this lets main() check g_running regularly
 	// numReadyEvents = num of fds ready for i/o: how many events are avail in the events arr
     int numReadyEvents = _epoll.wait(events, maxEvents, POLL_TIMEOUT);
+
+    for (auto it = _clients.begin(); it != _clients.end();) {
+        Client* client = it->second;
+        if (std::time(0) - client->lastTimestamp > SERVER_TIMEOUT) {
+            std::cout << "[Server] closing idle client fd=" << client->fd << "\n";
+            // set res 408 Request Timeout before closing, for HTTP compliance. (optional, since client will just see connection close without response anyway)
+            // HttpResponse resp = HttpResponse::make_408();
+            // std::string msg = resp.serialize();
+            // send(client->fd, msg.c_str(), msg.size(), 0);
+            _connectionManager.closeClient(client->fd);
+            it = begin(_clients); // reset iterator to beginning after erasing current client, since erasing invalidates the iterator. We will check all clients again for idle timeout in the next tick.
+        } else
+            ++it; // only iterate if not erasing Client, otherwise after erasing, the iterator becomes invalid and we cannot increment it. If we erase, we do not increment because the next Client will now be at the same iterator position after erasing the current one.
+    }
 
     if (numReadyEvents < 0) {
         if (errno == EINTR) return;  // signal interrupted — main will check g_running
@@ -158,7 +171,10 @@ void Server::_acceptClient() {
             std::cerr << "[accept] failed: " << strerror(errno) << "\n";
             break;
         }
-
+        if (clientFd == 0) {
+            std::cerr << "[accept] returned fd=0 (invalid client), skipping.\n";
+            continue;
+        }
         _setNonBlocking(clientFd);
         _epoll.add(clientFd, EPOLLIN | EPOLLRDHUP);
         _clients[clientFd] = new Client(clientFd);

@@ -2,14 +2,14 @@
 
 ServerConfig createDefaultServerConfig() {
         // DEBUG: Print all location paths after config is built
-        struct PrintLocationsAtStartup {
-            PrintLocationsAtStartup(const std::vector<Location>& locs) {
-                std::cerr << "[DEBUG] Configured locations:" << std::endl;
-                for (size_t i = 0; i < locs.size(); ++i) {
-                    std::cerr << "  [" << i << "] '" << locs[i].path << "'" << std::endl;
-                }
-            }
-        };
+        // struct PrintLocationsAtStartup {
+        //     PrintLocationsAtStartup(const std::vector<Location>& locs) {
+        //         std::cerr << "[DEBUG] Configured locations:" << std::endl;
+        //         for (size_t i = 0; i < locs.size(); ++i) {
+        //             std::cerr << "  [" << i << "] '" << locs[i].path << "'" << std::endl;
+        //         }
+        //     }
+        // };
     ServerConfig config;
 
     config.host = "localhost";

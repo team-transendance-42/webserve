@@ -49,3 +49,6 @@ echo -e "GET / HTTP/1.1\nBad-Header\n\n" | nc localhost 8080 to test 400 Bad Req
   -H "X-Filename: bla" \
   -H "Content-Type: text/plain" \
   --data 'bla bla'
+-----------------------------------
+
+valgrind --leak-check=full --track-fds=yes ./webserv
