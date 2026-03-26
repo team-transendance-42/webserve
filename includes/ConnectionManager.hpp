@@ -23,8 +23,8 @@ public:
     void closeClient(int fd);
 
 private:
-    std::map<int, Client *> &_clients;
-    std::function<void(int, uint32_t)> _epollMod;
-    std::function<void(int)> _epollDel;
-    ProcessRequest &_processorRequest;
+    std::map<int, Client *>             &_clients;
+    std::function<void(int, uint32_t)>  _epollMod;
+    std::function<void(int)>            _epollDel;
+    ProcessRequest                      &_processorRequest;
 };

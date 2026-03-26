@@ -111,16 +111,16 @@ assert_exists "$TEST_PATH_2" "setup: created deletable file 2"
 assert_exists "$TEST_PATH_3" "setup: created deletable file 3"
 
 # 1) Core correctness: allowed DELETE removes regular files.
-assert_http_in "DELETE" "/files_auto/$TEST_FILE_1" "204" "delete existing file 1 should succeed"
-assert_http_in "DELETE" "/files_auto/$TEST_FILE_2" "204" "delete existing file 2 should succeed"
-assert_http_in "DELETE" "/files_auto/$TEST_FILE_3" "204" "delete existing file 3 should succeed"
+assert_http_in "DELETE" "/delete_create_file/$TEST_FILE_1" "204" "delete existing file 1 should succeed"
+assert_http_in "DELETE" "/delete_create_file/$TEST_FILE_2" "204" "delete existing file 2 should succeed"
+assert_http_in "DELETE" "/delete_create_file/$TEST_FILE_3" "204" "delete existing file 3 should succeed"
 
 assert_not_exists "$TEST_PATH_1" "deleted file 1 should be gone on filesystem"
 assert_not_exists "$TEST_PATH_2" "deleted file 2 should be gone on filesystem"
 assert_not_exists "$TEST_PATH_3" "deleted file 3 should be gone on filesystem"
 
 # 2) Not found behavior.
-assert_http_in "DELETE" "/files_auto/no_such_file_$$.txt" "404" "delete missing file"
+assert_http_in "DELETE" "/delete_create_file/no_such_file_$$.txt" "404" "delete missing file"
 
 # 3) Method constraints still enforced by location rules.
 assert_http_in "DELETE" "/zombie_kittens" "405" "DELETE on GET-only location should be rejected"
@@ -129,19 +129,19 @@ assert_http_in "DELETE" "/zombie_kittens" "405" "DELETE on GET-only location sho
 TEST_DIR="delete_dir_$$"
 TEST_DIR_PATH="$FILES_DIR/$TEST_DIR"
 mkdir -p "$TEST_DIR_PATH"
-assert_http_in "DELETE" "/files_auto/$TEST_DIR" "400,403,404,409,500" "deleting a directory should not return success"
+assert_http_in "DELETE" "/delete_create_file/$TEST_DIR" "400,403,404,409,500" "deleting a directory should not return success"
 assert_exists "$TEST_DIR_PATH" "directory target must still exist"
 rmdir "$TEST_DIR_PATH" 2>/dev/null || true
 
 # 5) Path traversal attempts must not succeed and must not touch protected files.
-assert_http_in "DELETE" "/files_auto/../one/index.html" "400,403,404" "raw traversal blocked"
-assert_http_in "DELETE" "/files_auto/%2e%2e/one/index.html" "400,403,404" "encoded traversal blocked"
-assert_http_in "DELETE" "/files_auto/..%2Fone%2Findex.html" "400,403,404" "slash-encoded traversal blocked"
-assert_http_in "DELETE" "/files_auto//../one/index.html" "400,403,404" "double-slash traversal blocked"
+assert_http_in "DELETE" "/delete_create_file/../one/index.html" "400,403,404" "raw traversal blocked"
+assert_http_in "DELETE" "/delete_create_file/%2e%2e/one/index.html" "400,403,404" "encoded traversal blocked"
+assert_http_in "DELETE" "/delete_create_file/..%2Fone%2Findex.html" "400,403,404" "slash-encoded traversal blocked"
+assert_http_in "DELETE" "/delete_create_file//../one/index.html" "400,403,404" "double-slash traversal blocked"
 assert_exists "$PROTECTED_FILE" "protected file must remain untouched after traversal probes"
 
 # 6) Missing filename should not be treated as a valid delete target.
-assert_http_in "DELETE" "/files_auto" "400,403,404" "missing filename is invalid"
+assert_http_in "DELETE" "/delete_create_file" "400,403,404" "missing filename is invalid"
 
 printf "\nSummary: %d passed, %d failed\n" "$pass" "$fail"
 

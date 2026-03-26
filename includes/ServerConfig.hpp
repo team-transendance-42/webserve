@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <iostream> // for debug logging
 
 struct Location {
     std::string              path;

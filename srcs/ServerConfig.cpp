@@ -1,6 +1,15 @@
 #include "../includes/ServerConfig.hpp"
 
 ServerConfig createDefaultServerConfig() {
+        // DEBUG: Print all location paths after config is built
+        struct PrintLocationsAtStartup {
+            PrintLocationsAtStartup(const std::vector<Location>& locs) {
+                std::cerr << "[DEBUG] Configured locations:" << std::endl;
+                for (size_t i = 0; i < locs.size(); ++i) {
+                    std::cerr << "  [" << i << "] '" << locs[i].path << "'" << std::endl;
+                }
+            }
+        };
     ServerConfig config;
 
     config.host = "localhost";
@@ -8,16 +17,6 @@ ServerConfig createDefaultServerConfig() {
     config.server_names.push_back("one");
     config.clientMaxBodySize= 1048576;
     config.default_server = true;
-
-    // location /secrets (403: NO Permission)
-    Location secrets;
-    secrets.path = "/secrets";
-    secrets.root = "./www/secrets";
-    secrets.index = "index.html";
-    secrets.autoindex = false;
-    secrets.allowedMethod = {"GET"};
-    secrets.denyAll = true; // NO Permission
-    config.locations.push_back(secrets);
 
     // error pages
 	// todo: add with 300 pages....
@@ -124,20 +123,20 @@ ServerConfig createDefaultServerConfig() {
 
     // page with custom delete UI for files directory
     Location deleteFile;
-    deleteFile.path = "/delete_file";
+    deleteFile.path = "/delete_create_file";
     deleteFile.root = "./www/files";
     deleteFile.index = "index.html";
-    deleteFile.allowedMethod = {"GET"};
+    deleteFile.allowedMethod = {"GET", "POST", "DELETE"};
+    deleteFile.upload_enabled = true; // create file for testing delete, not secure for production
+    deleteFile.upload_path = "./www/files";
     config.locations.push_back(deleteFile);
 
-    // directory listing + DELETE endpoint used by delete_file page
+    // directory listing with autoindex
     Location filesAuto;
     filesAuto.path = "/files_auto";
     filesAuto.root = "./www/files";
     filesAuto.autoindex = true;
-    filesAuto.allowedMethod = {"GET", "POST", "DELETE"};
-    filesAuto.upload_enabled = true;
-    filesAuto.upload_path = "./www/files";
+    filesAuto.allowedMethod = {"GET"};
     config.locations.push_back(filesAuto);
 
     // test JSON API
@@ -150,15 +149,15 @@ ServerConfig createDefaultServerConfig() {
     config.locations.push_back(api);
 
     // test upload doc on the server
-    Location upload;
-    upload.path = "/upload";
-    upload.root = "./www/one";
-    upload.index = "upload.html";
-    upload.upload_enabled = true;
-    upload.upload_path = "./www/uploads";
-    upload.clientMaxBodySize = 5 * 1024 * 1024; // 5 MiB for uploads
-    upload.allowedMethod = {"GET", "POST"};
-    config.locations.push_back(upload);
+    // Location upload;
+    // upload.path = "/upload";
+    // upload.root = "./www/one";
+    // upload.index = "upload.html";
+    // upload.upload_enabled = true;
+    // upload.upload_path = "./www/uploads";
+    // upload.clientMaxBodySize = 5 * 1024 * 1024; // 5 MiB for uploads
+    // upload.allowedMethod = {"GET", "POST"};
+    // config.locations.push_back(upload);
 
     return config;
 }

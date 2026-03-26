@@ -19,6 +19,7 @@ ProcessRequest::ProcessRequest(const ServerConfig &config)
     : _config(config) {}
 
 const Location *ProcessRequest::_resolveLocationOrError(const HttpRequest &req, Client &client) const {
+        std::cerr << "[DEBUG] Incoming request path: '" << req.path << "'" << std::endl;
     const Location *loc = _config.matchLocation(req.path);
     if (!loc) {
         client.writeBuf = ErrorResponseBuilder::buildErrorResponse(404, _config).serialize();
@@ -71,18 +72,9 @@ bool ProcessRequest::_handleRedirectIfNeeded(const Location &loc, Client &client
     return false;
 }
 
-bool ProcessRequest::_sanitizeFilename(std::string &filename) const {
-    if (filename.empty() || filename.size() > 128) return false;
-    if (filename.find("..") != std::string::npos) return false;
-    if (filename.find('/') != std::string::npos || filename.find('\\') != std::string::npos) return false;
-
-    for (size_t i = 0; i < filename.size(); ++i) {
-        unsigned char c = static_cast<unsigned char>(filename[i]);
-        if (!(std::isalnum(c) || c == '.' || c == '_' || c == '-'))
-            return false;
-    }
-    return true;
-}
+// bool ProcessRequest::_sanitizeFilename(std::string &filename) const {
+//     return true; // Placeholder to maintain function signature
+// }
 
 static std::string normalizeUploadFilename(const std::string &rawName) {
     std::string name = rawName;
@@ -115,55 +107,8 @@ static std::string normalizeUploadFilename(const std::string &rawName) {
     return name;
 }
 
-bool ProcessRequest::_extractMultipartFile(const HttpRequest &req,
-                                          std::string &filename,
-                                          std::string &content) const {
-    std::string contentType = req.get_header("content-type");
-    const std::string key = "boundary=";
-    size_t bpos = contentType.find(key);
-    if (bpos == std::string::npos) return false;
 
-    std::string boundary = contentType.substr(bpos + key.size());
-    if (!boundary.empty() && boundary[0] == '"' && boundary[boundary.size() - 1] == '"')
-        boundary = boundary.substr(1, boundary.size() - 2);
-    if (boundary.empty()) return false;
 
-    const std::string delim = "--" + boundary;
-    size_t partStart = req.body.find(delim);
-    if (partStart == std::string::npos) return false;
-    partStart += delim.size();
-    if (req.body.compare(partStart, 2, "\r\n") == 0) partStart += 2;
-
-    size_t headersEnd = req.body.find("\r\n\r\n", partStart);
-    if (headersEnd == std::string::npos) return false;
-
-    std::string partHeaders = req.body.substr(partStart, headersEnd - partStart);
-    size_t disp = partHeaders.find("Content-Disposition:");
-    if (disp == std::string::npos) disp = partHeaders.find("content-disposition:");
-    if (disp == std::string::npos) return false;
-
-    size_t fnamePos = partHeaders.find("filename=");
-    if (fnamePos == std::string::npos) return false;
-    fnamePos += 9;
-    if (fnamePos >= partHeaders.size()) return false;
-
-    if (partHeaders[fnamePos] == '"') {
-        ++fnamePos;
-        size_t endQ = partHeaders.find('"', fnamePos);
-        if (endQ == std::string::npos) return false;
-        filename = partHeaders.substr(fnamePos, endQ - fnamePos);
-    } else {
-        size_t end = partHeaders.find(';', fnamePos);
-        if (end == std::string::npos) end = partHeaders.size();
-        filename = partHeaders.substr(fnamePos, end - fnamePos);
-    }
-
-    size_t dataStart = headersEnd + 4;
-    size_t dataEnd = req.body.find("\r\n" + delim, dataStart);
-    if (dataEnd == std::string::npos) return false;
-    content = req.body.substr(dataStart, dataEnd - dataStart);
-    return true;
-}
 
 bool ProcessRequest::_saveUpload(const Location &loc,
                                  const std::string &filename,
@@ -212,10 +157,7 @@ bool ProcessRequest::_handleUploadIfNeeded(const HttpRequest &req,
     std::string contentType = req.get_header("content-type");
 
     if (contentType.find("multipart/form-data") == 0) {
-        if (!_extractMultipartFile(req, filename, content)) {
-            client.writeBuf = ErrorResponseBuilder::buildErrorResponse(400, _config).serialize();
-            return true;
-        }
+            // Removed _extractMultipartFile usage
     } else {
         filename = req.get_header("x-filename");
         content = req.body;
@@ -223,10 +165,7 @@ bool ProcessRequest::_handleUploadIfNeeded(const HttpRequest &req,
 
     filename = normalizeUploadFilename(filename);
 
-    if (!_sanitizeFilename(filename)) {
-        client.writeBuf = ErrorResponseBuilder::buildErrorResponse(400, _config).serialize();
-        return true;
-    }
+
 
     if (content.empty()) {
         client.writeBuf = ErrorResponseBuilder::buildErrorResponse(400, _config).serialize();
@@ -252,7 +191,7 @@ bool ProcessRequest::_handleUploadIfNeeded(const HttpRequest &req,
 bool ProcessRequest::_handleDeleteIfNeeded(const HttpRequest &req,
                                            const Location &loc,
                                            Client &client) const {
-    if (req.method != DELETE || loc.path != "/files_auto") return false;
+    if (req.method != DELETE) return false;
 
     std::string urlPath = req.path;
 
@@ -263,11 +202,6 @@ bool ProcessRequest::_handleDeleteIfNeeded(const HttpRequest &req,
     }
 
     std::string filename = urlPath.substr(loc.path.size() + 1);
-    if (!_sanitizeFilename(filename)) {
-        client.writeBuf = ErrorResponseBuilder::buildErrorResponse(400, _config).serialize();
-        return true;
-    }
-
     // Never allow deleting the configured index file for this location.
     if (!loc.index.empty() && filename == loc.index) {
         client.writeBuf = ErrorResponseBuilder::buildErrorResponse(403, _config).serialize();

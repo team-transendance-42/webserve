@@ -21,22 +21,16 @@ public:
     void handle(Client &client) const;
 
 private:
-    const Location *_resolveLocationOrError(const HttpRequest &req, Client &client) const;
-    bool _validateLocationRulesOrError(const HttpRequest &req, const Location &loc, Client &client) const;
-    bool _handleRedirectIfNeeded(const Location &loc, Client &client) const;
-    bool _handleUploadIfNeeded(const HttpRequest &req, const Location &loc, Client &client) const;
-    bool _handleDeleteIfNeeded(const HttpRequest &req, const Location &loc, Client &client) const;
-    bool _sanitizeFilename(std::string &filename) const;
-    bool _extractMultipartFile(const HttpRequest &req,
-                               std::string &filename,
-                               std::string &content) const;
-    bool _saveUpload(const Location &loc,
-                     const std::string &filename,
-                     const std::string &content,
-                     std::string &savedPath) const;
-    std::string _resolveFilePath(const Location &loc, const std::string &requestPath) const;
-    bool _resolvePathStatOrError(const std::string &filepath, Client &client, struct stat &st) const;
-    void _serveFromStat(const Location &loc,
+    const Location  *_resolveLocationOrError(const HttpRequest &req, Client &client) const;
+    bool            _validateLocationRulesOrError(const HttpRequest &req, const Location &loc, Client &client) const;
+    bool            _handleRedirectIfNeeded(const Location &loc, Client &client) const;
+    bool            _handleUploadIfNeeded(const HttpRequest &req, const Location &loc, Client &client) const;
+    bool            _handleDeleteIfNeeded(const HttpRequest &req, const Location &loc, Client &client) const;
+
+    std::string     _resolveFilePath(const Location &loc, const std::string &requestPath) const;
+    bool            _resolvePathStatOrError(const std::string &filepath, Client &client, struct stat &st) const;
+    bool            _saveUpload(const Location &loc, const std::string &filename, const std::string &content, std::string &savedPath) const;
+    void            _serveFromStat(const Location &loc,
                         const std::string &urlPath,
                         const std::string &filepath,
                         const struct stat &st,

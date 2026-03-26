@@ -43,7 +43,7 @@ public:
     static HttpResponse make_413(); // payload too large
     static HttpResponse make_500();
 
-    // serialize to raw HTTP string — hand this to send()
+    // serialize(from http res obj) to raw HTTP string — hand this to send()
     std::string serialize() const;
 
 private:

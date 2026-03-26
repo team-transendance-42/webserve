@@ -52,7 +52,7 @@ void Server::init() {
 
     // 4. bind
     struct sockaddr_in addr;
-    std::memset(&addr, 0, sizeof(addr)); // todo: do we need it? memory....
+    std::memset(&addr, 0, sizeof(addr)); // todo: why do we need memory here in this func? memory....  (stack obj, auto free when func returns)
     addr.sin_family      = AF_INET;
     addr.sin_port        = htons(_config.port);
     if (_config.host == "localhost")
@@ -73,7 +73,7 @@ void Server::init() {
     // 6. non-blocking
     _setNonBlocking(_listenFd);
 
-    // 7. register with epoll
+    // 7. register server with epoll
     _epoll.add(_listenFd, EPOLLIN);
 
     std::cout << "[Server] '" << _config.server_names[0]

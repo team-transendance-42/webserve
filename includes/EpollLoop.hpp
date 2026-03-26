@@ -5,7 +5,7 @@
 
 /**
  * a simple wrapper around the Linux epoll API to manage an epoll instance.
- * provides methods to initialize the epoll instance, wait for events, and add/modify/delete file descriptors.
+ * methods to initialize the epoll instance, wait for events, and add/modify/delete file descriptors.
  */
 class EpollLoop {
 public:
