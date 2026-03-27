@@ -46,7 +46,7 @@ class Server {
 			POLL_TIMEOUT = 100,  // ms —  how often to check for shutdown signal (SIGINT) in main loop; if too long, server may be slow to respond to shutdown; if too short, may cause more CPU wakeups and slightly higher CPU usage when idle
 			maxEvents   = 64,   // max ready events handled per tick call
 			READ_BUF     = 4096, // chunk size per recv
-			SERVER_TIMEOUT = 6 // seconds of idle time before server closes client connection
+			SERVER_TIMEOUT = 60 // seconds of idle time before server closes client connection
 		};
 
 		int                     _listenFd;

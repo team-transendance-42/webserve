@@ -1,0 +1,11 @@
+# Example Longer HTTP Request (POST)
+
+POST /submit-form HTTP/1.1
+Host: localhost:8080
+User-Agent: curl/7.68.0
+Accept: */*
+Content-Type: application/x-www-form-urlencoded
+Content-Length: 27
+Connection: keep-alive
+
+name=Alice&email=alice%40ex.com

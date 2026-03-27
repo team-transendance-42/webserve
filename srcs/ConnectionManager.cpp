@@ -85,6 +85,16 @@ void ConnectionManager::writeClient(Client &client) {
 	if (client.keep_alive) { // connection stays open for next req
 		client.request.clear();
 		_epollMod(client.fd, EPOLLIN | EPOLLRDHUP);
+
+		ParseResult res = client.request.tryParse();
+		if (res == COMPLETE) {
+			_processorRequest.handle(client);
+			_epollMod(client.fd, EPOLLOUT | EPOLLRDHUP);
+		} else if (res == PARSE_ERROR) {
+			client.writeBuf = HttpResponse::make_400().serialize(); // build obj->set fields->flatten to bytes->send bytes
+			client.keep_alive = false;
+			_epollMod(client.fd, EPOLLOUT | EPOLLRDHUP);
+		}
 	} else {
 		closeClient(client.fd);
 	}

@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <iostream>
 #include <cstdlib>
+#include <cctype> // isdigit
 #include "../includes/HttpRequest.hpp"
 
 HttpRequest::HttpRequest() : method(UNKNOWN), _state(REQUEST_LINE) {}
@@ -26,19 +27,26 @@ limit for body size: protects for DoS attacks( Denial of Service: an attacker tr
 ParseResult HttpRequest::_parse() {
     const size_t MAX_HEADER_SIZE = 8192; // 8 KB
     const size_t MAX_BODY_SIZE = 10 * 1024 * 1024; // 10 MB parser safety cap; policy 413 is enforced later in ProcessRequest
+	const size_t contentLen = content_length();
 
-    if (_buf.size() > MAX_HEADER_SIZE && _state == HEADERS) {
-        _state = ERROR;
-        return PARSE_ERROR;
-    }
-    if (content_length() > MAX_BODY_SIZE) {
-        std::cerr << "[400] parser rejected request: Content-Length exceeds parser cap"
-                  << " content_length=" << content_length()
-                  << " parser_max=" << MAX_BODY_SIZE
-                  << "\n";
-        _state = ERROR;
-        return PARSE_ERROR;
-    }
+	//if (contentLen == -1) {
+	//	std::cout << "[400] parser rejected request: Content-Length is not a valid number\n";
+    //    _state = ERROR;
+    //    return PARSE_ERROR;
+	//}
+    //if (_buf.size() > MAX_HEADER_SIZE && _state == HEADERS) {
+    //    _state = ERROR;
+    //    return PARSE_ERROR;
+    //}
+
+    //if (contentLen > MAX_BODY_SIZE) {
+    //    std::cout << "[400] parser rejected request: Content-Length exceeds parser cap"
+    //              << " content_length=" << contentLen
+    //              << " parser_max=" << MAX_BODY_SIZE
+    //              << "\n";
+    //    _state = ERROR;
+    //    return PARSE_ERROR;
+    //}
 
     while (true) {
         switch (_state) {
@@ -55,10 +63,27 @@ ParseResult HttpRequest::_parse() {
         case HEADERS:
             if (!_line_ready()) return INCOMPLETE;
             {
-                std::string line = _next_line();
-                if (line.empty()) {
-                    // blank line = end of headers
-                    _state = (content_length() > 0) ? BODY : DONE;
+				if (_buf.size() > MAX_HEADER_SIZE) {
+					_state = ERROR;
+					return PARSE_ERROR;
+				}
+				std::string line = _next_line();
+				if (line.empty()) {
+					// blank line = end of headers
+					size_t contentLen = content_length();
+
+					if (contentLen == (size_t)-1) {
+						std::cout << "[400] Header: invalid Content-Length value\n";
+						_state = ERROR;
+						return PARSE_ERROR;
+					}
+					if (contentLen > MAX_BODY_SIZE) {
+						std::cout << "[400] Header: Content-Length exceeds parser cap\n";
+						_state = ERROR;
+						return PARSE_ERROR;
+					}
+					
+                    _state = (contentLen > 0) ? BODY : DONE;
                 } else {
                     if (!_parse_header_line(line)) {
                         _state = ERROR;
@@ -70,7 +95,7 @@ ParseResult HttpRequest::_parse() {
 
         case BODY:
             {
-                size_t expected = content_length();
+                size_t expected = contentLen;
                 if (_buf.size() < expected) return INCOMPLETE;
                 body = _buf.substr(0, expected);
                 _buf.erase(0, expected);
@@ -126,6 +151,36 @@ bool HttpRequest::_parse_path(const std::string &raw) {
 }
 
 // ── header line ──────────────────────────────────────────────────────────────
+// todo: do i want a static func or in .hpp?
+static bool is_valid_header_name(const std::string &key) {
+    if (key.empty())
+        return false;
+
+    for (size_t i = 0; i < key.size(); ++i) {
+        unsigned char c = static_cast<unsigned char>(key[i]);
+
+        if (!std::isalnum(c) &&
+            c != '!' && c != '#' && c != '$' && c != '%' && c != '&' &&
+            c != '\'' && c != '*' && c != '+' && c != '-' && c != '.' &&
+            c != '^' && c != '_' && c != '`' && c != '|' && c != '~') {
+            return false;
+        }
+    }
+    return true;
+}
+
+static bool is_valid_header_value(const std::string &value) {
+    for (size_t i = 0; i < value.size(); ++i) {
+        unsigned char c = static_cast<unsigned char>(value[i]);
+
+        if (c == '\r' || c == '\n')
+            return false;
+
+        if ((c < 32 && c != '\t') || c == 127)
+            return false;
+    }
+    return true;
+}
 
 /**
  * Parses one HTTP header line: "Key: Value".
@@ -138,6 +193,12 @@ bool HttpRequest::_parse_path(const std::string &raw) {
  * - Stores header using lowercase key for case-insensitive lookup.
  *
  * Returns true on success, false on malformed header.
+ * 
+ * lambda function used as a predicate for std::all_of.
+[](unsigned char c){ return std::isdigit(c); }
+[]: Introduces a lambda (an anonymous function).
+(unsigned char c): Takes one argument, c, of type unsigned char.
+{ return std::isdigit(c); }: Returns true if c is a digit (0-9), false otherwise.
  */
 bool HttpRequest::_parse_header_line(const std::string &line) {
     size_t colon = line.find(':');
@@ -146,14 +207,26 @@ bool HttpRequest::_parse_header_line(const std::string &line) {
     std::string key   = line.substr(0, colon);
     std::string value = line.substr(colon + 1);
 
-    if (key.find('\r') != std::string::npos || key.find('\n') != std::string::npos ||
-        value.find('\r') != std::string::npos || value.find('\n') != std::string::npos) {
-        return false; // Reject header with CRLF injection
-    }
+    //if (key.find('\r') != std::string::npos || key.find('\n') != std::string::npos ||
+    //    value.find('\r') != std::string::npos || value.find('\n') != std::string::npos) {
+    //    return false; // Reject header with CRLF injection
+    //}
 
-    size_t s = value.find_first_not_of(" \t");
-    size_t e = value.find_last_not_of(" \t\r\n");
+    //size_t s = value.find_first_not_of(" \t");
+    //size_t e = value.find_last_not_of(" \t\r\n");
+    //value = (s == std::string::npos) ? "" : value.substr(s, e - s + 1);
+
+    //headers[_to_lower(key)] = value;
+    //return true;
+	size_t s = value.find_first_not_of(" \t");
+    size_t e = value.find_last_not_of(" \t");
     value = (s == std::string::npos) ? "" : value.substr(s, e - s + 1);
+
+    if (!is_valid_header_name(key))
+        return false;
+
+    if (!is_valid_header_value(value))
+        return false;
 
     headers[_to_lower(key)] = value;
     return true;
@@ -173,6 +246,9 @@ bool HttpRequest::has_header(const std::string &key) const {
 
 size_t HttpRequest::content_length() const {
     std::string val = get_header("content-length");
+	if (!val.empty() && !std::all_of(val.begin(), val.end(), [](unsigned char c){ return std::isdigit(c); })) {
+    	return (size_t)-1;
+	}
     return val.empty() ? 0 : static_cast<size_t>(std::atol(val.c_str()));
 }
 
@@ -197,11 +273,33 @@ void HttpRequest::clear() {
     headers.clear();
     body.clear();
     _state = REQUEST_LINE;
-    _buf.clear();
+    //_buf.clear(); might chunks from next req
+}
+
+//bool HttpRequest::_line_ready() const {
+//    return _buf.find("\r\n") != std::string::npos;
+//}
+
+ParseResult HttpRequest::tryParse() {
+	if (_buf.empty()) return INCOMPLETE;
+    	return _parse();
 }
 
 bool HttpRequest::_line_ready() const {
-    return _buf.find("\r\n") != std::string::npos;
+    return _buf.find('\n') != std::string::npos;  // accept \n or \r\n for testing with echo -e: echo adds one more final newline, so actual bytes are like:GET / HTTP/1.1\n
+//Host: localhost\n
+//\n
+//\n
+}
+
+std::string HttpRequest::_next_line() {
+    size_t pos = _buf.find('\n');
+    std::string line = _buf.substr(0, pos);
+    _buf.erase(0, pos + 1);
+    // strip trailing \r if present
+    if (!line.empty() && line[line.size() - 1] == '\r')
+        line.erase(line.size() - 1);
+    return line;
 }
 
 /**
@@ -216,12 +314,12 @@ bool HttpRequest::_line_ready() const {
  *
  * Note: Caller should ensure a full line is available first (via _line_ready()).
  */
-std::string HttpRequest::_next_line() {
-    size_t pos       = _buf.find("\r\n");
-    std::string line = _buf.substr(0, pos);
-    _buf.erase(0, pos + 2);
-    return line;
-}
+//std::string HttpRequest::_next_line() {
+//    size_t pos       = _buf.find("\r\n");
+//    std::string line = _buf.substr(0, pos);
+//    _buf.erase(0, pos + 2);
+//    return line;
+//}
 
 /**
  * from cpp algorithm/transform

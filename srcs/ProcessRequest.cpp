@@ -107,9 +107,7 @@ static std::string normalizeUploadFilename(const std::string &rawName) {
     return name;
 }
 
-
-
-
+// used only to create file for testing deletion, not the proper upload functionality
 bool ProcessRequest::_saveUpload(const Location &loc,
                                  const std::string &filename,
                                  const std::string &content,
@@ -147,6 +145,7 @@ bool ProcessRequest::_saveUpload(const Location &loc,
     return true;
 }
 
+// used only to create file for testing deletion, not the proper upload functionality
 bool ProcessRequest::_handleUploadIfNeeded(const HttpRequest &req,
                                            const Location &loc,
                                            Client &client) const {
@@ -315,10 +314,18 @@ void ProcessRequest::handle(Client &client) const {
     // req.debugPrint();
     client.keep_alive = req.is_keep_alive();
 
+
     if (req.method == UNKNOWN) {
         client.writeBuf = HttpResponse::make_400().serialize();
         return;
     }
+
+    // Check for required Host header in HTTP/1.1
+    if (req.version == "HTTP/1.1" && !req.has_header("Host")) {
+        client.writeBuf = ErrorResponseBuilder::buildErrorResponse(400, _config).serialize();
+        return;
+    }
+
 
     const Location *loc = _resolveLocationOrError(req, client);
     if (!loc) return;

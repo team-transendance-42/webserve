@@ -8,7 +8,6 @@
 struct Location {
     std::string              path;
     std::string              root;
-	std::string              alias;
     std::string              index;
     std::vector<std::string> allowedMethod;
     bool                     autoindex            = false;
