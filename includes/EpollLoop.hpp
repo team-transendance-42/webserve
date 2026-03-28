@@ -24,5 +24,5 @@ public:
 
 private:
 	int _fd;
-	static struct epoll_event make_event(int fd, uint32_t events);
+	static struct epoll_event makeEvent(int fd, uint32_t events);
 };

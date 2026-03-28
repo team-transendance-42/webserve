@@ -1,25 +1,14 @@
 #include "../includes/ServerConfig.hpp"
 
 ServerConfig createDefaultServerConfig() {
-        // DEBUG: Print all location paths after config is built
-        // struct PrintLocationsAtStartup {
-        //     PrintLocationsAtStartup(const std::vector<Location>& locs) {
-        //         std::cerr << "[DEBUG] Configured locations:" << std::endl;
-        //         for (size_t i = 0; i < locs.size(); ++i) {
-        //             std::cerr << "  [" << i << "] '" << locs[i].path << "'" << std::endl;
-        //         }
-        //     }
-        // };
     ServerConfig config;
 
     config.host = "localhost";
     config.port = 8080;
     config.server_names.push_back("one");
-    config.clientMaxBodySize= 1048576;
+    config.clientMaxBodySize= 1 * 1024 * 1024; //1MB for testing: 413 global policy 
     config.default_server = true;
 
-    // error pages
-	// todo: add with 300 pages....
     config.errorPages[400] = "./www/errors/400.html"; //
     config.errorPages[403] = "./www/errors/403.html";
     config.errorPages[404] = "./www/errors/404.html";

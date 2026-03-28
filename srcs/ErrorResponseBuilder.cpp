@@ -21,6 +21,7 @@ HttpResponse ErrorResponseBuilder::_defaultErrorResponse(int code) {
 		case 403: return HttpResponse::make_403();
 		case 404: return HttpResponse::make_404();
 		case 405: return HttpResponse::make_405();
+		case 408: return HttpResponse::make_408();
 		case 413: return HttpResponse::make_413();
 		default: return HttpResponse::make_500();
 	}

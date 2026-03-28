@@ -1,5 +1,6 @@
 #include "../includes/Server.hpp"
 #include "../includes/HttpResponse.hpp"
+#include "../includes/ErrorResponseBuilder.hpp"
 #include <iostream>
 #include <stdexcept>
 #include <cstring>
@@ -107,13 +108,16 @@ void Server::tick() {
     for (auto it = _clients.begin(); it != _clients.end();) {
         Client* client = it->second;
         if (std::time(0) - client->lastTimestamp > SERVER_TIMEOUT) {
-            std::cout << "[Server] closing idle client fd=" << client->fd << "\n";
-            // set res 408 Request Timeout before closing, for HTTP compliance. (optional, since client will just see connection close without response anyway)
-            // HttpResponse resp = HttpResponse::make_408();
-            // std::string msg = resp.serialize();
-            // send(client->fd, msg.c_str(), msg.size(), 0);
-            _connectionManager.closeClient(client->fd);
-            it = begin(_clients); // reset iterator to beginning after erasing current client, since erasing invalidates the iterator. We will check all clients again for idle timeout in the next tick.
+            int fd = client->fd;
+            std::cout << "[Server] closing idle client fd=" << fd << "\n";
+            std::string resp = ErrorResponseBuilder::buildErrorResponse(408, _config).serialize(); // builderrresp returns httpreq which has the serialize method to convert to string, which is the raw http response we send to client before closing the connection.
+            send(fd, resp.c_str(), resp.size(), 0); 
+            delete it->second;
+            it = _clients.erase(it); // erase returns iterator to next element, so we can continue iterating without invalidating the iterator
+            _epoll.del(fd); // remove fd from epoll monitoring
+            close(fd); // close the socket fd to free system resources
+            // _connectionManager.closeClient(client->fd);
+            // it = begin(_clients); // O(n*n) time complexity;   reset iterator to beginning after erasing current client, since erasing invalidates the iterator. We will check all clients again for idle timeout in the next tick.
         } else
             ++it; // only iterate if not erasing Client, otherwise after erasing, the iterator becomes invalid and we cannot increment it. If we erase, we do not increment because the next Client will now be at the same iterator position after erasing the current one.
     }

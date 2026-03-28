@@ -1,5 +1,5 @@
 #include <cerrno>
-#include <cstring>
+// #include <cstring>
 #include <iostream>
 #include <stdexcept>
 #include <string>
@@ -35,7 +35,9 @@ int EpollLoop::wait(struct epoll_event *events, int maxEvents, int timeoutMs) co
 }
 
 void EpollLoop::add(int fd, uint32_t events) const {
-	struct epoll_event ev = make_event(fd, events);
+	if (_fd < 0)
+        throw std::runtime_error("EpollLoop::add called before init()");
+	struct epoll_event ev = makeEvent(fd, events);
 	if (epoll_ctl(_fd, EPOLL_CTL_ADD, fd, &ev) < 0)
 		throw std::runtime_error("epoll_ctl ADD failed: "
 									 + std::string(strerror(errno)));
@@ -47,7 +49,9 @@ void EpollLoop::add(int fd, uint32_t events) const {
  * @param events Events to set.
  */
 void EpollLoop::mod(int fd, uint32_t events) const {
-	struct epoll_event ev = make_event(fd, events);
+	if (_fd < 0)
+        throw std::runtime_error("EpollLoop::mod called before init()");
+	struct epoll_event ev = makeEvent(fd, events);
 	if (epoll_ctl(_fd, EPOLL_CTL_MOD, fd, &ev) < 0)
 		throw std::runtime_error("epoll_ctl MOD failed: "
 									 + std::string(strerror(errno)));
@@ -56,14 +60,16 @@ void EpollLoop::mod(int fd, uint32_t events) const {
 /**
  * Removes a file descriptor from the epoll set.
  * @param fd File descriptor to remove.
+ EBADF(fd was already closed) — not an error.
  */
 void EpollLoop::del(int fd) const {
-	if (epoll_ctl(_fd, EPOLL_CTL_DEL, fd, NULL) < 0)
+	if (_fd < 0) return;
+	if (epoll_ctl(_fd, EPOLL_CTL_DEL, fd, NULL) < 0 && errno != EBADF)
 		std::cerr << "[epoll] DEL failed fd=" << fd
 				  << ": " << strerror(errno) << "\n";
 }
 
-struct epoll_event EpollLoop::make_event(int fd, uint32_t events) {
+struct epoll_event EpollLoop::makeEvent(int fd, uint32_t events) {
 	struct epoll_event ev;
 	std::memset(&ev, 0, sizeof(ev));
 	ev.events = events;

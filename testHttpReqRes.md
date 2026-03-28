@@ -48,7 +48,7 @@ printf "GET / HTTP/1.1\r\nHost: localhost\r\n\r\nGET / HTTP/1.1\r\nHost: localho
 
 (printf "GET / HTTP/1.1\r\nHost: localhost\r\n\r\nGET / HTTP/1.1\r\nHost: localhost\r\n\r\n"; sleep 1) | timeout 2 nc localhost 8080 | tr -d '\r' | sed -E 's/HTTP\/1\.1 ([0-9]{3})/\nHTTP\/1.1 \1/g' | grep -E '^(HTTP/1\.1 [0-9]{3}|Content-Length:|Content-Type:)'
 
-Expected: Two responses, or first response and connection close if not supported
+Expected: Two responses
 Explained:
 (starts a subshell)
 After printing requests, wait 1 second before the subshell exits.

@@ -26,63 +26,44 @@ limit for body size: protects for DoS attacks( Denial of Service: an attacker tr
 */
 ParseResult HttpRequest::_parse() {
     const size_t MAX_HEADER_SIZE = 8192; // 8 KB
-    const size_t MAX_BODY_SIZE = 10 * 1024 * 1024; // 10 MB parser safety cap; policy 413 is enforced later in ProcessRequest
-	const size_t contentLen = content_length();
+    const size_t MAX_BODY_SIZE = 10 * 1024 * 1024; // 10 MB parser safety cap; policy 413 is enforced later in ProcessRequest: prevents memory excaustion from malicious clients sending huge bodies; can be adjusted based on server capacity and expected use cases
 
-	//if (contentLen == -1) {
-	//	std::cout << "[400] parser rejected request: Content-Length is not a valid number\n";
-    //    _state = ERROR;
-    //    return PARSE_ERROR;
-	//}
-    //if (_buf.size() > MAX_HEADER_SIZE && _state == HEADERS) {
-    //    _state = ERROR;
-    //    return PARSE_ERROR;
-    //}
-
-    //if (contentLen > MAX_BODY_SIZE) {
-    //    std::cout << "[400] parser rejected request: Content-Length exceeds parser cap"
-    //              << " content_length=" << contentLen
-    //              << " parser_max=" << MAX_BODY_SIZE
-    //              << "\n";
-    //    _state = ERROR;
-    //    return PARSE_ERROR;
-    //}
+    //!!NB!! n a switch, you can't declare variables inside a case without a block {}
 
     while (true) {
         switch (_state) {
 
-        case REQUEST_LINE:
-            if (!_line_ready()) return INCOMPLETE;
-            if (!_parse_request_line(_next_line())) {
-                _state = ERROR;
-                return PARSE_ERROR;
-            }
-            _state = HEADERS;
-            break;
+            case REQUEST_LINE:
+                if (!_line_ready()) return INCOMPLETE;
+                if (!_parse_request_line(_next_line())) {
+                    _state = ERROR;
+                    return PARSE_ERROR;
+                }
+                _state = HEADERS;
+                break;
 
-        case HEADERS:
-            if (!_line_ready()) return INCOMPLETE;
-            {
-				if (_buf.size() > MAX_HEADER_SIZE) {
-					_state = ERROR;
-					return PARSE_ERROR;
-				}
-				std::string line = _next_line();
-				if (line.empty()) {
-					// blank line = end of headers
-					size_t contentLen = content_length();
+            case HEADERS: {
+                if (!_line_ready()) return INCOMPLETE;
+                if (_buf.size() > MAX_HEADER_SIZE) {
+                    _state = ERROR;
+                    return PARSE_ERROR;
+                }
+                std::string line = _next_line();
+                if (line.empty()) {
+                    // blank line = end of headers
+                    size_t contentLen = content_length();
 
-					if (contentLen == (size_t)-1) {
-						std::cout << "[400] Header: invalid Content-Length value\n";
-						_state = ERROR;
-						return PARSE_ERROR;
-					}
-					if (contentLen > MAX_BODY_SIZE) {
-						std::cout << "[400] Header: Content-Length exceeds parser cap\n";
-						_state = ERROR;
-						return PARSE_ERROR;
-					}
-					
+                    if (contentLen == (size_t)-1) {
+                        std::cout << "[400] Header: Content-Length is not a number\n";
+                        _state = ERROR;
+                        return PARSE_ERROR;
+                    }
+                    if (contentLen > MAX_BODY_SIZE) {
+                        std::cout << "[400] Header: Content-Length exceeds parser cap\n";
+                        _state = ERROR;
+                        return PARSE_ERROR;
+                    }
+                    
                     _state = (contentLen > 0) ? BODY : DONE;
                 } else {
                     if (!_parse_header_line(line)) {
@@ -90,21 +71,20 @@ ParseResult HttpRequest::_parse() {
                         return PARSE_ERROR;
                     }
                 }
+                break;
             }
-            break;
-
-        case BODY:
-            {
-                size_t expected = contentLen;
-                if (_buf.size() < expected) return INCOMPLETE;
-                body = _buf.substr(0, expected);
-                _buf.erase(0, expected);
+            case BODY: {
+                size_t contentLen = content_length();
+                if (_buf.size() < contentLen) return INCOMPLETE;
+                body = _buf.substr(0, contentLen);
+                _buf.erase(0, contentLen);
                 _state = DONE;
-            }
-        case DONE:
-            return COMPLETE;
-        case ERROR:
-            return PARSE_ERROR;
+                break;
+            }  
+            case DONE:
+                return COMPLETE;
+            case ERROR:
+                return PARSE_ERROR;
         }
     }
 }
