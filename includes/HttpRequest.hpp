@@ -47,15 +47,16 @@ public:
     ParseResult feed(const char *data, size_t len);
 
     // helpers
-    std::string get_header    (const std::string &key) const;
-    bool        has_header    (const std::string &key) const;
+    std::string getHeader    (const std::string &key) const;
+    bool        hasHeader    (const std::string &key) const;
     size_t      content_length()                        const;
     bool        is_keep_alive ()                        const;
 
     void        clear();        // reset for next request (keep-alive)
     void        debugPrint()   const;
-	ParseResult tryParse();
-	
+	ParseResult tryParse();	
+    bool        hasStarted() const;
+    bool        isComplete() const;
 
 private:
     // internal parse state
@@ -68,7 +69,7 @@ private:
     bool        _parse_request_line(const std::string &line);
     bool        _parse_header_line (const std::string &line);
     bool        _parse_method      (const std::string &tok);
-    bool        _parse_path        (const std::string &raw);
+    bool        _parsePath        (const std::string &raw);
 
     std::string _next_line   ();
     bool        _line_ready  () const;

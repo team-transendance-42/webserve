@@ -98,7 +98,7 @@ bool HttpRequest::_parse_request_line(const std::string &line) {
     std::string m, p, v;
     if (!(ss >> m >> p >> v)) return false;
     if (!_parse_method(m))    return false;
-    if (!_parse_path(p))      return false;
+    if (!_parsePath(p))      return false;
     if (v != "HTTP/1.0" && v != "HTTP/1.1") return false;
     version = v;
     return true;
@@ -118,7 +118,7 @@ bool HttpRequest::_parse_method(const std::string &tok) {
 /**
  * setting up the path field
  */
-bool HttpRequest::_parse_path(const std::string &raw) {
+bool HttpRequest::_parsePath(const std::string &raw) {
     size_t q = raw.find('?');
     if (q != std::string::npos) {
         path         = raw.substr(0, q);
@@ -214,18 +214,18 @@ bool HttpRequest::_parse_header_line(const std::string &line) {
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
-std::string HttpRequest::get_header(const std::string &key) const {
+std::string HttpRequest::getHeader(const std::string &key) const {
     std::map<std::string,std::string>::const_iterator it
         = headers.find(_to_lower(key));
     return (it == headers.end()) ? "" : it->second;
 }
 
-bool HttpRequest::has_header(const std::string &key) const {
+bool HttpRequest::hasHeader(const std::string &key) const {
     return headers.count(_to_lower(key)) > 0;
 }
 
 size_t HttpRequest::content_length() const {
-    std::string val = get_header("content-length");
+    std::string val = getHeader("content-length");
 	if (!val.empty() && !std::all_of(val.begin(), val.end(), [](unsigned char c){ return std::isdigit(c); })) {
     	return (size_t)-1;
 	}
@@ -233,7 +233,7 @@ size_t HttpRequest::content_length() const {
 }
 
 bool HttpRequest::is_keep_alive() const {
-    std::string conn = get_header("connection");
+    std::string conn = getHeader("connection");
     // HTTP/1.1 default = keep-alive unless "close" is set
     // HTTP/1.0 default = close unless "keep-alive" is set
     if (version == "HTTP/1.1") return conn != "close";
@@ -256,20 +256,13 @@ void HttpRequest::clear() {
     //_buf.clear(); might chunks from next req
 }
 
-//bool HttpRequest::_line_ready() const {
-//    return _buf.find("\r\n") != std::string::npos;
-//}
-
 ParseResult HttpRequest::tryParse() {
 	if (_buf.empty()) return INCOMPLETE;
     	return _parse();
 }
 
 bool HttpRequest::_line_ready() const {
-    return _buf.find('\n') != std::string::npos;  // accept \n or \r\n for testing with echo -e: echo adds one more final newline, so actual bytes are like:GET / HTTP/1.1\n
-//Host: localhost\n
-//\n
-//\n
+    return _buf.find('\n') != std::string::npos;  //nginx-like permissive behavior: also accept \n todo: double check what we choose: \r\n or \n too?
 }
 
 std::string HttpRequest::_next_line() {
@@ -325,3 +318,11 @@ void HttpRequest::debugPrint() const {
         std::cout << " *** body ***  : " << body << "\n";
     std::cout << "===================\n";
 }
+
+// bool HttpRequest::isComplete() const {
+//     return _state == DONE;
+// }
+
+// bool HttpRequest::hasStarted() const {
+//     return !_buf.empty() || _state != REQUEST_LINE;
+// }

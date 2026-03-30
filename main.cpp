@@ -12,20 +12,8 @@ static volatile sig_atomic_t g_running = 1;
 static void onSignal(int) { g_running = 0; }
 
 
-// make -j4 runs up to 4 build jobs in parallel: do it instead of make
-/**
- * curl -v -X POST http://127.0.0.1:8080/ \
-  -H "Content-Type: text/plain" \
-  -d "hello from curl"
+// make -j4 runs up to 4 build jobs in parallel
 
-  curl -v -X POST http://127.0.0.1:8080/ \
-  -H "Content-Type: application/json" \
-  -d '{"name":"pekatsar","msg":"hi"}'
-
-  curl -v -X POST http://127.0.0.1:8080/ \
-  -H "Content-Type: application/x-www-form-urlencoded" \
-  -d "name=pekatsar&age=42"
- */
 int main(int argc, char *argv[])
 {
     if (argc > 2) {
@@ -41,7 +29,6 @@ int main(int argc, char *argv[])
     sigaction(SIGINT,  &sa, nullptr);
     sigaction(SIGTERM, &sa, nullptr);
 
-    // Config file from argv or default
     std::string configFile = (argc == 2) ? argv[1] : "default.conf";
 
     try

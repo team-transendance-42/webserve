@@ -37,8 +37,9 @@ class Server {
 		void stop();    // sets _running = false
 
 	private:
-		void 				_acceptClient();
-		static void        _setNonBlocking(int fd);
+		void			_acceptClient();
+		static void	 	_setNonBlocking(int fd);
+		void 			handleServerTimeout();
 
 		// named constants for server tuning
 		enum {
@@ -49,11 +50,11 @@ class Server {
 			SERVER_TIMEOUT = 6 // for testing: usually is 60 seconds of idle time before server closes client connection
 		};
 
-		int                     _listenFd;
+		int                     _listen_fd;
 		bool                    _running;
 		ServerConfig            _config;
 		EpollLoop               _epoll;
 		std::map<int, Client *> _clients;
-		ProcessRequest          _processRequest;
-		ConnectionManager      _connectionManager;
+		ProcessRequest          _process_request;
+		ConnectionManager      _connection_manager;
 };

@@ -153,12 +153,12 @@ bool ProcessRequest::_handleUploadIfNeeded(const HttpRequest &req,
 
     std::string filename;
     std::string content;
-    std::string contentType = req.get_header("content-type");
+    std::string contentType = req.getHeader("content-type");
 
     if (contentType.find("multipart/form-data") == 0) {
             // Removed _extractMultipartFile usage
     } else {
-        filename = req.get_header("x-filename");
+        filename = req.getHeader("x-filename");
         content = req.body;
     }
 
@@ -321,7 +321,7 @@ void ProcessRequest::handle(Client &client) const {
     }
 
     // Check for required Host header in HTTP/1.1
-    if (req.version == "HTTP/1.1" && !req.has_header("Host")) {
+    if (req.version == "HTTP/1.1" && !req.hasHeader("Host")) {
         client.writeBuf = ErrorResponseBuilder::buildErrorResponse(400, _config).serialize();
         return;
     }

@@ -2,20 +2,40 @@
 nc -v localhost 8080
 #Expected: 408 timeout
 #After SERVER_TIMEOUT seconds, the server closes the connection and (optionally) sends a 408 response.
-#Explained: netcat: open TCP socket, pipe stdin/stdout through it
-------------------------
+#Explained: netcat: open TCP socket(lets manually to send data), pipe stdin/stdout through it
 
-#Partial HTTP Request (incomplete headers)
-(echo -n "GET / HTTP/1.1\r\nHost: localhost\r\n"; sleep 10) | nc -v localhost 8080 
+nc opens a TCP connection, server accepts it, then waits for data
+there is sent no HTTP request yet, server usually keeps socket open, Server has read timeout, so if client doesn't send anything within that time, server closes the connection and optionally sends a 408 Request Timeout response. This prevents idle connections from consuming resources indefinitely.
+------------------------
+!!NB!! EPOLL = Linux epoll event system
+RD = read
+HUP = hang up
+
+EPOLLIN = data came in
+EPOLLOUT = socket ready to send out
+EPOLLRDHUP = remote side hung up
+
+400 Bad Request
+request is broken/incomplete and client closed
+408 Request Timeout
+client kept connection open, but sent too slowly / stopped sending
+--------------------------
+
+#Partial HTTP Request (incomplete headers): still get 408 server timeout: The data received so far is not malformed — it could still become valid
+The server has no way to know if more bytes are coming or not
+So it waits... and eventually times out → 408 Request Timeout
+(echo -n "GET / HTTP/1.1\r\nHost: localhost\r\n"; sleep 10) | nc -v localhost 8080 // echo often sends literal characters \r and \n, not real CRLF. use better printf: 
+
+printf "GET / HTTP/1.1\r\nHost: localhost\r\n"; sleep 10 | nc -v localhost 8080 
 #Expected: 408 timeout
-#Server closes the connection after timeout, even though the request is incomplete.
-#Explained: GET / HTTP/1.1\r\n
-Host: localhost\r\n
-\r\n              ← this blank line is missing — parser never sees COMPLETE
+
+printf "GET / HTTP/1.1\r\nHost: localhost\r\n" | nc -v localhost 8080
 ------------------------
 
 #Slow Client (delayed body)
 (echo -e "POST / HTTP/1.1\r\nHost: localhost\r\nContent-Length: 100\r\n\r\n"; sleep 10; echo "data") | nc -v localhost 8080
+
+(printf "POST / HTTP/1.1\r\nHost: localhost\r\nContent-Length: 100\r\n\r\n"; sleep 10; echo "data") | nc -v localhost 8080
 #Expected: 408 timeout
 #Server closes the connection before the body is fully sent if timeout is reached.
 #Explained: headers done(Content-Length: 100\r\n\r\n), now parser waits for 100 bytes of body
