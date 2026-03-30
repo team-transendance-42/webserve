@@ -22,9 +22,7 @@ struct Location {
     int                      redirect_code        = 0;   // 0 = no redirect
     std::string              redirect_url;
     long                     client_max_body_size = -1;  // -1 = inherit from server
-    // todo: upload handling
-	// bool                     upload_enabled;
-	// std::string              upload_path;
+	std::string              upload_path;
 
     bool hasCgi() const {
         return (!cgi_extension.empty() && !cgi_pass.empty());

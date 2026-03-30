@@ -1,5 +1,4 @@
 // main.cpp
-#include "includes/ServerConfig.hpp"
 #include "includes/Server.hpp"
 
 #include <iostream>

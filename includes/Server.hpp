@@ -14,7 +14,6 @@
 #include <sstream>
 #include <cerrno>
 #include <cstring>      // strerror()
-#include "ServerConfig.hpp"
 #include "HttpRequest.hpp"
 #include "HttpResponse.hpp"
 #include "Client.hpp"

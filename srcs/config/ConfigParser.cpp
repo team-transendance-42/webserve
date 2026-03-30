@@ -4,6 +4,7 @@
 
 #include <cctype>
 #include <fstream>
+#include <iostream>
 #include <sstream>
 #include <stdexcept>
 
@@ -277,6 +278,8 @@ void Parser::assignKnownServerFields(ServerConfig& server, const Token& key, con
 		} else {
 			throw ParseError("default_server expects no value or one of: on|off", key.line, key.column);
 		}
+	} else {
+		throw ParseError("unknown server directive: " + key.value, key.line, key.column);
 	}
 }
 
@@ -333,6 +336,18 @@ void Parser::assignKnownLocationFields(Location& location, const Token& key, con
 			throw ParseError("cgi_pass expects one value", key.line, key.column);
 		}
 		location.cgi_pass = values[0];
+	} else if (key.value == "upload_path") {
+		if (values.size() != 1) {
+			throw ParseError("upload_path expects one value", key.line, key.column);
+		}
+		location.upload_path = values[0];
+	} else if (key.value == "deny") {
+		if (values.size() != 1 || values[0] != "all") {
+			throw ParseError("deny expects one value: all", key.line, key.column);
+		}
+		location.deny_all = true;
+	} else {
+		throw ParseError("unknown location directive: " + key.value, key.line, key.column);
 	}
 }
 

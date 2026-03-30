@@ -2,7 +2,6 @@
 
 #include "Client.hpp"
 #include "CgiExecutor.hpp"
-#include "ServerConfig.hpp"
 
 #include <sys/stat.h>
 
