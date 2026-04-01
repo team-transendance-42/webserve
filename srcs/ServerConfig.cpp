@@ -4,7 +4,7 @@ ServerConfig createDefaultServerConfig() {
     ServerConfig config;
 
     config.host = "localhost";
-    config.port = 8080;
+    config.port = 8080; // todo: revert to 8080 ,80 is for ./tester
     config.server_names.push_back("one");
     config.clientMaxBodySize= 1 * 1024 * 1024; //1MB for testing: 413 global policy 
     config.default_server = true;

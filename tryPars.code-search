@@ -1,0 +1,21 @@
+# Query: tryPars
+# ContextLines: 1
+
+4 results - 3 files
+
+includes/HttpRequest.hpp:
+  56      void        debugPrint()   const;
+  57: 	ParseResult tryParse();
+  58  
+
+srcs/ConnectionManager.cpp:
+  88  
+  89: 		ParseResult res = client.request.tryParse();
+  90  		if (res == COMPLETE) {
+
+srcs/HttpRequest.cpp:
+  240  
+  241: ParseResult HttpRequest::tryParse() {
+  242  	if (_buf.empty()) return INCOMPLETE;
+  
+  244      	return _parse();

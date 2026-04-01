@@ -8,8 +8,9 @@ Petya:
 * method handling(get, post, delete) ✓
 * response formating ✓
 * routing (file handling logic) ✓
--> server/client timeout handling !!! nb !!! diff scenarios
--> handle mulformed requests (400)
+-> implement strict http 1.1
+-> chunked
+-> implement multiple servers
 -> test 500 too
 
 Noah:
