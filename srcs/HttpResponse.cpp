@@ -33,6 +33,19 @@ HttpResponse HttpResponse::make_200(const std::string &body,
     return r;
 }
 
+HttpResponse HttpResponse::make_201() {
+    HttpResponse r;
+    r.set_status(201).set_body("Created", "text/plain");
+    return r;
+}
+
+HttpResponse HttpResponse::make_204() {
+    HttpResponse r;
+    r.set_status(204);
+    // 204 has no body
+    return r;
+}
+
 HttpResponse HttpResponse::make_301(const std::string &location) {
     HttpResponse r;
     r.set_status(301);
@@ -76,6 +89,12 @@ HttpResponse HttpResponse::make_405() {
 HttpResponse HttpResponse::make_413() {
     HttpResponse r;
     r.set_status(413).set_body(_error_body(413, "Payload Too Large"));
+    return r;
+}
+
+HttpResponse HttpResponse::make_415() {
+    HttpResponse r;
+    r.set_status(415).set_body(_error_body(415, "Unsupported Media Type"));
     return r;
 }
 
@@ -124,6 +143,7 @@ std::string HttpResponse::_reason(int code) {
         case 404: return "Not Found";
         case 405: return "Method Not Allowed";
         case 413: return "Payload Too Large";
+        case 415: return "Unsupported Media Type";
         case 500: return "Internal Server Error";
         //case 502: return "Bad Gateway"; // todo: not implemented
         //case 504: return "Gateway Timeout";

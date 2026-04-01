@@ -28,6 +28,8 @@ public:
     // static builders — common responses in one line
     static HttpResponse make_200(const std::string &body,
                                  const std::string &type = "text/html");
+    static HttpResponse make_201(); // created: file uploaded
+    static HttpResponse make_204(); // no content: successful delete
     static HttpResponse make_301(const std::string &location); // moved permanantly:Typical use: old route replaced forever.
     static HttpResponse make_302(const std::string &location); // found, temp redirect
     static HttpResponse make_400(); // bad request
@@ -36,6 +38,7 @@ public:
     static HttpResponse make_404(); // not found
     static HttpResponse make_405(); // method not allowed
     static HttpResponse make_413(); // payload too large
+    static HttpResponse make_415(); // unsupported media type
     static HttpResponse make_500();
 
     // serialize to raw HTTP string — hand this to send()

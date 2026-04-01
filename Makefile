@@ -11,6 +11,7 @@ SRC = srcs/ServerConfig.cpp \
       srcs/HttpResponse.cpp \
 	  srcs/config/ConfigParser.cpp \
 	  srcs/CgiExecutor.cpp \
+	  srcs/UploadHandler.cpp \
       main.cpp
 
 HEADERS = includes/*

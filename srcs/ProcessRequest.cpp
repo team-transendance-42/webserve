@@ -8,6 +8,7 @@
 #include "../includes/ErrorResponseBuilder.hpp"
 #include "../includes/ProcessRequest.hpp"
 #include "../includes/StaticFileHandler.hpp"
+#include "../includes/UploadHandler.hpp"
 
 
 // Anonymous namespace (namespace { ... }) gurantees “visible only inside this .cpp file”.
@@ -321,6 +322,18 @@ void ProcessRequest::handle(Client &client) const {
 
     if (!_validateLocationRulesOrError(req, *loc, client)) return;
     if (_handleRedirectIfNeeded(*loc, client)) return;
+
+    // ── Handle uploads/deletes if location has upload_path ──────────────────
+    if (!loc->upload_path.empty()) {
+        if (req.method == POST) {
+            client.write_buf = UploadHandler::handleUpload(req, *loc).serialize();
+            return;
+        } else if (req.method == DELETE) {
+            client.write_buf = UploadHandler::handleDelete(req, *loc).serialize();
+            return;
+        }
+        // GET on upload_path falls through to static serve (directory listing/file serve)
+    }
 
     std::string url_path = req.path;
     std::string filepath = _resolveFilePath(*loc, url_path);

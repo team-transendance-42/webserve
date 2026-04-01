@@ -25,7 +25,9 @@ limit for body size: protects for DoS attacks( Denial of Service: an attacker tr
 */
 ParseResult HttpRequest::_parse() {
     const size_t MAX_HEADER_SIZE = 8192; // 8 KB
-    const size_t MAX_BODY_SIZE = 1048576; // 1 MB
+    // MAX_BODY_SIZE is enforced per-location in ProcessRequest, not globally
+    // to allow large uploads in designated locations
+    const size_t MAX_BODY_SIZE = 268435456; // 256 MB (soft limit, per-location hard limit applies)
 
     if (_buf.size() > MAX_HEADER_SIZE && _state == HEADERS) {
         _state = ERROR;
