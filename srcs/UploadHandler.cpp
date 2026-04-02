@@ -11,7 +11,7 @@ HttpResponse UploadHandler::handleUpload(const HttpRequest &req,
     // Check Content-Type: only accept raw binary uploads (not multipart)
     std::string content_type = req.get_header("content-type");
     if (!content_type.empty() && content_type.find("multipart") != std::string::npos) {
-        // Multipart form not supported in MVP
+        // Multipart form not supported here
         HttpResponse resp;
         resp.set_status(415).set_body("Multipart uploads not supported", "text/plain");
         return (resp);
@@ -72,7 +72,7 @@ HttpResponse UploadHandler::handleUpload(const HttpRequest &req,
 
 HttpResponse UploadHandler::handleDelete(const HttpRequest &req,
                                          const Location &loc) {
-    // 1. Extract filename from path relative to location
+    // Extract filename from path relative to location
     std::string filename = _extractFilenameFromPath(req.path, loc.path);
     if (filename.empty()) {
         HttpResponse resp;
@@ -80,19 +80,19 @@ HttpResponse UploadHandler::handleDelete(const HttpRequest &req,
         return (resp);
     }
 
-    // 2. Validate filename
+    // Validate filename
     if (!_isValidFilename(filename)) {
         HttpResponse resp;
         resp.set_status(403).set_body("Access denied", "text/plain");
         return (resp);
     }
 
-    // 3. Build target path
+    // Build target path
     std::string target_path = loc.upload_path;
     if (target_path[target_path.size() - 1] != '/') target_path += '/';
     target_path += filename;
 
-    // 4. Verify path stays inside upload_path
+    // Verify path stays inside upload_path
     std::string upload_dir = loc.upload_path;
     if (upload_dir[upload_dir.size() - 1] != '/') upload_dir += '/';
     if (target_path.compare(0, upload_dir.size(), upload_dir) != 0) {
@@ -101,21 +101,21 @@ HttpResponse UploadHandler::handleDelete(const HttpRequest &req,
         return (resp);
     }
 
-    // 5. Check file exists
+    // Check file exists
     if (access(target_path.c_str(), F_OK) != 0) {
         HttpResponse resp;
         resp.set_status(404).set_body("File not found", "text/plain");
         return (resp);
     }
 
-    // 6. Delete file
+    // Delete file
     if (unlink(target_path.c_str()) != 0) {
         HttpResponse resp;
         resp.set_status(500).set_body("Failed to delete file", "text/plain");
         return (resp);
     }
 
-    // 7. Return 204 No Content
+    // Return 204 No Content
     HttpResponse resp;
     resp.set_status(204);
     return (resp);
