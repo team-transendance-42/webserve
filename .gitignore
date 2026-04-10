@@ -34,3 +34,4 @@ cmake_install.cmake
 *.tmp
 *.bak
 webserv
+*/uploads
