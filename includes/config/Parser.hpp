@@ -2,6 +2,7 @@
 
 #include "Config.hpp"
 #include "Tokenizer.hpp"
+#include <set>
 #include <stdexcept>
 #include <sstream>
 
@@ -54,7 +55,7 @@ private:
     void parseServerDirective(ServerConfig& server);
 
 	// Parse and assign one location-level directive into the typed Location fields
-    void parseLocationDirective(Location& location);
+    void parseLocationDirective(Location& location, std::set<std::string>& seenDirectives);
 
 	// For known server directives, assign their values to the corresponding fields in the ServerConfig structure
     void assignKnownServerFields(ServerConfig& server, const Token& key, const std::vector<std::string>& values);

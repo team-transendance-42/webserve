@@ -5,6 +5,7 @@
 #include <cctype>
 #include <fstream>
 #include <iostream>
+#include <set>
 #include <sstream>
 #include <stdexcept>
 
@@ -193,13 +194,14 @@ Location Parser::parseLocationBlock() {
 	consume(TOKEN_LBRACE, "expected '{' after location path");
 
 	Location location;
+	std::set<std::string> seenDirectives;
 	location.path = pathToken.value;
 
 	while (!check(TOKEN_RBRACE)) {
 		if (check(TOKEN_EOF)) {
 			throw ParseError("unterminated location block", peek().line, peek().column);
 		}
-		parseLocationDirective(location);
+		parseLocationDirective(location, seenDirectives);
 	}
 
 	consume(TOKEN_RBRACE, "expected '}' after location block");
@@ -228,7 +230,7 @@ void Parser::parseServerDirective(ServerConfig& server) {
 }
 
 // Parse a location-level directive and assign known typed fields
-void Parser::parseLocationDirective(Location& location) {
+void Parser::parseLocationDirective(Location& location, std::set<std::string>& seenDirectives) {
 	const Token& key = consume(TOKEN_WORD, "expected directive name");
 	std::vector<std::string> values;
 
@@ -239,6 +241,11 @@ void Parser::parseLocationDirective(Location& location) {
 		values.push_back(consume(TOKEN_WORD, "expected directive value").value);
 	}
 	consume(TOKEN_SEMICOLON, "expected ';' after directive");
+
+	if (seenDirectives.count(key.value) > 0) {
+		throw ParseError("duplicate location directive: " + key.value, key.line, key.column);
+	}
+	seenDirectives.insert(key.value);
 
 	assignKnownLocationFields(location, key, values);
 }
