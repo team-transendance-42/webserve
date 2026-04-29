@@ -76,7 +76,8 @@ void Server::init() {
 
     _epoll.add(_listen_fd, EPOLLIN); // 7. register server with epoll to wait for incoming connection events (EPOLLIN on _listen_fd means new client is trying to connect)
 
-    std::cout << "[Server] '" << _config.server_names[0]
+    std::string name = _config.server_names.empty() ? "(unnamed)" : _config.server_names[0];
+    std::cout << "[Server] '" << name
               << "' listening on " << _config.host
               << ":" << _config.port << "\n";
 }
@@ -100,7 +101,7 @@ void Server::init() {
             std::cout << "[Server] timeout: closing client fd=" << fd << "\n";
             std::string resp = ErrorResponseBuilder::buildErrorResponse(408, _config).serialize();
             send(fd, resp.c_str(), resp.size(), 0);
-            it = ++it; // advance BEFORE closeClient removes the entry
+            ++it; // advance before closeClient erases the entry from _clients
             _connection_manager.closeClient(fd); // handles delete + erase + epoll.del + close
         } else
             ++it;
@@ -149,7 +150,8 @@ void Server::tick() {
 
 void Server::stop() {
     _running = false;
-    std::cout << "[Server] stopping '" << _config.server_names[0] << "'\n";
+    std::string name = _config.server_names.empty() ? "(unnamed)" : _config.server_names[0];
+    std::cout << "[Server] stopping '" << name << "'\n";
 }
 
 // ── _acceptClient ─────────────────────────────────────────────────────────────

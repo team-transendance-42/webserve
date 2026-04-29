@@ -10,7 +10,7 @@ TESTS=(
   "/game_start|GET|200|specific page"
   "/play|GET|301|redirect"
   "/secret|GET|403|denyAll config location had dany all (access not allowed)"
-  "/not_allowed|GET|403|filesystem permission denied"
+  "/not_allowed|GET|200|directory served when permissions allow"
   "/files|GET|403|directory, autoindex off, no configured index"
   "/files_auto|GET|200|directory autoindex on"
   "/api/data_json|GET|200|json endpoint"

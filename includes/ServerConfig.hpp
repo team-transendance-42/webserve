@@ -29,7 +29,7 @@ struct ServerConfig {
     long                     	clientMaxBodySize= 1048576;  // 1MB default
     std::vector<std::string> 	server_names;
     std::map<int,std::string>	errorPages;
-    bool                      	default_server; 
+    bool                      	default_server = false;
     std::vector<Location>    	locations;
 
     // find longest matching location for a URI

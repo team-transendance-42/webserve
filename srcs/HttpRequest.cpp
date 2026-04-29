@@ -225,11 +225,16 @@ bool HttpRequest::hasHeader(const std::string &key) const {
 }
 
 size_t HttpRequest::content_length() const {
+    static const size_t INVALID = static_cast<size_t>(-1);
     std::string val = getHeader("content-length");
-	if (!val.empty() && !std::all_of(val.begin(), val.end(), [](unsigned char c){ return std::isdigit(c); })) {
-    	return (size_t)-1;
-	}
-    return val.empty() ? 0 : static_cast<size_t>(std::atol(val.c_str()));
+    if (val.empty()) return 0;
+    if (!std::all_of(val.begin(), val.end(), [](unsigned char c){ return std::isdigit(c); }))
+        return INVALID;
+    char *end;
+    unsigned long long n = std::strtoull(val.c_str(), &end, 10);
+    if (*end != '\0' || n > static_cast<unsigned long long>(INVALID - 1))
+        return INVALID;
+    return static_cast<size_t>(n);
 }
 
 bool HttpRequest::is_keep_alive() const {
@@ -319,10 +324,10 @@ void HttpRequest::debugPrint() const {
     std::cout << "===================\n";
 }
 
-// bool HttpRequest::isComplete() const {
-//     return _state == DONE;
-// }
+bool HttpRequest::isComplete() const {
+    return _state == DONE;
+}
 
-// bool HttpRequest::hasStarted() const {
-//     return !_buf.empty() || _state != REQUEST_LINE;
-// }
+bool HttpRequest::hasStarted() const {
+    return !_buf.empty() || _state != REQUEST_LINE;
+}

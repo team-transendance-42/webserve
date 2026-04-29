@@ -11,6 +11,14 @@
 #include "../includes/ProcessRequest.hpp"
 #include "../includes/StaticFileHandler.hpp"
 
+static void stampConnection(std::string &response, bool keepAlive) {
+    size_t pos = response.find("\r\n");
+    if (pos == std::string::npos) return;
+    const std::string header = keepAlive ? "Connection: keep-alive\r\n"
+                                         : "Connection: close\r\n";
+    response.insert(pos + 2, header);
+}
+
 /**
  * Serialized = converting structured data(like obj) into a flat byte/text format that can be sent or stored. HttpResponse is an object (status, headers, body).
 .serialize() turns it into raw HTTP text
@@ -32,7 +40,12 @@ const Location *ProcessRequest::_resolveLocationOrError(const HttpRequest &req, 
 bool ProcessRequest::_validateLocationRulesOrError(const HttpRequest &req,
                                                    const Location &loc,
                                                    Client &client) const {
-    // Check method first: if method not allowed, return 405
+    // denyAll first: protected locations return 403 regardless of method
+    if (loc.denyAll) {
+        client.writeBuf = ErrorResponseBuilder::buildErrorResponse(403, _config).serialize();
+        return false;
+    }
+
     std::string reqMethod = ProcessRequest::methodToString(req.method);
     bool allowed = false;
     for (size_t i = 0; i < loc.allowedMethod.size(); i++) {
@@ -46,13 +59,7 @@ bool ProcessRequest::_validateLocationRulesOrError(const HttpRequest &req,
         return false;
     }
 
-    // Then check denyAll: if access forbidden, return 403
-    if (loc.denyAll == true) {
-        client.writeBuf = ErrorResponseBuilder::buildErrorResponse(403, _config).serialize();
-        return false;
-    }
-
-    long maxBody = (loc.clientMaxBodySize>= 0)
+    long maxBody = (loc.clientMaxBodySize >= 0)
                     ? loc.clientMaxBodySize
                     : _config.clientMaxBodySize;
     if ((long)req.body.size() > maxBody) {
@@ -164,7 +171,10 @@ bool ProcessRequest::_handleUploadIfNeeded(const HttpRequest &req,
 
     filename = normalizeUploadFilename(filename);
 
-
+    if (filename.empty()) {
+        client.writeBuf = ErrorResponseBuilder::buildErrorResponse(400, _config).serialize();
+        return true;
+    }
 
     if (content.empty()) {
         client.writeBuf = ErrorResponseBuilder::buildErrorResponse(400, _config).serialize();
@@ -179,10 +189,7 @@ bool ProcessRequest::_handleUploadIfNeeded(const HttpRequest &req,
 
     std::string body = "<html><body><h1>201 Created</h1><p>Saved: " + savedPath + "</p></body></html>";
     HttpResponse response;
-    response.setStatus(201)
-            .setHeader("Content-Type", "text/html")
-            .setHeader("Content-Length", std::to_string(body.size()))
-            .setBody(body, "text/html");
+    response.setStatus(201).setBody(body, "text/html");
     client.writeBuf = response.serialize();
     return true;
 }
@@ -201,6 +208,16 @@ bool ProcessRequest::_handleDeleteIfNeeded(const HttpRequest &req,
     }
 
     std::string filename = urlPath.substr(loc.path.size() + 1);
+
+    // Reject empty names, path traversal, and sub-directory references.
+    if (filename.empty() ||
+        filename.find('/') != std::string::npos ||
+        filename == ".." ||
+        filename == ".") {
+        client.writeBuf = ErrorResponseBuilder::buildErrorResponse(400, _config).serialize();
+        return true;
+    }
+
     // Never allow deleting the configured index file for this location.
     if (!loc.index.empty() && filename == loc.index) {
         client.writeBuf = ErrorResponseBuilder::buildErrorResponse(403, _config).serialize();
@@ -239,20 +256,15 @@ std::string ProcessRequest::_resolveFilePath(const Location &loc, const std::str
     }
 
     std::string suffix = requestPath.substr(loc.path.length());
-    if (!suffix.empty() && suffix[0] != '/' &&
-        (loc.path.empty() || loc.path[loc.path.size() - 1] != '/')) {
+
+    if (suffix.empty() || suffix[0] != '/')
         suffix = "/" + suffix;
-    }
 
-    if (!loc.root.empty() && loc.root[loc.root.size() - 1] == '/' &&
-        !suffix.empty() && suffix[0] == '/') {
-        resolved = loc.root.substr(0, loc.root.size() - 1) + suffix;
-        // std::cerr << "[ProcessRequest::_resolveFilePath--2] '" << requestPath << "' => '" << resolved << "'\n";
-        return resolved;
-    }
+    std::string root = loc.root;
+    if (!root.empty() && root[root.size() - 1] == '/')
+        root.erase(root.size() - 1);
 
-    resolved = loc.root + + "/" + suffix;
-    // std::cerr << "[ProcessRequest::_resolveFilePath--3] '" << requestPath << "' => '" << resolved << "'\n";
+    resolved = root + suffix;
     return resolved;
 }
 
@@ -314,35 +326,61 @@ void ProcessRequest::handle(Client &client) const {
     // req.debugPrint();
     client.keep_alive = req.is_keep_alive();
 
-
     if (req.method == UNKNOWN) {
         client.writeBuf = HttpResponse::make_400().serialize();
+        client.keep_alive = false;
+        stampConnection(client.writeBuf, false);
         return;
     }
 
     // Check for required Host header in HTTP/1.1
     if (req.version == "HTTP/1.1" && !req.hasHeader("Host")) {
         client.writeBuf = ErrorResponseBuilder::buildErrorResponse(400, _config).serialize();
+        client.keep_alive = false;
+        stampConnection(client.writeBuf, false);
         return;
     }
 
-
     const Location *loc = _resolveLocationOrError(req, client);
-    if (!loc) return;
+    if (!loc) {
+        client.keep_alive = false;
+        stampConnection(client.writeBuf, false);
+        return;
+    }
 
-    if (!_validateLocationRulesOrError(req, *loc, client)) return;
-    if (_handleRedirectIfNeeded(*loc, client)) return;
-    if (_handleUploadIfNeeded(req, *loc, client)) return;
+    if (!_validateLocationRulesOrError(req, *loc, client)) {
+        client.keep_alive = false;
+        stampConnection(client.writeBuf, false);
+        return;
+    }
 
-    if (_handleDeleteIfNeeded(req, *loc, client)) return;
+    if (_handleRedirectIfNeeded(*loc, client)) {
+        stampConnection(client.writeBuf, client.keep_alive);
+        return;
+    }
 
-    std::string urlPath = req.path;
+    if (_handleUploadIfNeeded(req, *loc, client)) {
+        stampConnection(client.writeBuf, client.keep_alive);
+        return;
+    }
+
+    if (_handleDeleteIfNeeded(req, *loc, client)) {
+        stampConnection(client.writeBuf, client.keep_alive);
+        return;
+    }
+
+    std::string urlPath  = req.path;
     std::string filepath = _resolveFilePath(*loc, urlPath);
 
     struct stat st;
-    if (!_resolvePathStatOrError(filepath, client, st)) return;
+    if (!_resolvePathStatOrError(filepath, client, st)) {
+        client.keep_alive = false;
+        stampConnection(client.writeBuf, false);
+        return;
+    }
 
     _serveFromStat(*loc, urlPath, filepath, st, client);
+    stampConnection(client.writeBuf, client.keep_alive);
 }
 
 // converts enum values to std::string

@@ -56,7 +56,7 @@ test_method "POST" "/game_start" "405"
 test_method "POST" "/play" "405"
 test_method "POST" "/files" "405"
 test_method "POST" "/files_auto" "405"
-test_method "POST" "/secret" "405"
+test_method "POST" "/secret" "403"
 test_method "POST" "/api/data_json" "405"
 
 echo ""
