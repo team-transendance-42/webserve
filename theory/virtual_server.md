@@ -7,6 +7,11 @@ Physical server — one machine, one IP, one port, one set of rules. One
   independent config. The "virtual" just means it's simulated in
   software, not separate hardware.
 
+
+  True virtual hosting (the nginx concept) means multiple server {}
+  blocks share the same port/socket, and the server picks which block
+  handles the request by reading the HTTP Host: header. One physical
+  port → multiple logical "virtual" servers.
   ===============================
 
   in default.conf;  server 1 (port 8080) and server 2 (port 8081) are virtual servers
