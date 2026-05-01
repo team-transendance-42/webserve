@@ -297,11 +297,11 @@ void Parser::assignKnownLocationFields(Location& location, const Token& key, con
 			throw ParseError("root expects one value", key.line, key.column);
 		}
 		location.root = values[0];
-	} else if (key.value == "alias") {
-		if (values.size() != 1) {
-			throw ParseError("alias expects one value", key.line, key.column);
-		}
-		location.alias = values[0];
+	// } else if (key.value == "alias") { TODO
+	// 	if (values.size() != 1) {
+	// 		throw ParseError("alias expects one value", key.line, key.column);
+	// 	}
+	// 	location.alias = values[0];
 	} else if (key.value == "index") {
 		if (values.size() != 1) {
 			throw ParseError("index expects one value", key.line, key.column);
@@ -312,11 +312,11 @@ void Parser::assignKnownLocationFields(Location& location, const Token& key, con
 			throw ParseError("autoindex expects one value: on|off", key.line, key.column);
 		}
 		location.autoindex = (values[0] == "on");
-	} else if (key.value == "deny_all") {
-		if (values.size() != 1 || (values[0] != "on" && values[0] != "off")) {
-			throw ParseError("deny_all expects one value: on|off", key.line, key.column);
-		}
-		location.deny_all = (values[0] == "on");
+	// } else if (key.value == "deny_all") { TODO
+	// 	if (values.size() != 1 || (values[0] != "on" && values[0] != "off")) {
+	// 		throw ParseError("deny_all expects one value: on|off", key.line, key.column);
+	// 	}
+	// 	location.deny_all = (values[0] == "on");
 	} else if (key.value == "allowed_methods") {
 		if (values.empty()) {
 			throw ParseError("allowed_methods expects at least one method", key.line, key.column);
@@ -348,11 +348,11 @@ void Parser::assignKnownLocationFields(Location& location, const Token& key, con
 			throw ParseError("upload_path expects one value", key.line, key.column);
 		}
 		location.upload_path = values[0];
-	} else if (key.value == "deny") {
-		if (values.size() != 1 || values[0] != "all") {
-			throw ParseError("deny expects one value: all", key.line, key.column);
-		}
-		location.deny_all = true;
+	// } else if (key.value == "deny") { TODO
+	// 	if (values.size() != 1 || values[0] != "all") {
+	// 		throw ParseError("deny expects one value: all", key.line, key.column);
+	// 	}
+	// 	location.deny_all = true;
 	} else {
 		throw ParseError("unknown location directive: " + key.value, key.line, key.column);
 	}

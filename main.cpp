@@ -36,7 +36,7 @@ int main(int argc, char *argv[])
     try
     {
         // TODO: swap createDefaultServerConfigs() for parseConfigFile(configFile) when parser is ready
-        std::vector<ServerConfig> cfgs = createDefaultServerConfigs();
+        // std::vector<ServerConfig> cfgs = createDefaultServerConfigs();
         // TODO
         ConfigParser parser;
         ConfigFile config = parser.parseFile(configFile);
@@ -48,8 +48,8 @@ int main(int argc, char *argv[])
         // Configs sharing an address become virtual hosts; Host: header selects among them.
         typedef std::pair<std::string, int> AddrKey;
         std::map<AddrKey, std::vector<ServerConfig> > groups;
-        for (size_t i = 0; i < cfgs.size(); ++i)
-            groups[std::make_pair(cfgs[i].host, cfgs[i].port)].push_back(cfgs[i]);
+        // for (size_t i = 0; i < cfgs.size(); ++i)
+        //     groups[std::make_pair(cfgs[i].host, cfgs[i].port)].push_back(cfgs[i]);
 
         std::vector<Server *> servers;
         for (std::map<AddrKey, std::vector<ServerConfig> >::iterator it = groups.begin();

@@ -93,8 +93,8 @@ bool ProcessRequest::_validateLocationRulesOrError(const HttpRequest &req,
 
     std::string reqMethod = ProcessRequest::methodToString(req.method);
     bool allowed = false;
-    for (size_t i = 0; i < loc.allowedMethod.size(); i++) {
-        if (loc.allowedMethod[i] == reqMethod) {
+    for (size_t i = 0; i < loc.allowed_methods.size(); i++) {
+        if (loc.allowed_methods[i] == reqMethod) {
             allowed = true;
             break;
         }
@@ -104,9 +104,9 @@ bool ProcessRequest::_validateLocationRulesOrError(const HttpRequest &req,
         return false;
     }
 
-    long maxBody = (loc.clientMaxBodySize >= 0)
-                    ? loc.clientMaxBodySize
-                    : cfg.clientMaxBodySize;
+    long maxBody = (loc.client_max_body_size >= 0)
+                    ? loc.client_max_body_size
+                    : cfg.client_max_body_size;
     if ((long)req.body.size() > maxBody) { // 413 payload too large
         client.writeBuf = ErrorResponseBuilder::buildErrorResponse(413, cfg).serialize();
         return false;
@@ -209,7 +209,7 @@ bool ProcessRequest::_handleUploadIfNeeded(const HttpRequest &req,
                                            const Location &loc,
                                            Client &client,
                                            const ServerConfig &cfg) const {
-    if (!loc.upload_enabled || req.method != POST) return false;
+    // if (!loc.upload_enabled || req.method != POST) return false; TODO
 
     std::string filename;
     std::string content;
@@ -360,7 +360,7 @@ bool ProcessRequest::_resolvePathStatOrError(const std::string &filepath,
         return false;
     }
 
-    client.write_buf = fromCgi.serialize();
+    // client.writeBuf = fromCgi.serialize(); // TODO
     return true;
 }
 

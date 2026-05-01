@@ -2,7 +2,7 @@
 
 #include <vector>
 #include "Client.hpp"
-#include "ServerConfig.hpp"
+// #include "ServerConfig.hpp"
 #include "CgiExecutor.hpp"
 
 #include <sys/stat.h>
