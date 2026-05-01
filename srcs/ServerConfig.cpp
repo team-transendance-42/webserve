@@ -203,6 +203,48 @@ std::vector<ServerConfig> createDefaultServerConfigs() {
     sta.locations.push_back(locDl);
     configs.push_back(sta);
 
+    // ── VIRTUAL HOST TEST BLOCK (port 8090) ────────────────────────
+    // Two configs share port 8090; dispatch is by Host: header.
+    // "alpha" is default_server (fallback for unknown Host values).
+    ServerConfig vhA;
+    vhA.host = "127.0.0.1";
+    vhA.port = 8090;
+    vhA.server_names = {"alpha"};
+    vhA.default_server = true;
+    vhA.clientMaxBodySize = 1 * 1024 * 1024;
+    vhA.errorPages[404] = "./www/errors/404.html";
+    vhA.errorPages[500] = "./www/errors/500.html";
+    {
+        Location r;
+        r.path = "/";
+        r.root = "./www/one";
+        r.index = "index.html";
+        r.autoindex = false;
+        r.allowedMethod = {"GET"};
+        vhA.locations.push_back(r);
+    }
+    configs.push_back(vhA);
+
+    ServerConfig vhB;
+    vhB.host = "127.0.0.1";
+    vhB.port = 8090;
+    vhB.server_names = {"beta"};
+    vhB.default_server = false;
+    vhB.clientMaxBodySize = 1 * 1024 * 1024;
+    vhB.errorPages[404] = "./www/errors/404.html";
+    vhB.errorPages[500] = "./www/errors/500.html";
+    {
+        Location r;
+        r.path = "/";
+        r.root = "./www/api";
+        r.index = "data.json";
+        r.autoindex = false;
+        r.allowedMethod = {"GET"};
+        vhB.locations.push_back(r);
+    }
+    configs.push_back(vhB);
+    // ── END VIRTUAL HOST TEST BLOCK ─────────────────────────────────
+
     return configs;
 }
 
