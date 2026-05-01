@@ -2,8 +2,8 @@ A client is a browser (or curl, or anything) that connects to your server. The m
 
 Browser                          Your Server
 ───────                          ───────────
-                                 _listenFd = socket on port 8080
-                                 poll() watching _listenFd...
+                                 _listen_fd = socket on port 8080
+                                 poll() watching _listen_fd...
 
 [connects] ──────────────────►  accept() fires
                                  → OS gives you clientFd = 5
@@ -24,12 +24,12 @@ Browser                          Your Server
 
 init()
   │
-  ├─ socket()        → creates _listenFd
+  ├─ socket()        → creates _listen_fd
   ├─ setsockopt()    → SO_REUSEADDR (so restart doesn't say "address in use")
   ├─ bind()          → attaches fd to host:port from config
   ├─ listen()        → OS starts queuing incoming connections (BACKLOG=128)
-  ├─ fcntl()         → sets _listenFd non-blocking
-  └─ push _listenFd into _fds[0]
+  ├─ fcntl()         → sets _listen_fd non-blocking
+  └─ push _listen_fd into _fds[0]
 
 run()
   │

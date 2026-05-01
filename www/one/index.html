@@ -3,16 +3,8 @@
 <head>
 	<meta charset="UTF-8">
 	<title>Zombie Kittens Webserv</title>
+    <link rel="stylesheet" href="/common.css">
 	<style>
-		body {
-			background: #18122B;
-			color: #F6F6F6;
-			font-family: 'Comic Sans MS', cursive, sans-serif;
-			margin: 0;
-			padding: 0;
-			min-height: 100vh;
-			box-shadow: 0 0 80px 10px #ffb6c1 inset, 0 0 120px 20px #8a2be2 inset;
-		}
             h1 {
             color: #F4FFE8;
             text-shadow: 0 0 12px #F4FFE8, 0 0 8px #F4FFE8;
@@ -75,16 +67,17 @@
         <tr>
             <td><span class="m-get badge">GET</span></td>
             <td><a href="/zombie_kittens">/zombie_kittens</a></td>
-            <td>Zombie Kittens page (www/one/pages/zombie_kittens.html)</td>
+            <td>Zombie Kittens page (www/one/pages/zombieKittens.html)</td>
         </tr>
+        <tr>
             <td><span class="m-get badge">GET</span></td>
             <td><a href="/game_start">/game_start</a></td>
-            <td>Game Start page (www/one/pages/game_start.html)</td>
+            <td>Game Start page (www/one/pages/gameStart.html)</td>
         </tr>
         <tr>
             <td><span class="m-get badge">GET</span> <span class="m-post badge">POST</span></td>
             <td><a href="/zk_apply_form">/zk_apply_form</a></td>
-            <td>Application form (www/one/zk_apply_form.html)</td>
+            <td>Application form page (www/one/pages/zkApplyForm.html)</td>
         </tr>
         <tr>
             <td><span class="m-get badge">GET</span></td>
@@ -99,12 +92,17 @@
         <tr>
             <td><span class="m-get badge">GET</span></td>
             <td><a href="/secrets">/secrets</a></td>
-            <td>Forbidden (deny_all, returns 403)</td>
+            <td>Forbidden (deny all in .config, returns 403)</td>
         </tr>
         <tr>
             <td><span class="m-get badge">GET</span></td>
-            <td><a href="/notAllowed">/notAllowed</a></td>
-            <td>Shows www/notAllowed/index.html</td>
+            <td><a href="/not_allowed">/not_allowed</a></td>
+            <td>Shows www/notAllowed/index.html with chmod 000: 403 code err</td>
+        </tr>
+        <tr>
+            <td><span class="m-get badge">GET</span> <span class="m-post badge">POST</span></td>
+            <td><a href="/post_body_too_large">/post_body_too_large</a></td>
+            <td>413 oversized-body test page (www/one/postBodyTooLarge.html)</td>
         </tr>
         <tr>
             <td><span class="m-get badge">GET</span></td>
@@ -116,11 +114,21 @@
             <td><a href="/files_auto">/files_auto</a></td>
             <td>Directory listing of www/files (autoindex on)</td>
         </tr>
+		        <tr>
+            <td><span class="m-get badge">DELETE</span></td>
+            <td><a href="/delete_create_file">/delete_create_file</a></td>
+            <td>Display files and delete them</td>
+        </tr>
         <tr>
             <td><span class="m-get badge">GET</span></td>
             <td><a href="/api/data_json">/api/data_json</a></td>
             <td>Shows www/api/data.json</td>
         </tr>
+        <!-- <tr> todo: not yet implemented
+            <td><span class="m-get badge">GET</span> <span class="m-post badge">POST</span></td>
+            <td><a href="/upload">/upload</a></td>
+            <td>Upload form page and file upload endpoint</td>
+        </tr> -->
     </table>
     <hr>
     <div style="text-align:center; margin: 32px 0 0 0; font-size: 1.1em;">

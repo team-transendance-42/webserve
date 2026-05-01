@@ -2,10 +2,11 @@
 
 #include <cstdint>
 #include <sys/epoll.h>
+#include <cstring>
 
 /**
  * a simple wrapper around the Linux epoll API to manage an epoll instance.
- * provides methods to initialize the epoll instance, wait for events, and add/modify/delete file descriptors.
+ * methods to initialize the epoll instance, wait for events, and add/modify/delete file descriptors.
  */
 class EpollLoop {
 public:
@@ -16,11 +17,12 @@ public:
 	EpollLoop &operator=(const EpollLoop &) = delete;
 
 	void init();
-	int wait(struct epoll_event *events, int max_events, int timeout_ms) const;
+	int wait(struct epoll_event *events, int maxEvents, int timeoutMs) const;
 	void add(int fd, uint32_t events) const;
 	void mod(int fd, uint32_t events) const;
 	void del(int fd) const;
 
 private:
 	int _fd;
+	static struct epoll_event makeEvent(int fd, uint32_t events);
 };

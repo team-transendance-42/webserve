@@ -24,9 +24,16 @@ Example stream in one recv():
 REQ1_HEADERS + REQ1_BODY + REQ2_HEADERS...
 After parsing REQ1, leftover bytes belong to REQ2, so they stay in _buf.
  */
+
+ /**
+ * parsed HTTP request received from a client.
+ * Handles parsing of raw TCP byte streams into HTTP method, path, headers, and body fields.
+ * Used by the server to process incoming requests, support keep-alive, and extract request data for routing/handling.
+ * Provides helpers for header lookup, content length, and connection state.
+ */
 class HttpRequest {
 public:
-    // ── parsed data — read these after feed() returns COMPLETE ────────────
+    // ── parsed data — read these after feed() returns 
     Method                             method;
     std::string                        path;
     std::string                        query_string;
@@ -36,21 +43,20 @@ public:
 
     HttpRequest();
 
-    /**
-	 * parse raw HTTP request bytes coming from the client socket(TCP stream bytes), in recv(client.fd, ...) in server read loop
-	 * feed() appends them to _buf, then _parse() extracts fields.
-	 */
     ParseResult feed(const std::string &data);
-    ParseResult feed(const char *data, size_t len);  // convenience overload
+    ParseResult feed(const char *data, size_t len);
 
     // helpers
-    std::string get_header    (const std::string &key) const;
-    bool        has_header    (const std::string &key) const;
+    std::string getHeader    (const std::string &key) const;
+    bool        hasHeader    (const std::string &key) const;
     size_t      content_length()                        const;
     bool        is_keep_alive ()                        const;
 
     void        clear();        // reset for next request (keep-alive)
-    void        debug_print()   const;
+    void        debugPrint()   const;
+	ParseResult tryParse();	
+    bool        hasStarted() const;
+    bool        isComplete() const;
 
 private:
     // internal parse state
@@ -58,12 +64,13 @@ private:
 
     ParseState  _state;
     std::string _buf;
+    size_t      _headerCount;
 
     ParseResult _parse();
     bool        _parse_request_line(const std::string &line);
     bool        _parse_header_line (const std::string &line);
     bool        _parse_method      (const std::string &tok);
-    bool        _parse_path        (const std::string &raw);
+    bool        _parsePath        (const std::string &raw);
 
     std::string _next_line   ();
     bool        _line_ready  () const;

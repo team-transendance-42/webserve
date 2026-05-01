@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Zomby Kittens</title>
+    <link rel="stylesheet" href="/common.css">
+    <style>
+        .panel {
+            max-width: 600px;
+            margin: 60px auto;
+            box-shadow: 0 0 40px 10px #ffb6c1, 0 0 60px 20px #6a5acd;
+            text-align: center;
+        }
+        .hero-title {
+            font-size: 3em;
+            color: #8a2be2;
+            text-shadow: 0 0 12px #ffb6c1, 0 0 8px #00bfff;
+            margin-bottom: 0.2em;
+        }
+        .kitten {
+            font-size: 2em;
+            margin: 20px 0;
+            /*animation: bounce 1s infinite alternate;*/
+        }
+        @keyframes bounce {
+            0% { transform: translateY(0); }
+            100% { transform: translateY(-20px); }
+        }
+        .hero-desc {
+            font-size: 1.2em;
+            margin-bottom: 1em;
+        }
+        .play-btn {
+            display: inline-block;
+            background: linear-gradient(90deg, #8a2be2 0%, #ffb6c1 100%);
+            color: #fff;
+            border: none;
+            border-radius: 12px;
+            padding: 16px 32px;
+            font-size: 1.3em;
+            cursor: pointer;
+            box-shadow: 0 4px 16px #ffb6c1, 0 0 8px #00bfff;
+            transition: background 0.3s;
+            text-decoration: none;
+        }
+        .play-btn:hover {
+            background: linear-gradient(90deg, #ffb6c1 0%, #8a2be2 100%);
+        }
+        .muted-note {
+            margin-top: 2em;
+            font-size: 1em;
+        }
+    </style>
+</head>
+<body>
+    <div class="home-wrap">
+        <a href="/" class="home-link">&larr; Home</a>
+    </div>
+    <div class="panel center">
+        <h1 class="hero-title">🧟‍♂️ Zomby Kittens 🐾</h1>
+        <div class="kitten">😺💜😺💖😺💙</div>
+        <div class="hero-desc">
+            Welcome to the wildest game in town!<br>
+            The kittens have turned... ZOMBIE!<br>
+            Can you outsmart the undead fluffballs and survive their funky attacks?<br>
+            <strong>Beware:</strong> They're cute, but they bite!
+        </div>
+        <a href="/play" class="play-btn">Play Now!</a>
+        <div class="muted-note">
+            <em>Get ready for chaos, giggles, and a whole lot of zombie kitten fun!</em>
+        </div>
+    </div>
+</body>
+</html>

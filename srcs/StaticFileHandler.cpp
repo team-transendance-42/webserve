@@ -1,5 +1,6 @@
 #include "../includes/StaticFileHandler.hpp"
 
+#include <iostream>
 #include <cerrno>
 #include <dirent.h>
 #include <fstream>
@@ -19,6 +20,7 @@
  */
 
 HttpResponse StaticFileHandler::serveStatic(const std::string &filepath) {
+        // std::cerr << "[StaticFileHandler] Requested file path: " << filepath << std::endl;
     struct stat st; // POSIX API structure (size, mode/type, timestamps, etc.).
     if (stat(filepath.c_str(), &st) != 0) { //0 = success, -1 = failure and sets errno. 
         if (errno == ENOENT || errno == ENOTDIR) // error no entry(path or file doesnt exist, error no dir(/www/index.html/abc))
@@ -30,6 +32,13 @@ HttpResponse StaticFileHandler::serveStatic(const std::string &filepath) {
 
     if (S_ISDIR(st.st_mode)) // test in which case i really need it
         return HttpResponse::make_403();
+
+    // Ensure permission-denied on file read maps to 403, not generic 500.
+    if (access(filepath.c_str(), R_OK) != 0) {
+        if (errno == EACCES)
+            return HttpResponse::make_403();
+        return HttpResponse::make_500();
+    }
 
     std::ifstream file(filepath.c_str(), std::ios::binary); //Open the file at filepath in binary mode.
     if (!file.is_open())
@@ -83,25 +92,40 @@ std::string StaticFileHandler::mimeType(const std::string &path) {
 
 */
 
+static std::string htmlEscape(const std::string &s) {
+    std::string out;
+    for (size_t i = 0; i < s.size(); ++i) {
+        switch (s[i]) {
+            case '<':  out += "&lt;";   break;
+            case '>':  out += "&gt;";   break;
+            case '&':  out += "&amp;";  break;
+            case '"':  out += "&quot;"; break;
+            default:   out += s[i];     break;
+        }
+    }
+    return out;
+}
+
 HttpResponse StaticFileHandler::autoindex(const std::string &dirpath,
                                           const std::string &url_path) {
-    DIR *dir = opendir(dirpath.c_str()); // returns NULL on failure, sets errno
-    if (!dir) return HttpResponse::make_403(); // return 403 because this func is called after server already confirms this path is dir!
+    DIR *dir = opendir(dirpath.c_str());
+    if (!dir) return HttpResponse::make_403();
 
     std::ostringstream html;
-    html << "<html><head><title>Index of " << url_path << "</title></head>"
-         << "<body><h1>Index of " << url_path << "</h1><hr><pre>";
+    html << "<html><head><title>Index of " << htmlEscape(url_path) << "</title></head>"
+         << "<body><h1>Index of " << htmlEscape(url_path) << "</h1><hr><pre>";
 
     struct dirent *entry;
     while ((entry = readdir(dir)) != NULL) {
         std::string name = entry->d_name;
         if (name == ".") continue;
+        std::string safeName = htmlEscape(name);
         html << "<a href=\"" << url_path;
         if (url_path[url_path.size() - 1] != '/') html << '/';
-        html << name << "\">" << name << "</a>\n";
+        html << name << "\">" << safeName << "</a>\n";
     }
     closedir(dir);
-    html << "</pre><hr></body></html>"; // pre = preformatted-text element. Preserves spaces and line breaks exactly as written.
+    html << "</pre><hr></body></html>";
 
     return HttpResponse::make_200(html.str());
 }

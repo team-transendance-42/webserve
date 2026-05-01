@@ -1,20 +1,34 @@
 #include "../includes/Server.hpp"
+#include "../includes/HttpResponse.hpp"
+#include "../includes/ErrorResponseBuilder.hpp"
+#include <iostream>
+#include <stdexcept>
+#include <cstring>
 
-// ── ctor / dtor ───────────────────────────────────────────────────────────────
+/**
+ * lambda expression: [this](int fd, uint32_t events) { _epoll.mod(fd, events); }
+ * [ ] = capture list that specifies what variables/pointers the lambda can access
+this = captures the pointer to the current object (the Server instance)
+Effect: Inside the lambda body, we can access all member variables and methods of Server like _epoll, _clients, etc.
+Without [this], calling _epoll.mod() would fail—the lambda wouldn't know what _epoll is
 
-Server::Server(const ServerConfig &config)
-        : _config(config),
-            _listenFd(-1),
-        _epoll(),
-            _running(true),
-            _requestProcessor(_config),
-            _connectionManager(
-                    _clients,
-                [this](int fd, uint32_t events) { _epoll.mod(fd, events); },
-                [this](int fd) { _epoll.del(fd); },
-                [this](Client &client) { _requestProcessor.handle(client); }) {
-		// todo: missing init _clients
-	}
+Each browser tab or curl command is a separate client (separate TCP connection, separate fd).
+When a client disconnects, we remove its fd from epoll and close it.
+Server fd: only for new connections.
+Client fd: for reading requests and writing responses.
+epoll manages all active fds and notifies you when they’re ready for I/O.
+ */
+Server::Server(const std::vector<ServerConfig> &configs)
+    :  _configs(configs),
+        _listen_fd(-1),
+        _epoll(), // has default constructor that initializes internal fd
+        _running(true),
+        _process_request(_configs),
+        _connection_manager(
+                _clients,
+            [this](int fd, uint32_t events) { _epoll.mod(fd, events); },
+            [this](int fd) { _epoll.del(fd); },
+            _process_request) {} // map *clients is auto initialized as empty, we will add client objects to it in _acceptClient when new clients connect
 
 Server::~Server() {
     typedef std::map<int, Client *>::iterator It;
@@ -22,55 +36,56 @@ Server::~Server() {
         close(it->first);
         delete it->second;// pointer to heap obj created by new in _acceptClient, we need to free the memory
     }
-    if (_listenFd >= 0) close(_listenFd);
+    if (_listen_fd >= 0) close(_listen_fd);
 }
 
 // ── init ──────────────────────────────────────────────────────────────────────
 
 void Server::init() {
-    // 1. epoll instance
-    _epoll.init();
+    _epoll.init(); // create epoll instance, store fd internally
 
-    // 2. TCP socket
-    _listenFd = socket(AF_INET, SOCK_STREAM, 0);
-    if (_listenFd < 0)
+    _listen_fd = socket(AF_INET, SOCK_STREAM, 0); // 2. TCP socket
+    if (_listen_fd < 0)
         throw std::runtime_error("socket() failed: "
             + std::string(strerror(errno)));
 
-    // 3. SO_REUSEADDR — no "address already in use" on restart
     int opt = 1;
-    if (setsockopt(_listenFd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0)
+    if (setsockopt(_listen_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0) // 3. SO_REUSEADDR — a socket option,  lets quick restart the server on the same port, even if the previous socket is in TIME_WAIT state.
         throw std::runtime_error("setsockopt() failed");
 
     // 4. bind
-    struct sockaddr_in addr;
-    std::memset(&addr, 0, sizeof(addr)); // todo: do we need it? memory....
-    addr.sin_family      = AF_INET;
-    addr.sin_port        = htons(_config.port);
-    if (_config.host == "localhost")
+    struct sockaddr_in addr; // hold the address info for the socket.
+    std::memset(&addr, 0, sizeof(addr)); // Sets all bytes of addr to zero (clears memory). This prevents garbage values and ensures all fields are initialized.
+    addr.sin_family      = AF_INET; //Sets the address family to IPv4
+    addr.sin_port        = htons(_configs[0].port); // htons converts the port number from host byte order to network byte order (big-endian). This is necessary for correct communication over the network, as different machines may have different byte orders.
+    if (_configs[0].host == "localhost")
         addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
     else
-        addr.sin_addr.s_addr = inet_addr(_config.host.c_str());
+        addr.sin_addr.s_addr = inet_addr(_configs[0].host.c_str());
 
-    if (bind(_listenFd, (struct sockaddr *)&addr, sizeof(addr)) < 0)
+    if (bind(_listen_fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) //s ssigns address/port to server socket (_listen_fd).  "I want to receive connections on this IP and port"
         throw std::runtime_error("bind() failed on "
-            + _config.host + ":" + std::to_string(_config.port)
+            + _configs[0].host + ":" + std::to_string(_configs[0].port)
             + " — " + strerror(errno));
 
-    // 5. listen
-    if (listen(_listenFd, BACKLOG) < 0)
+    if (listen(_listen_fd, BACKLOG) < 0) // // 5. listen, ready to accept connections. BACKLOG = max pending connections in queue before new ones are refused.
         throw std::runtime_error("listen() failed: "
             + std::string(strerror(errno)));
 
-    // 6. non-blocking
-    _setNonBlocking(_listenFd);
+    _setNonBlocking(_listen_fd);
 
-    // 7. register with epoll
-    _epoll.add(_listenFd, EPOLLIN);
+    _epoll.add(_listen_fd, EPOLLIN); // 7. register server with epoll to wait for incoming connection events (EPOLLIN on _listen_fd means new client is trying to connect)
 
-    std::cout << "[Server] '" << _config.server_names[0]
-              << "' listening on " << _config.host
-              << ":" << _config.port << "\n";
+    std::string names;
+    for (size_t i = 0; i < _configs.size(); ++i) {
+        if (!_configs[i].server_names.empty()) {
+            if (!names.empty()) names += ", ";
+            names += _configs[i].server_names[0];
+        }
+    }
+    if (names.empty()) names = "(unnamed)";
+    std::cout << "[Server] [" << names << "] listening on "
+              << _configs[0].host << ":" << _configs[0].port << "\n";
 }
 
 // ── tick ───────────────────────────────────────────────────────────────────────
@@ -84,31 +99,44 @@ void Server::init() {
 	If ev contains any of those flags, the result is non-zero, so the condition is true. This is a common way to test for specific bits in a bitmask.
  */
 
+ void Server::handleServerTimeout() {
+    for (auto it = _clients.begin(); it != _clients.end();) {
+        Client* client = it->second;
+        if (std::time(0) - client->lastTimestamp > SERVER_TIMEOUT) {
+            int fd = client->fd;
+            std::cout << "[Server] timeout: closing client fd=" << fd << "\n";
+            std::string resp = ErrorResponseBuilder::buildErrorResponse(408, _configs[0]).serialize();
+            send(fd, resp.c_str(), resp.size(), 0);
+            ++it; // advance before closeClient erases the entry from _clients
+            _connection_manager.closeClient(fd); // handles delete + erase + epoll.del + close
+        } else
+            ++it;
+    }
+ }
  /**
  * One event-loop step: wait for ready fds, accept new clients,
  * and route client events to read/write/close handlers.
 */
 
 void Server::tick() {
-    struct epoll_event events[MAX_EVENTS];
+    struct epoll_event events[maxEvents];
 
-    // ONE epoll_wait call — returns after POLL_TIMEOUT ms if nothing happens
-    // this lets main() check g_running regularly
-	// numReadyEvents = num of fds ready for i/o: how many events are avail in the events arr
-    int numReadyEvents = _epoll.wait(events, MAX_EVENTS, POLL_TIMEOUT);
+    int numReadyEvents = _epoll.wait(events, maxEvents, POLL_TIMEOUT);
 
     if (numReadyEvents < 0) {
         if (errno == EINTR) return;  // signal interrupted — main will check g_running
         throw std::runtime_error("epoll_wait() failed: "
             + std::string(strerror(errno)));
     }
+    handleServerTimeout() ; // check for idle clients and close them before processing ready events
+    
     if (numReadyEvents == 0) return;  // timeout — nothing ready, return to main
 
     for (int i = 0; i < numReadyEvents; i++) {
         int      fd = events[i].data.fd;
         uint32_t ev = events[i].events;
 
-        if (fd == _listenFd) {
+        if (fd == _listen_fd) {
             _acceptClient();
             continue;
         }
@@ -118,17 +146,18 @@ void Server::tick() {
         Client &client = *it->second;
 
         if (ev & (EPOLLERR | EPOLLHUP | EPOLLRDHUP)) {
-            _connectionManager.closeClient(fd);
+            _connection_manager.closeClient(fd);
             continue;
         }
-        if (ev & EPOLLIN)  _connectionManager.readClient(client, READ_BUF);
-        if (ev & EPOLLOUT) _connectionManager.writeClient(client);
+        if (ev & EPOLLIN)  _connection_manager.readClient(client, READ_BUF);
+        if (ev & EPOLLOUT) _connection_manager.writeClient(client);
     }
 }
 
 void Server::stop() {
     _running = false;
-    std::cout << "[Server] stopping '" << _config.server_names[0] << "'\n";
+    std::string name = _configs[0].server_names.empty() ? "(unnamed)" : _configs[0].server_names[0];
+    std::cout << "[Server] stopping '" << name << "'\n";
 }
 
 // ── _acceptClient ─────────────────────────────────────────────────────────────
@@ -138,13 +167,16 @@ void Server::_acceptClient() {
         struct sockaddr_in addr;
         socklen_t len = sizeof(addr);
 
-        int clientFd = accept(_listenFd, (struct sockaddr *)&addr, &len);
+        int clientFd = accept(_listen_fd, (struct sockaddr *)&addr, &len);
         if (clientFd < 0) {
             if (errno == EAGAIN || errno == EWOULDBLOCK) break;
             std::cerr << "[accept] failed: " << strerror(errno) << "\n";
             break;
         }
-
+        if (clientFd == 0) {
+            std::cerr << "[accept] returned fd=0 (invalid client), skipping.\n";
+            continue;
+        }
         _setNonBlocking(clientFd);
         _epoll.add(clientFd, EPOLLIN | EPOLLRDHUP);
         _clients[clientFd] = new Client(clientFd);
@@ -155,7 +187,6 @@ void Server::_acceptClient() {
 
 // ── utils ─────────────────────────────────────────────────────────────────────
 
-// todo: catch somewhere the throw
 void Server::_setNonBlocking(int fd) {
     int flags = fcntl(fd, F_GETFL, 0);
     if (flags < 0)

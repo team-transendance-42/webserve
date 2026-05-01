@@ -1,2 +1,194 @@
-hello world<br>
-this is files but auto_generated
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test delete file </title>
+    <link rel="stylesheet" href="../common.css">
+    <style>
+        .home-wrap {
+            text-align: left;
+            margin: 18px 0 0 24px;
+        }
+        .home-link {
+            color: #8a2be2;
+            font-weight: bold;
+            text-decoration: none;
+            font-size: 1.1em;
+        }
+        .home-link:hover {
+            color: #ffb6c1;
+        }
+        .panel {
+            max-width: 700px;
+            margin: 24px auto;
+            background: rgba(34, 34, 34, 0.92);
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 0 26px 6px #ffb6c1, 0 0 40px 10px #6a5acd;
+        }
+        h2 {
+            margin-top: 0;
+            color: #8a2be2;
+            text-shadow: 0 0 8px #ffb6c1;
+        }
+        p {
+            color:#b9a7ff
+        }
+        h3{
+            color: #ffb6c1;
+            margin-bottom: 8px;
+        }
+        #create-file-form {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+        #create-file-form input,
+        #create-file-form textarea {
+            background: rgba(255, 255, 255, 0.08);
+            color: #fff;
+            border: 1px solid #8a2be2;
+            border-radius: 8px;
+            padding: 8px;
+            font-family: inherit;
+        }
+        #create-file-status {
+            color: #ffb6c1;
+            min-height: 1.2em;
+        }
+        #files-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        #files-list li {
+            margin: 10px 0;
+            padding: 8px 10px;
+            border-radius: 8px;
+            background: rgba(255, 182, 193, 0.08);
+        }
+        #files-list a {
+            color: #b9a7ff;
+            text-decoration: none;
+        }
+        #files-list a:hover {
+            color: #ffb6c1;
+        }
+        .zombie-btn {
+            margin-left: 10px;
+            border: none;
+            border-radius: 8px;
+            padding: 4px 10px;
+            background: #8a2be2;
+            color: #fff;
+            cursor: pointer;
+        }
+        .zombie-btn:hover {
+            background: #ff6fae;
+        }
+    </style>
+</head>
+<body>
+    <div class="home-wrap">
+        <a href="/" class="home-link">&larr; Home</a>
+    </div>
+    <div class="panel">
+        <h2>Welcome to Zomby Kittens!</h2>
+        <p>Zombie kittens have too many files. Delete some, please :)</p>
+        <h3>Create a file</h3>
+        <form id="create-file-form">
+            <input id="new-file-name" type="text" placeholder="file name (e.g. kitty.txt)" required>
+            <textarea id="new-file-content" rows="4" placeholder="file content"></textarea>
+            <button type="submit" class="zombie-btn">create</button>
+        </form>
+        <p id="create-file-status"></p>
+        <h3>Files in this directory</h3>
+        <ul id="files-list">
+            <li>Loading...</li>
+        </ul>
+    </div>
+    <script>
+        const list = document.getElementById('files-list');
+        const createForm = document.getElementById('create-file-form');
+        const createName = document.getElementById('new-file-name');
+        const createContent = document.getElementById('new-file-content');
+        const createStatus = document.getElementById('create-file-status');
+
+        function renderMessage(msg) {
+            list.innerHTML = '<li>' + msg + '</li>';
+        }
+
+        function setCreateStatus(msg) {
+            createStatus.textContent = msg;
+        }
+
+        function deleteFile(name) {
+            return fetch('/delete_create_file/' + encodeURIComponent(name), { method: 'DELETE' })
+                .then(() => location.reload());
+        }
+
+        function createFile(name, content) {
+            return fetch('/delete_create_file', {
+                method: 'POST',
+                headers: {
+                    'X-Filename': name,
+                    'Content-Type': 'text/plain'
+                },
+                body: content
+            });
+        }
+
+        createForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const name = createName.value.trim();
+            const content = createContent.value;
+            if (!name) {
+                setCreateStatus('Please enter a file name.');
+                return;
+            }
+
+            setCreateStatus('Creating...');
+            createFile(name, content)
+                .then((r) => {
+                    if (!r.ok) throw new Error('Create failed');
+                    setCreateStatus('File created.');
+                    location.reload();
+                })
+                .catch(() => setCreateStatus('Could not create file.'));
+        });
+
+        fetch('/files_auto/') // uses autoindex to get file list as HTML, then parses it to extract file names (since we dont have JSON API for files list)
+            .then((r) => r.text())
+            .then((html) => {
+                const doc = new DOMParser().parseFromString(html, 'text/html');
+                const names = Array.from(doc.querySelectorAll('a'))
+                    .map((a) => (a.textContent || '').trim())
+                    .filter((n) => n && n !== '.' && n !== '..' && n !== 'index.html');
+
+                list.innerHTML = '';
+                if (!names.length) return renderMessage('No files found.');
+
+                names.forEach((name) => {
+                    const li = document.createElement('li');
+                    const link = document.createElement('a');
+                    const btn = document.createElement('button');
+
+                    link.href = '/files_auto/' + encodeURIComponent(name);
+                    link.textContent = name;
+
+                    btn.type = 'button';
+                    btn.className = 'zombie-btn';
+                    btn.textContent = 'delete';
+                    btn.addEventListener('click', () => deleteFile(name));
+
+                    li.appendChild(link);
+                    li.appendChild(document.createTextNode(' '));
+                    li.appendChild(btn);
+                    list.appendChild(li);
+                });
+            })
+            .catch(() => renderMessage('Could not load file list.'));
+    </script>
+</body>
+</html>
+

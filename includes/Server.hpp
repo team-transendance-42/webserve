@@ -1,21 +1,15 @@
 #pragma once
 
-#include <string>
-#include <vector>
 #include <map>
-#include <sys/epoll.h>  // epoll_create1, epoll_ctl, epoll_wait, epoll_event: can handle 100,000+ fds, O(1) time complexity
+#include <vector>
+#include <sys/epoll.h>  // epoll_create1, epoll_ctl, epoll_wait, epoll_event: can handle 100,000+ fds, O(1) time complexity, but only on linux
 #include <sys/socket.h> // socket(), bind(), listen(), accept()
 #include <netinet/in.h> // sockaddr_in
 #include <arpa/inet.h>  // inet_addr()
 #include <unistd.h>     // close()
 #include <fcntl.h>      // fcntl() non-blocking
-#include <stdexcept>
-#include <iostream>
-#include <sstream>
-#include <cerrno>
-#include <cstring>      // strerror()
+#include "ServerConfig.hpp"
 #include "HttpRequest.hpp"
-#include "HttpResponse.hpp"
 #include "Client.hpp"
 #include "StaticFileHandler.hpp"
 #include "ConnectionManager.hpp"
@@ -23,20 +17,18 @@
 #include "ProcessRequest.hpp"
 
 /*
-** Server
-** ------
-** Owns one listening socket (fd).
-** Uses epoll() to multiplex the listen fd + all client fds.
-**
-** Lifecycle:
-**   Server srv(config);
-**   srv.init();   // socket → setsockopt → bind → listen → fcntl non-block
-**   srv.tick();    // poll loop — blocks until SIGINT or error
+* Owns one listening socket (fd).
+* Uses epoll() to multiplex the listen fd + all client fds.
+*
+* Lifecycle:
+*   Server srv(config);
+*   srv.init();   // socket → setsockopt → bind → listen → fcntl non-block
+*   srv.tick();    // poll loop — blocks until SIGINT or error
 */
 
 class Server {
 	public:
-		explicit Server(const ServerConfig &config);
+		explicit Server(const std::vector<ServerConfig> &configs);
 		Server(const Server &) = delete; // no cpy or assign
 		Server &operator=(const Server &) = delete;
 		~Server();
@@ -45,26 +37,25 @@ class Server {
 		void tick();    // call in a loop — ONE epoll_wait iteration
 		void stop();    // sets _running = false
 
-		int  getFd()     const { return _listenFd; }
-		bool isRunning() const { return _running;  }
-
 	private:
-		void 				_acceptClient();
-		static void        _setNonBlocking(int fd);
+		void			_acceptClient();
+		static void	 	_setNonBlocking(int fd);
+		void 			handleServerTimeout();
 
 		// named constants for server tuning
 		enum {
 			BACKLOG      = 128,   // max queued incoming connections waiting to be accepted; named so to match exact socket API term listen(fd, backlog), Kernel docs/man pages call it “backlog”
-			POLL_TIMEOUT = 100,  // ms — short so main loop checks g_running often
-			MAX_EVENTS   = 64,   // max ready events handled per tick call
-			READ_BUF     = 4096 // chunk size per recv
+			POLL_TIMEOUT = 100,  // ms —  how often to check for shutdown signal (SIGINT) in main loop; if too long, server may be slow to respond to shutdown; if too short, may cause more CPU wakeups and slightly higher CPU usage when idle
+			maxEvents   = 64,   // max ready events handled per tick call
+			READ_BUF     = 4096, // chunk size per recv
+			SERVER_TIMEOUT = 6 // for testing: usually is 60 seconds of idle time before server closes client connection
 		};
 
-		int                     _listenFd;
+		int                     _listen_fd;
 		bool                    _running;
-		ServerConfig            _config;
+		std::vector<ServerConfig> _configs;
 		EpollLoop               _epoll;
 		std::map<int, Client *> _clients;
-		ProcessRequest          _requestProcessor;
-		ConnectionManager       _connectionManager;
+		ProcessRequest          _process_request;
+		ConnectionManager      _connection_manager;
 };
