@@ -1,5 +1,6 @@
 #pragma once
 
+#include <vector>
 #include "Client.hpp"
 #include "ServerConfig.hpp"
 
@@ -16,27 +17,50 @@
 */
 class ProcessRequest {
 public:
-    ProcessRequest(const ServerConfig &config);
+    explicit ProcessRequest(const std::vector<ServerConfig> &configs);
 
     void handle(Client &client) const;
 
 private:
-    const Location  *   _resolveLocationOrError(const HttpRequest &req, Client &client) const;
-    bool                _validateLocationRulesOrError(const HttpRequest &req, const Location &loc, Client &client) const;
-    bool                _handleRedirectIfNeeded(const Location &loc, Client &client) const;
-    bool                _handleUploadIfNeeded(const HttpRequest &req, const Location &loc, Client &client) const;
-    bool                _handleDeleteIfNeeded(const HttpRequest &req, const Location &loc, Client &client) const;
+    const ServerConfig &_selectConfig(const HttpRequest &req) const;
 
-    std::string         _resolveFilePath(const Location &loc, const std::string &requestPath) const;
-    static std::string  _canonicalizeWithinRoot(const std::string &root, const std::string &rawPath);
-    bool                _resolvePathStatOrError(const std::string &filepath, Client &client, struct stat &st) const;
-    bool                _saveUpload(const Location &loc, const std::string &filename, const std::string &content, std::string &savedPath) const;
-    void                _serveFromStat(const Location &loc,
+    const Location *_resolveLocationOrError(const HttpRequest &req,
+                                            Client &client,
+                                            const ServerConfig &cfg) const;
+    bool _validateLocationRulesOrError(const HttpRequest &req,
+                                       const Location &loc,
+                                       Client &client,
+                                       const ServerConfig &cfg) const;
+    bool _handleRedirectIfNeeded(const Location &loc, Client &client) const;
+    bool _handleUploadIfNeeded(const HttpRequest &req,
+                               const Location &loc,
+                               Client &client,
+                               const ServerConfig &cfg) const;
+    bool _handleDeleteIfNeeded(const HttpRequest &req,
+                               const Location &loc,
+                               Client &client,
+                               const ServerConfig &cfg) const;
+
+    std::string         _resolveFilePath(const Location &loc,
+                                         const std::string &requestPath) const;
+    static std::string  _canonicalizeWithinRoot(const std::string &root,
+                                                const std::string &rawPath);
+    bool _resolvePathStatOrError(const std::string &filepath,
+                                 Client &client,
+                                 struct stat &st,
+                                 const ServerConfig &cfg) const;
+    bool _saveUpload(const Location &loc,
+                     const std::string &filename,
+                     const std::string &content,
+                     std::string &savedPath) const;
+    void _serveFromStat(const Location &loc,
                         const std::string &urlPath,
                         const std::string &filepath,
                         const struct stat &st,
-                        Client &client) const;
-	static std::string methodToString(Method method);
+                        Client &client,
+                        const ServerConfig &cfg) const;
 
-    const ServerConfig &_config;
+    static std::string methodToString(Method method);
+
+    std::vector<ServerConfig> _configs;
 };
