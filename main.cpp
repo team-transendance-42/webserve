@@ -38,11 +38,17 @@ int main(int argc, char *argv[])
         // TODO: swap createDefaultServerConfigs() for parseConfigFile(configFile) when parser is ready
         std::vector<ServerConfig> cfgs = createDefaultServerConfigs();
 
-        // One Server per config block — each owns its own epoll and listen socket.
-        // Round-robin tick is fine for testing; consolidate to shared epoll later if needed.
-        std::vector<Server *> servers;
+        // Group configs by (host, port) — one Server (one listen socket) per unique address.
+        // Configs sharing an address become virtual hosts; Host: header selects among them.
+        typedef std::pair<std::string, int> AddrKey;
+        std::map<AddrKey, std::vector<ServerConfig> > groups;
         for (size_t i = 0; i < cfgs.size(); ++i)
-            servers.push_back(new Server(cfgs[i]));
+            groups[std::make_pair(cfgs[i].host, cfgs[i].port)].push_back(cfgs[i]);
+
+        std::vector<Server *> servers;
+        for (std::map<AddrKey, std::vector<ServerConfig> >::iterator it = groups.begin();
+             it != groups.end(); ++it)
+            servers.push_back(new Server(it->second));
         for (size_t i = 0; i < servers.size(); ++i)
             servers[i]->init();
 
