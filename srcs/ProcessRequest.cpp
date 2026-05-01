@@ -1,5 +1,7 @@
 #include <cerrno>
 #include <cctype>
+#include <climits>
+#include <cstdlib>
 #include <ctime>
 #include <fstream>
 #include <iostream>
@@ -11,6 +13,7 @@
 #include "../includes/ProcessRequest.hpp"
 #include "../includes/StaticFileHandler.hpp"
 
+//  If keepAlive is true, sets 'Connection: keep-alive', otherwise 'Connection: close'.
 static void stampConnection(std::string &response, bool keepAlive) {
     size_t pos = response.find("\r\n");
     if (pos == std::string::npos) return;
@@ -20,12 +23,16 @@ static void stampConnection(std::string &response, bool keepAlive) {
 }
 
 /**
- * Serialized = converting structured data(like obj) into a flat byte/text format that can be sent or stored. HttpResponse is an object (status, headers, body).
-.serialize() turns it into raw HTTP text
+ * Serialized = converting structured data(like obj) into a flat byte/text format that can be sent or stored. HttpResponse is an object (status, headers, body)
+ * .serialize() turns it into raw HTTP text
  */
-ProcessRequest::ProcessRequest(const ServerConfig &config)
-    : _config(config) {}
+ProcessRequest::ProcessRequest(const ServerConfig &config) : _config(config) {}
 
+/**
+ * Resolves the best-matching Location for the request path.
+ * If no match is found, writes a 404 error response to the client and returns NULL.
+ * The debug print is commented out to avoid excessive logging in production, but can be enabled for troubleshooting.
+ */
 const Location *ProcessRequest::_resolveLocationOrError(const HttpRequest &req, Client &client) const {
         // std::cerr << "[DEBUG] Incoming request path: '" << req.path << "'" << std::endl;
     const Location *loc = _config.matchLocation(req.path);
@@ -40,7 +47,7 @@ const Location *ProcessRequest::_resolveLocationOrError(const HttpRequest &req, 
 bool ProcessRequest::_validateLocationRulesOrError(const HttpRequest &req,
                                                    const Location &loc,
                                                    Client &client) const {
-    // denyAll first: protected locations return 403 regardless of method
+    // denyAll first: protected locations return 403 regardless of method; 403 Forbidden
     if (loc.denyAll) {
         client.writeBuf = ErrorResponseBuilder::buildErrorResponse(403, _config).serialize();
         return false;
@@ -54,7 +61,7 @@ bool ProcessRequest::_validateLocationRulesOrError(const HttpRequest &req,
             break;
         }
     }
-    if (!allowed) {
+    if (!allowed) { // 405 method not allowed
         client.writeBuf = ErrorResponseBuilder::buildErrorResponse(405, _config).serialize();
         return false;
     }
@@ -62,7 +69,7 @@ bool ProcessRequest::_validateLocationRulesOrError(const HttpRequest &req,
     long maxBody = (loc.clientMaxBodySize >= 0)
                     ? loc.clientMaxBodySize
                     : _config.clientMaxBodySize;
-    if ((long)req.body.size() > maxBody) {
+    if ((long)req.body.size() > maxBody) { // 413 payload too large
         client.writeBuf = ErrorResponseBuilder::buildErrorResponse(413, _config).serialize();
         return false;
     }
@@ -79,10 +86,6 @@ bool ProcessRequest::_handleRedirectIfNeeded(const Location &loc, Client &client
     return false;
 }
 
-// bool ProcessRequest::_sanitizeFilename(std::string &filename) const {
-//     return true; // Placeholder to maintain function signature
-// }
-
 static std::string normalizeUploadFilename(const std::string &rawName) {
     std::string name = rawName;
 
@@ -93,7 +96,7 @@ static std::string normalizeUploadFilename(const std::string &rawName) {
     name = name.substr(start, end - start + 1);
 
     // Keep basename only for user agents that send full paths.
-    size_t slash = name.find_last_of("/\\");
+    size_t slash = name.find_last_of("/\\"); // Handle both Unix and Windows separators; returns the index of the last occurrence of either character, or std::string::npos
     if (slash != std::string::npos)
         name = name.substr(slash + 1);
 
@@ -128,7 +131,7 @@ bool ProcessRequest::_saveUpload(const Location &loc,
         return false;
     }
 
-    std::string safeName = filename;
+    std::string safeName = filename; // not to modify the original filename for error messages
     std::string fullPath = baseDir + "/" + safeName;
     size_t dot = safeName.find_last_of('.');
     std::string stem = (dot == std::string::npos) ? safeName : safeName.substr(0, dot);
@@ -139,11 +142,11 @@ bool ProcessRequest::_saveUpload(const Location &loc,
         fullPath = baseDir + "/" + stem + "_" + std::to_string(suffix++) + ext;
     }
 
-    std::ofstream out(fullPath.c_str(), std::ios::binary | std::ios::out);
+    std::ofstream out(fullPath.c_str(), std::ios::binary | std::ios::out); // The | symbol is the bitwise OR operator. When used with file open modes like std::ios::binary and std::ios::out, it combines them into a single set of flags. This tells the file stream to open the file with both options enabled: binary mode and output (write) mode.
     if (!out.is_open()) return false;
 
-    out.write(content.data(), static_cast<std::streamsize>(content.size()));
-    if (!out.good()) {
+    out.write(content.data(), static_cast<std::streamsize>(content.size())); //the number of bytes to write, cast to the required type. std::streamsize is a signed integer type defined by the C++ standard library to represent the number of characters or bytes to read or write in a stream operation. It is used for sizes and counts in stream I/O functions, ensuring compatibility with very large files. It is typically at least as large as long, and is used for specifying buffer sizes in functions like write() and read().
+    if (!out.good()) { // return false if there was a write error, disk full, or other stream problem.
         out.close();
         return false;
     }
@@ -153,6 +156,17 @@ bool ProcessRequest::_saveUpload(const Location &loc,
 }
 
 // used only to create file for testing deletion, not the proper upload functionality
+/**
+ * Handles file upload requests for a given location.
+ *
+ * - Checks if upload is enabled and method is POST.
+ * - Extracts filename and content from the request (supports simple and multipart forms).
+ * - Normalizes the filename (trims, strips path, collapses extensions).
+ * - Validates filename and content are not empty.
+ * - Attempts to save the file in the configured upload directory, avoiding name collisions.
+ * - On success, responds with 201 Created and the saved path; on failure, responds with an error.
+ * - Returns true if the request was handled (upload attempted), false otherwise.
+ */
 bool ProcessRequest::_handleUploadIfNeeded(const HttpRequest &req,
                                            const Location &loc,
                                            Client &client) const {
@@ -163,9 +177,10 @@ bool ProcessRequest::_handleUploadIfNeeded(const HttpRequest &req,
     std::string contentType = req.getHeader("content-type");
 
     if (contentType.find("multipart/form-data") == 0) {
-            // Removed _extractMultipartFile usage
+        // TODO: Implement multipart parsing and file extraction if needed in the future.
+        return false;
     } else {
-        filename = req.getHeader("x-filename");
+        filename = req.getHeader("x-filename"); // Custom header for simple uploads; in a real implementation, this would depend on the client-side upload method.
         content = req.body;
     }
 
@@ -209,11 +224,8 @@ bool ProcessRequest::_handleDeleteIfNeeded(const HttpRequest &req,
 
     std::string filename = urlPath.substr(loc.path.size() + 1);
 
-    // Reject empty names, path traversal, and sub-directory references.
-    if (filename.empty() ||
-        filename.find('/') != std::string::npos ||
-        filename == ".." ||
-        filename == ".") {
+    // Reject empty names and sub-directory references (DELETE is flat-files only).
+    if (filename.empty() || filename.find('/') != std::string::npos) {
         client.writeBuf = ErrorResponseBuilder::buildErrorResponse(400, _config).serialize();
         return true;
     }
@@ -224,7 +236,14 @@ bool ProcessRequest::_handleDeleteIfNeeded(const HttpRequest &req,
         return true;
     }
 
-    std::string filepath = loc.root + "/" + filename;
+    // Canonicalize and verify the target stays within the location root.
+    // This catches .., ., symlinks outside root, and any other traversal.
+    std::string filepath = _canonicalizeWithinRoot(loc.root, loc.root + "/" + filename);
+    if (filepath.empty()) {
+        client.writeBuf = ErrorResponseBuilder::buildErrorResponse(400, _config).serialize();
+        return true;
+    }
+
     if (unlink(filepath.c_str()) == 0) {
         HttpResponse response;
         response.setStatus(204)
@@ -240,6 +259,30 @@ bool ProcessRequest::_handleDeleteIfNeeded(const HttpRequest &req,
     return true;
 }
 
+/* Resolves rawPath to a canonical absolute path and verifies it stays within root.
+ Uses realpath() to expand symlinks and collapse ./../ sequences.
+ Returns the canonical path on success, or "" if outside root or path doesn't exist.
+ An empty return maps to a 404 in all callers. */
+std::string ProcessRequest::_canonicalizeWithinRoot(const std::string &root,
+                                                    const std::string &rawPath) {
+    char canonRootBuf[PATH_MAX];
+    if (!realpath(root.c_str(), canonRootBuf))
+        return "";
+    std::string canonRoot(canonRootBuf);
+
+    char canonBuf[PATH_MAX];
+    if (!realpath(rawPath.c_str(), canonBuf))
+        return "";
+    std::string canon(canonBuf);
+
+    if (canon.size() < canonRoot.size() ||
+        canon.compare(0, canonRoot.size(), canonRoot) != 0 ||
+        (canon.size() > canonRoot.size() && canon[canonRoot.size()] != '/'))
+        return "";
+
+    return canon;
+}
+
 // Given a location and request path, build the absolute file path to serve.
 // Example:
 //   loc.path = "/delete_create_file", loc.root = "./www/files", loc.index = "index.html"
@@ -251,21 +294,16 @@ std::string ProcessRequest::_resolveFilePath(const Location &loc, const std::str
     std::string resolved;
     if (requestPath == loc.path) {
         resolved = loc.root + "/" + loc.index;
-        // std::cerr << "[ProcessRequest::_resolveFilePath--1] '" << requestPath << "' => '" << resolved << "'\n";
-        return resolved;
+    } else {
+        std::string suffix = requestPath.substr(loc.path.length());
+        if (suffix.empty() || suffix[0] != '/')
+            suffix = "/" + suffix;
+        std::string root = loc.root;
+        if (!root.empty() && root[root.size() - 1] == '/')
+            root.erase(root.size() - 1);
+        resolved = root + suffix;
     }
-
-    std::string suffix = requestPath.substr(loc.path.length());
-
-    if (suffix.empty() || suffix[0] != '/')
-        suffix = "/" + suffix;
-
-    std::string root = loc.root;
-    if (!root.empty() && root[root.size() - 1] == '/')
-        root.erase(root.size() - 1);
-
-    resolved = root + suffix;
-    return resolved;
+    return _canonicalizeWithinRoot(loc.root, resolved);
 }
 
 // Stats the resolved path and maps filesystem errors to HTTP errors.

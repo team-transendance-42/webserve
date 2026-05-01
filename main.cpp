@@ -35,22 +35,25 @@ int main(int argc, char *argv[])
 
     try
     {
-        // hardcoded config for testing, to be replaced by filename.conf parser
-        ServerConfig cfg = createDefaultServerConfig();
+        // TODO: swap createDefaultServerConfigs() for parseConfigFile(configFile) when parser is ready
+        std::vector<ServerConfig> cfgs = createDefaultServerConfigs();
 
-        std::cout << "Config loaded:\n"
-                  << "  host  = " << cfg.host << "\n"
-                  << "  port  = " << cfg.port << "\n"
-                  << "  names = ";
-        for (const auto &n : cfg.server_names)
-            std::cout << n << " ";
-        std::cout << "\n  locations = " << cfg.locations.size() << "\n\n";
+        // One Server per config block — each owns its own epoll and listen socket.
+        // Round-robin tick is fine for testing; consolidate to shared epoll later if needed.
+        std::vector<Server *> servers;
+        for (size_t i = 0; i < cfgs.size(); ++i)
+            servers.push_back(new Server(cfgs[i]));
+        for (size_t i = 0; i < servers.size(); ++i)
+            servers[i]->init();
 
-        Server server(cfg);
-        server.init();
         while (g_running)
-            server.tick();
-        server.stop();
+            for (size_t i = 0; i < servers.size(); ++i)
+                servers[i]->tick();
+
+        for (size_t i = 0; i < servers.size(); ++i) {
+            servers[i]->stop();
+            delete servers[i];
+        }
         std::cout << "---------------------\nwebserv shut down cleanly\n";
     }
     catch (const std::exception &e)

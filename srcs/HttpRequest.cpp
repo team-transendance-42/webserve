@@ -5,7 +5,7 @@
 #include <cctype> // isdigit
 #include "../includes/HttpRequest.hpp"
 
-HttpRequest::HttpRequest() : method(UNKNOWN), _state(REQUEST_LINE) {}
+HttpRequest::HttpRequest() : method(UNKNOWN), _state(REQUEST_LINE), _headerCount(0) {}
 
 // ── public feed ───────────────────────────────────────────────────────────────
 
@@ -66,6 +66,13 @@ ParseResult HttpRequest::_parse() {
                     
                     _state = (contentLen > 0) ? BODY : DONE;
                 } else {
+                    // Cap header count independently of total size: many tiny headers
+                    // (e.g. "A:1\n" x 4000) fit within MAX_HEADER_SIZE but each creates
+                    // a std::map heap node, enabling memory exhaustion DoS.
+                    if (++_headerCount > 100) {
+                        _state = ERROR;
+                        return PARSE_ERROR;
+                    }
                     if (!_parse_header_line(line)) {
                         _state = ERROR;
                         return PARSE_ERROR;
@@ -199,7 +206,7 @@ bool HttpRequest::_parse_header_line(const std::string &line) {
     //headers[_to_lower(key)] = value;
     //return true;
 	size_t s = value.find_first_not_of(" \t");
-    size_t e = value.find_last_not_of(" \t");
+    size_t e = value.find_last_not_of(" \t\r\n");
     value = (s == std::string::npos) ? "" : value.substr(s, e - s + 1);
 
     if (!is_valid_header_name(key))
@@ -224,6 +231,12 @@ bool HttpRequest::hasHeader(const std::string &key) const {
     return headers.count(_to_lower(key)) > 0;
 }
 
+// Parses the Content-Length header and returns its value as size_t.
+// Returns 0 if the header is absent (no body expected).
+// Returns (size_t)-1 (INVALID) if the value is non-numeric, overflows, or
+// exceeds size_t max — callers treat INVALID as a 400 parse error.
+// errno is cleared before strtoull so ERANGE is reliably set on overflow
+// and not masked by a leftover errno from a previous syscall.
 size_t HttpRequest::content_length() const {
     static const size_t INVALID = static_cast<size_t>(-1);
     std::string val = getHeader("content-length");
@@ -231,8 +244,9 @@ size_t HttpRequest::content_length() const {
     if (!std::all_of(val.begin(), val.end(), [](unsigned char c){ return std::isdigit(c); }))
         return INVALID;
     char *end;
+    errno = 0;
     unsigned long long n = std::strtoull(val.c_str(), &end, 10);
-    if (*end != '\0' || n > static_cast<unsigned long long>(INVALID - 1))
+    if (*end != '\0' || errno == ERANGE || n > static_cast<unsigned long long>(INVALID - 1))
         return INVALID;
     return static_cast<size_t>(n);
 }
@@ -258,6 +272,7 @@ void HttpRequest::clear() {
     headers.clear();
     body.clear();
     _state = REQUEST_LINE;
+    _headerCount = 0;
     //_buf.clear(); might chunks from next req
 }
 

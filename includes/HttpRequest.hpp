@@ -64,6 +64,7 @@ private:
 
     ParseState  _state;
     std::string _buf;
+    size_t      _headerCount;
 
     ParseResult _parse();
     bool        _parse_request_line(const std::string &line);

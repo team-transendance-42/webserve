@@ -39,3 +39,6 @@ struct ServerConfig {
 // todo: placeholder to be replaced by filename.conf parser
 ServerConfig createDefaultServerConfig();
 
+// Returns all server blocks — swap this call for parseConfigFile() when parser is ready
+std::vector<ServerConfig> createDefaultServerConfigs();
+

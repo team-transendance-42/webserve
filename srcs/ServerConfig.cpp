@@ -151,6 +151,61 @@ ServerConfig createDefaultServerConfig() {
     return config;
 }
 
+// Swap this call for parseConfigFile() once the parser is ready.
+// Each entry maps to one server block in default.conf.
+std::vector<ServerConfig> createDefaultServerConfigs() {
+    std::vector<ServerConfig> configs;
+    configs.push_back(createDefaultServerConfig()); // server 1 — port 8080
+
+    // server 2 — API on port 8081 (mirrors default.conf server block 2)
+    ServerConfig api;
+    api.host = "127.0.0.1";
+    api.port = 8081;
+    api.server_names = {"api"};
+    api.clientMaxBodySize = 524288; // 512 KB
+    api.errorPages[404] = "./www/errors/404.html";
+    api.errorPages[500] = "./www/errors/500.html";
+    Location locApi;
+    locApi.path = "/api/v1";
+    locApi.root = "./www/api";
+    locApi.index = "data.json";
+    locApi.autoindex = false;
+    locApi.allowedMethod = {"GET", "POST"};
+    api.locations.push_back(locApi);
+    Location locHealth;
+    locHealth.path = "/api/health";
+    locHealth.root = "./www/api";
+    locHealth.index = "health.json";
+    locHealth.autoindex = false;
+    locHealth.allowedMethod = {"GET"};
+    api.locations.push_back(locHealth);
+    configs.push_back(api);
+
+    // server 3 — static assets on port 8082 (mirrors default.conf server block 3)
+    ServerConfig sta;
+    sta.host = "127.0.0.1";
+    sta.port = 8082;
+    sta.server_names = {"static"};
+    sta.clientMaxBodySize = 0;
+    sta.errorPages[404] = "./www/errors/404.html";
+    Location locStatic;
+    locStatic.path = "/static";
+    locStatic.root = "./www/static";
+    locStatic.index = "index.html";
+    locStatic.autoindex = false;
+    locStatic.allowedMethod = {"GET"};
+    sta.locations.push_back(locStatic);
+    Location locDl;
+    locDl.path = "/downloads";
+    locDl.root = "./www/downloads";
+    locDl.autoindex = true;
+    locDl.allowedMethod = {"GET"};
+    sta.locations.push_back(locDl);
+    configs.push_back(sta);
+
+    return configs;
+}
+
  // find longest matching location for a URI: standard way for servers(nginx)
 const Location *ServerConfig::matchLocation(const std::string &uri) const {
     const Location *best     = nullptr;

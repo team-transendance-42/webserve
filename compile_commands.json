@@ -1,0 +1,52 @@
+[
+  {
+    "directory": "/home/pskpe/webserve",
+    "command": "c++ -std=c++17 -c srcs/ServerConfig.cpp -o srcs/ServerConfig.o",
+    "file": "/home/pskpe/webserve/srcs/ServerConfig.cpp"
+  },
+  {
+    "directory": "/home/pskpe/webserve",
+    "command": "c++ -std=c++17 -c srcs/Server.cpp -o srcs/Server.o",
+    "file": "/home/pskpe/webserve/srcs/Server.cpp"
+  },
+  {
+    "directory": "/home/pskpe/webserve",
+    "command": "c++ -std=c++17 -c srcs/EpollLoop.cpp -o srcs/EpollLoop.o",
+    "file": "/home/pskpe/webserve/srcs/EpollLoop.cpp"
+  },
+  {
+    "directory": "/home/pskpe/webserve",
+    "command": "c++ -std=c++17 -c srcs/ProcessRequest.cpp -o srcs/ProcessRequest.o",
+    "file": "/home/pskpe/webserve/srcs/ProcessRequest.cpp"
+  },
+  {
+    "directory": "/home/pskpe/webserve",
+    "command": "c++ -std=c++17 -c srcs/ErrorResponseBuilder.cpp -o srcs/ErrorResponseBuilder.o",
+    "file": "/home/pskpe/webserve/srcs/ErrorResponseBuilder.cpp"
+  },
+  {
+    "directory": "/home/pskpe/webserve",
+    "command": "c++ -std=c++17 -c srcs/ConnectionManager.cpp -o srcs/ConnectionManager.o",
+    "file": "/home/pskpe/webserve/srcs/ConnectionManager.cpp"
+  },
+  {
+    "directory": "/home/pskpe/webserve",
+    "command": "c++ -std=c++17 -c srcs/StaticFileHandler.cpp -o srcs/StaticFileHandler.o",
+    "file": "/home/pskpe/webserve/srcs/StaticFileHandler.cpp"
+  },
+  {
+    "directory": "/home/pskpe/webserve",
+    "command": "c++ -std=c++17 -c srcs/HttpRequest.cpp -o srcs/HttpRequest.o",
+    "file": "/home/pskpe/webserve/srcs/HttpRequest.cpp"
+  },
+  {
+    "directory": "/home/pskpe/webserve",
+    "command": "c++ -std=c++17 -c srcs/HttpResponse.cpp -o srcs/HttpResponse.o",
+    "file": "/home/pskpe/webserve/srcs/HttpResponse.cpp"
+  },
+  {
+    "directory": "/home/pskpe/webserve",
+    "command": "c++ -std=c++17 -c main.cpp -o main.o",
+    "file": "/home/pskpe/webserve/main.cpp"
+  }
+]

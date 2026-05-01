@@ -74,8 +74,8 @@ void ConnectionManager::writeClient(Client &client) {
 		ssize_t sent = send(client.fd,
 							client.writeBuf.c_str(),
 							client.writeBuf.size(), 0);
-		if (sent < 0) {
-			if (errno == EAGAIN || errno == EWOULDBLOCK) return;
+		if (sent <= 0) {
+			if (sent < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) return;
 			closeClient(client.fd);
 			return;
 		}
@@ -107,12 +107,10 @@ void ConnectionManager::writeClient(Client &client) {
  */
 
 void ConnectionManager::closeClient(int fd) {
+	std::map<int, Client *>::iterator it = _clients.find(fd);
+	if (it == _clients.end()) return; // already closed
 	_epollDel(fd);
 	close(fd);
-
-	std::map<int, Client *>::iterator it = _clients.find(fd);
-	if (it != _clients.end()) {
-		delete it->second; // free heap memory for *
-		_clients.erase(it); // rmv map entry
-	}
+	delete it->second;
+	_clients.erase(it);
 }

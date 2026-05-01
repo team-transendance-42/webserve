@@ -92,25 +92,40 @@ std::string StaticFileHandler::mimeType(const std::string &path) {
 
 */
 
+static std::string htmlEscape(const std::string &s) {
+    std::string out;
+    for (size_t i = 0; i < s.size(); ++i) {
+        switch (s[i]) {
+            case '<':  out += "&lt;";   break;
+            case '>':  out += "&gt;";   break;
+            case '&':  out += "&amp;";  break;
+            case '"':  out += "&quot;"; break;
+            default:   out += s[i];     break;
+        }
+    }
+    return out;
+}
+
 HttpResponse StaticFileHandler::autoindex(const std::string &dirpath,
                                           const std::string &url_path) {
-    DIR *dir = opendir(dirpath.c_str()); // returns NULL on failure, sets errno
-    if (!dir) return HttpResponse::make_403(); // return 403 because this func is called after server already confirms this path is dir!
+    DIR *dir = opendir(dirpath.c_str());
+    if (!dir) return HttpResponse::make_403();
 
     std::ostringstream html;
-    html << "<html><head><title>Index of " << url_path << "</title></head>"
-         << "<body><h1>Index of " << url_path << "</h1><hr><pre>";
+    html << "<html><head><title>Index of " << htmlEscape(url_path) << "</title></head>"
+         << "<body><h1>Index of " << htmlEscape(url_path) << "</h1><hr><pre>";
 
     struct dirent *entry;
     while ((entry = readdir(dir)) != NULL) {
         std::string name = entry->d_name;
         if (name == ".") continue;
+        std::string safeName = htmlEscape(name);
         html << "<a href=\"" << url_path;
         if (url_path[url_path.size() - 1] != '/') html << '/';
-        html << name << "\">" << name << "</a>\n";
+        html << name << "\">" << safeName << "</a>\n";
     }
     closedir(dir);
-    html << "</pre><hr></body></html>"; // pre = preformatted-text element. Preserves spaces and line breaks exactly as written.
+    html << "</pre><hr></body></html>";
 
     return HttpResponse::make_200(html.str());
 }
