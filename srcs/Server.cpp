@@ -18,12 +18,12 @@ Server fd: only for new connections.
 Client fd: for reading requests and writing responses.
 epoll manages all active fds and notifies you when they’re ready for I/O.
  */
-Server::Server(const ServerConfig &config)
-    :  _config(config),
+Server::Server(const std::vector<ServerConfig> &configs)
+    :  _configs(configs),
         _listen_fd(-1),
         _epoll(), // has default constructor that initializes internal fd
         _running(true),
-        _process_request(_config),
+        _process_request(_configs),
         _connection_manager(
                 _clients,
             [this](int fd, uint32_t events) { _epoll.mod(fd, events); },
@@ -57,15 +57,15 @@ void Server::init() {
     struct sockaddr_in addr; // hold the address info for the socket.
     std::memset(&addr, 0, sizeof(addr)); // Sets all bytes of addr to zero (clears memory). This prevents garbage values and ensures all fields are initialized.
     addr.sin_family      = AF_INET; //Sets the address family to IPv4
-    addr.sin_port        = htons(_config.port); // htons converts the port number from host byte order to network byte order (big-endian). This is necessary for correct communication over the network, as different machines may have different byte orders.
-    if (_config.host == "localhost")
+    addr.sin_port        = htons(_configs[0].port); // htons converts the port number from host byte order to network byte order (big-endian). This is necessary for correct communication over the network, as different machines may have different byte orders.
+    if (_configs[0].host == "localhost")
         addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
     else
-        addr.sin_addr.s_addr = inet_addr(_config.host.c_str());
+        addr.sin_addr.s_addr = inet_addr(_configs[0].host.c_str());
 
-    if (bind(_listen_fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) //s ssigns address/port to server socket (_listen_fd).  “I want to receive connections on this IP and port"
+    if (bind(_listen_fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) //s ssigns address/port to server socket (_listen_fd).  "I want to receive connections on this IP and port"
         throw std::runtime_error("bind() failed on "
-            + _config.host + ":" + std::to_string(_config.port)
+            + _configs[0].host + ":" + std::to_string(_configs[0].port)
             + " — " + strerror(errno));
 
     if (listen(_listen_fd, BACKLOG) < 0) // // 5. listen, ready to accept connections. BACKLOG = max pending connections in queue before new ones are refused.
@@ -76,10 +76,16 @@ void Server::init() {
 
     _epoll.add(_listen_fd, EPOLLIN); // 7. register server with epoll to wait for incoming connection events (EPOLLIN on _listen_fd means new client is trying to connect)
 
-    std::string name = _config.server_names.empty() ? "(unnamed)" : _config.server_names[0];
-    std::cout << "[Server] '" << name
-              << "' listening on " << _config.host
-              << ":" << _config.port << "\n";
+    std::string names;
+    for (size_t i = 0; i < _configs.size(); ++i) {
+        if (!_configs[i].server_names.empty()) {
+            if (!names.empty()) names += ", ";
+            names += _configs[i].server_names[0];
+        }
+    }
+    if (names.empty()) names = "(unnamed)";
+    std::cout << "[Server] [" << names << "] listening on "
+              << _configs[0].host << ":" << _configs[0].port << "\n";
 }
 
 // ── tick ───────────────────────────────────────────────────────────────────────
@@ -99,7 +105,7 @@ void Server::init() {
         if (std::time(0) - client->lastTimestamp > SERVER_TIMEOUT) {
             int fd = client->fd;
             std::cout << "[Server] timeout: closing client fd=" << fd << "\n";
-            std::string resp = ErrorResponseBuilder::buildErrorResponse(408, _config).serialize();
+            std::string resp = ErrorResponseBuilder::buildErrorResponse(408, _configs[0]).serialize();
             send(fd, resp.c_str(), resp.size(), 0);
             ++it; // advance before closeClient erases the entry from _clients
             _connection_manager.closeClient(fd); // handles delete + erase + epoll.del + close
@@ -150,7 +156,7 @@ void Server::tick() {
 
 void Server::stop() {
     _running = false;
-    std::string name = _config.server_names.empty() ? "(unnamed)" : _config.server_names[0];
+    std::string name = _configs[0].server_names.empty() ? "(unnamed)" : _configs[0].server_names[0];
     std::cout << "[Server] stopping '" << name << "'\n";
 }
 

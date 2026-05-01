@@ -1,6 +1,7 @@
 #pragma once
 
 #include <map>
+#include <vector>
 #include <sys/epoll.h>  // epoll_create1, epoll_ctl, epoll_wait, epoll_event: can handle 100,000+ fds, O(1) time complexity, but only on linux
 #include <sys/socket.h> // socket(), bind(), listen(), accept()
 #include <netinet/in.h> // sockaddr_in
@@ -27,7 +28,7 @@
 
 class Server {
 	public:
-		explicit Server(const ServerConfig &config);
+		explicit Server(const std::vector<ServerConfig> &configs);
 		Server(const Server &) = delete; // no cpy or assign
 		Server &operator=(const Server &) = delete;
 		~Server();
@@ -52,7 +53,7 @@ class Server {
 
 		int                     _listen_fd;
 		bool                    _running;
-		ServerConfig            _config;
+		std::vector<ServerConfig> _configs;
 		EpollLoop               _epoll;
 		std::map<int, Client *> _clients;
 		ProcessRequest          _process_request;
