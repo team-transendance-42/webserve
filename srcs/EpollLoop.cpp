@@ -14,7 +14,6 @@ EpollLoop::~EpollLoop() {
 	if (_fd >= 0) close(_fd);
 }
 
-// todo: need to catch somewhere this throw
 void EpollLoop::init() {
 	_fd = epoll_create1(0);
 	if (_fd < 0)
@@ -24,9 +23,6 @@ void EpollLoop::init() {
 
 /**
  * Waits for events on the epoll file descriptor.
- * @param events Pointer to the array of epoll_event structures.
- * @param maxEvents Maximum number of events to return.
- * @param timeoutMs Timeout in milliseconds.
  * @return Number of events returned.
  * wrapper which abstracts away _fd
  */
@@ -34,6 +30,9 @@ int EpollLoop::wait(struct epoll_event *events, int maxEvents, int timeoutMs) co
 	return epoll_wait(_fd, events, maxEvents, timeoutMs);
 }
 
+/*
+epoll_ctl(_fd, EPOLL_CTL_ADD, fd, &ev) adds the file descriptor fd to the epoll instance fd and tells epoll to watch it for the events specified in ev (like read or write readiness).
+*/
 void EpollLoop::add(int fd, uint32_t events) const {
 	if (_fd < 0)
         throw std::runtime_error("EpollLoop::add called before init()");
@@ -46,7 +45,7 @@ void EpollLoop::add(int fd, uint32_t events) const {
 /**
  * Modifies the events for a file descriptor in the epoll set.
  * @param fd File descriptor to modify.
- * @param events Events to set.
+ * @param events Events to set.(read, write, etc.)
  */
 void EpollLoop::mod(int fd, uint32_t events) const {
 	if (_fd < 0)
@@ -69,6 +68,10 @@ void EpollLoop::del(int fd) const {
 				  << ": " << strerror(errno) << "\n";
 }
 
+/*
+no need to delete or free anything after using memset on a stack variable like struct epoll_event
+struct epoll_event: built-in struct. holds info  about what events to watch for on fd (like read, write, etc.) and some user data (here, the fd).
+*/
 struct epoll_event EpollLoop::makeEvent(int fd, uint32_t events) {
 	struct epoll_event ev;
 	std::memset(&ev, 0, sizeof(ev));

@@ -119,9 +119,9 @@ void Server::init() {
 */
 
 void Server::tick() {
-    struct epoll_event events[maxEvents];
+    struct epoll_event events[MAX_EVENTS];
 
-    int numReadyEvents = _epoll.wait(events, maxEvents, POLL_TIMEOUT);
+    int numReadyEvents = _epoll.wait(events, MAX_EVENTS, POLL_TIMEOUT);
 
     if (numReadyEvents < 0) {
         if (errno == EINTR) return;  // signal interrupted — main will check g_running

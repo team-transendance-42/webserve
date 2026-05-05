@@ -27,7 +27,7 @@ struct ServerConfig {
     std::string              	host                 = "127.0.0.1";
     int                      	port                 = 0;
     long                     	clientMaxBodySize= 1048576;  // 1MB default
-    std::vector<std::string> 	server_names;
+    std::vector<std::string> 	server_names; // for Host: header matching in virtual hosting
     std::map<int,std::string>	errorPages;
     bool                      	default_server = false;
     std::vector<Location>    	locations;

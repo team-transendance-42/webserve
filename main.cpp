@@ -8,7 +8,7 @@
 #include <csignal>
 
 /*The variable keeps its value for the lifetime of the program (static).
-The compiler must always actually read/write the variable’s value, not cache it in a register (volatile), because it might change outside the normal program flow (e.g., in a signal handler).*/
+The compiler must always actually read/write the variable’s value, not cache it in a register (volatile, cpu fast storage), because it might change outside the normal program flow (e.g., in a signal handler).*/
 static volatile sig_atomic_t g_running = 1;
 
 static void onSignal(int) { g_running = 0; }

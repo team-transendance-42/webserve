@@ -13,6 +13,12 @@ before the body (if any)
 The official syntax is defined in the HTTP RFCs:
 https://www.rfc-editor.org/rfc/rfc9110
 -------------------------------
+for servers like nginx, a .conf file is used to define server settings—such as which ports to listen on, server names, root directories, and location rules.
+
+Who uses it? The web server software (like nginx, Apache, or your own server) reads and parses the .conf file when it starts or reloads.
+How? The server’s code includes a configuration parser that loads the .conf file, interprets its directives, and sets up the server accordingly (sockets, virtual hosts, etc.).
+For nginx, the .conf file is required (usually at /etc/nginx/nginx.conf or /etc/nginx/sites-enabled/).
+------------------------------------------------
 
 HTTP request received by the web server.
 Handles parsing of raw HTTP request data (from client sockets) into structured fields: method, URI, headers, body, etc.

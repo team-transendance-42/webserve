@@ -9,13 +9,13 @@ HttpRequest::HttpRequest() : method(UNKNOWN), _state(REQUEST_LINE), _headerCount
 
 // ── public feed ───────────────────────────────────────────────────────────────
 
+/* Feeds data into the HTTP request parser; 
+Sometimes, data arrives as a raw buffer (const char*), such as from a socket read.
+var.append(..) is for ptr to char array(we use this in ConnectionManager)
+_buf += data; is used when you have a std::string. It appends the entire string
+*/
 ParseResult HttpRequest::feed(const char *data, size_t len) {
     _buf.append(data, len);
-    return _parse();
-}
-
-ParseResult HttpRequest::feed(const std::string &data) {
-    _buf += data;
     return _parse();
 }
 
@@ -103,7 +103,7 @@ ParseResult HttpRequest::_parse() {
 bool HttpRequest::_parse_request_line(const std::string &line) {
     std::istringstream ss(line);
     std::string m, p, v;
-    if (!(ss >> m >> p >> v)) return false;
+    if (!(ss >> m >> p >> v)) return false; // stream extraction operator (>>) used with input streams (like std::cin(char input, usually the keyboard), std::ifstream, std::istringstream) to extract (read) data from the stream into variables. 
     if (!_parse_method(m))    return false;
     if (!_parsePath(p))      return false;
     if (v != "HTTP/1.0" && v != "HTTP/1.1") return false;
@@ -113,6 +113,7 @@ bool HttpRequest::_parse_request_line(const std::string &line) {
 
 /**
  * setting up method field
+ * tok(token)
  */
 bool HttpRequest::_parse_method(const std::string &tok) {
     if      (tok == "GET")    method = GET;
@@ -139,6 +140,7 @@ bool HttpRequest::_parsePath(const std::string &raw) {
 
 // ── header line ──────────────────────────────────────────────────────────────
 // todo: do i want a static func or in .hpp?
+/* checks that every character in the header name is allowed by the HTTP specification */
 static bool is_valid_header_name(const std::string &key) {
     if (key.empty())
         return false;
@@ -146,7 +148,7 @@ static bool is_valid_header_name(const std::string &key) {
     for (size_t i = 0; i < key.size(); ++i) {
         unsigned char c = static_cast<unsigned char>(key[i]);
 
-        if (!std::isalnum(c) &&
+        if (!std::isalnum(c) && // alphanumeric characters are allowed in header names
             c != '!' && c != '#' && c != '$' && c != '%' && c != '&' &&
             c != '\'' && c != '*' && c != '+' && c != '-' && c != '.' &&
             c != '^' && c != '_' && c != '`' && c != '|' && c != '~') {
@@ -163,30 +165,26 @@ static bool is_valid_header_value(const std::string &value) {
         if (c == '\r' || c == '\n')
             return false;
 
-        if ((c < 32 && c != '\t') || c == 127)
+        if ((c < 32 && c != '\t') || c == 127) // 32(space, <32 control chars, 127 delete)
             return false;
     }
     return true;
 }
 
-/**
- * Parses one HTTP header line: "Key: Value".
- *
- * Steps:
- * - Finds ':' separator; if missing, the header is invalid.
- * - Splits into `key` and `value`.
- * - Rejects CR/LF inside key/value (prevents header injection).
- * - Trims leading/trailing spaces from value.
- * - Stores header using lowercase key for case-insensitive lookup.
- *
- * Returns true on success, false on malformed header.
- * 
- * lambda function used as a predicate for std::all_of.
-[](unsigned char c){ return std::isdigit(c); }
-[]: Introduces a lambda (an anonymous function).
-(unsigned char c): Takes one argument, c, of type unsigned char.
-{ return std::isdigit(c); }: Returns true if c is a digit (0-9), false otherwise.
- */
+/*
+    HTTP/1.0and HTTP/1.1 share the same "Name: Value" header format.
+    HTTP/1.1 (RFC 7230) defines stricter token rules for header names.
+    We apply 1.1 rules to both versions — safe, simpler, no real-world compat loss.
+Choices:
+  Line endings : parser accepts \r\n AND bare \n (nginx-style permissive).
+                 _next_line() strips the trailing \r, so this function sees clean text.
+  Key charset  : RFC 7230 token chars only (is_valid_header_name). Rejects space, colon, etc.
+  Value charset: is_valid_header_value rejects \r, \n, and all other control chars
+                 (ASCII < 32 except \t, and DEL 127). This is the CRLF-injection guard —
+                 stricter than a bare find('\r') check.
+  Value trim   : leading/trailing SP and HT stripped (RFC 7230 §3.2 OWS rule).
+  Key storage  : lowercased so all lookups are case-insensitive (RFC 7230 §3.2).
+*/
 bool HttpRequest::_parse_header_line(const std::string &line) {
     size_t colon = line.find(':');
     if (colon == std::string::npos) return false;
@@ -194,19 +192,8 @@ bool HttpRequest::_parse_header_line(const std::string &line) {
     std::string key   = line.substr(0, colon);
     std::string value = line.substr(colon + 1);
 
-    //if (key.find('\r') != std::string::npos || key.find('\n') != std::string::npos ||
-    //    value.find('\r') != std::string::npos || value.find('\n') != std::string::npos) {
-    //    return false; // Reject header with CRLF injection
-    //}
-
-    //size_t s = value.find_first_not_of(" \t");
-    //size_t e = value.find_last_not_of(" \t\r\n");
-    //value = (s == std::string::npos) ? "" : value.substr(s, e - s + 1);
-
-    //headers[_to_lower(key)] = value;
-    //return true;
-	size_t s = value.find_first_not_of(" \t");
-    size_t e = value.find_last_not_of(" \t\r\n");
+    size_t s = value.find_first_not_of(" \t"); // index of first non-space/tab char(start)
+    size_t e = value.find_last_not_of(" \t\r\n"); // index of last non-space/tab char(end)
     value = (s == std::string::npos) ? "" : value.substr(s, e - s + 1);
 
     if (!is_valid_header_name(key))
@@ -231,12 +218,21 @@ bool HttpRequest::hasHeader(const std::string &key) const {
     return headers.count(_to_lower(key)) > 0;
 }
 
-// Parses the Content-Length header and returns its value as size_t.
-// Returns 0 if the header is absent (no body expected).
-// Returns (size_t)-1 (INVALID) if the value is non-numeric, overflows, or
-// exceeds size_t max — callers treat INVALID as a 400 parse error.
-// errno is cleared before strtoull so ERANGE is reliably set on overflow
-// and not masked by a leftover errno from a previous syscall.
+/*
+Parses the Content-Length header and returns its value as size_t.
+Returns 0 if the header is absent (no body expected).
+Returns (size_t)-1 (INVALID) if the value is non-numeric, overflows, or
+exceeds size_t max — callers treat INVALID as a 400 parse error.
+errno is cleared before strtoull so ERANGE is reliably set on overflow
+and not masked by a leftover errno from a previous syscall.
+
+Declaring static const inside a func avoids polluting the global or class namespace, keeps it private to the func, and ensures it’s only initialized once (not every call).
+This is a common C++ pattern for function-local constants that don’t need to be global or class members.
+
+The literal -1 is an int by default in C++.
+Casting to size_t (static_cast<size_t>(-1)) converts -1 to the maximum possible value for size_t (since size_t is unsigned).
+This is a common trick to represent an “invalid” or “not found” value for size_t, because size_t can never be negative.
+*/
 size_t HttpRequest::content_length() const {
     static const size_t INVALID = static_cast<size_t>(-1);
     std::string val = getHeader("content-length");
@@ -253,14 +249,12 @@ size_t HttpRequest::content_length() const {
 
 bool HttpRequest::is_keep_alive() const {
     std::string conn = getHeader("connection");
-    // HTTP/1.1 default = keep-alive unless "close" is set
-    // HTTP/1.0 default = close unless "keep-alive" is set
-    if (version == "HTTP/1.1") return conn != "close";
-    return conn == "keep-alive";
+    if (version == "HTTP/1.1") return conn != "close"; // default = keep-alive unless "close" is set
+    return conn == "keep-alive"; // HTTP/1.0 default = close unless "keep-alive" is set
 }
 
-/**
- *  Sets length to 0 (becomes "").
+/*
+    Sets length to 0 (becomes "").
 	Keeps the object valid and reusable.
 	Usually does not guarantee freeing capacity immediately.
  */
@@ -273,16 +267,23 @@ void HttpRequest::clear() {
     body.clear();
     _state = REQUEST_LINE;
     _headerCount = 0;
-    //_buf.clear(); might chunks from next req
+    //_buf.clear(); might have chunks from next req, dont clear
 }
 
+/*
+check if there is any data to parse. If _buf is empty, it means no new data has arrived from the client, so the parser cannot make progress and must wait for more data.
+*/
 ParseResult HttpRequest::tryParse() {
 	if (_buf.empty()) return INCOMPLETE;
     	return _parse();
 }
 
+/*
+    Both RFC 1945 (HTTP/1.0) and RFC 7230 (HTTP/1.1) require lines to end with "\r\n" (CRLF).
+    However, in practice, many clients and tools send just "\n". Major servers (nginx, Apache) accept both for compatibility, even though the standard only requires "\r\n". This is a pragmatic choice for robustness, not a requirement of either HTTP/1.0 or 1.1
+*/
 bool HttpRequest::_line_ready() const {
-    return _buf.find('\n') != std::string::npos;  //nginx-like permissive behavior: also accept \n todo: double check what we choose: \r\n or \n too?
+    return _buf.find('\n') != std::string::npos;
 }
 
 std::string HttpRequest::_next_line() {
@@ -295,35 +296,18 @@ std::string HttpRequest::_next_line() {
     return line;
 }
 
-/**
- * Returns the next CRLF-terminated line from the internal buffer.
- * CR is \r (carriage return, ASCII 13) LF is \n (line feed, ASCII 10)
-	In HTTP, each header line ends with \r\n, and headers end with an empty line: \r\n\r\n.
- *
- * Behavior:
- * - Finds the first "\r\n" sequence in _buf.
- * - Copies everything before it into `line`.
- * - Erases the consumed bytes plus the CRLF (pos + 2) from _buf.
- *
- * Note: Caller should ensure a full line is available first (via _line_ready()).
- */
-//std::string HttpRequest::_next_line() {
-//    size_t pos       = _buf.find("\r\n");
-//    std::string line = _buf.substr(0, pos);
-//    _buf.erase(0, pos + 2);
-//    return line;
-//}
-
-/**
- * from cpp algorithm/transform
- *transform(InputIt first1, InputIt last1, OutputIt d_first, UnaryOperation unary_op) 
- */
+/*  convert a string to lowercase
+    The first out.begin() and out.end() define what to read (input).
+    The second out.begin() is where to write the result (output).
+    This allows std::transform to copy from one place to another, or overwrite in place
+*/
 std::string HttpRequest::_to_lower(const std::string &s) const {
     std::string out = s;
-    std::transform(out.begin(), out.end(), out.begin(), ::tolower);
+    std::transform(out.begin(), out.end(), out.begin(), ::tolower); // applies a function to each element in a range (like a loop, but more concise and flexible
     return out;
 }
 
+/* in ProcessRequest, inspect it */
 void HttpRequest::debugPrint() const {
     const char *m[] = { "GET", "POST", "DELETE", "UNKNOWN" };
     std::cout << "=== HttpRequest ===\n"

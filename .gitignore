@@ -1,12 +1,10 @@
 # Compiled object files
 *.o
+src/*.o
 
 # Compiled binary files
 *.out
 *.exe
-
-# Precompiled Headers
-*.gch
 
 # Backup files
 *~

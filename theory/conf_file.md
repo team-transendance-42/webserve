@@ -1,3 +1,43 @@
+. Server .conf file
+Purpose: Configures the web server (like nginx, Apache, or your own server).
+Who uses it: The server software reads it at startup or reload.
+Where defined: On the server, usually as a file (e.g., nginx.conf, default.conf).
+Minimal fields:
+listen (port)
+server_name (host)
+root (document root)
+location / { ... }
+index (default file)
+
+server {
+    listen 8080;
+    server_name localhost;
+    location / {
+        root ./www;
+        index index.html;
+    }
+}
+---------------------
+2. Client HTTP request
+Purpose: Sent by the client (browser, curl, etc.) to request a resource from the server.
+Who uses it: The client sends it; the server receives and parses it.
+Where defined: Sent over the network, not stored as a file.
+Minimal fields:
+Request line: METHOD PATH VERSION (e.g., GET /index.html HTTP/1.1)
+Host header (required for HTTP/1.1)
+(Optional) Other headers
+
+GET /index.html HTTP/1.1
+Host: localhost:8080
+
+------------------------
+
+The .conf file configures the server (on disk, read by server).
+The HTTP request is sent by the client (over the network, parsed by server).
+Both are required for a working web server, but they are used in different places and by different parties.
+
+
+===================================
 Standard for nginx-style config files:
   - Each server {} block is a virtual host — different port or
   server_name for name-based vhosting

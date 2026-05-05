@@ -4,12 +4,12 @@ ServerConfig createDefaultServerConfig() {
     ServerConfig config;
 
     config.host = "localhost";
-    config.port = 8080; // todo: revert to 8080 ,80 is for ./tester
+    config.port = 8080; // todo: 80 is for ./tester
     config.server_names.push_back("one");
     config.clientMaxBodySize= 1 * 1024 * 1024; //1MB for testing: 413 global policy 
     config.default_server = true;
 
-    config.errorPages[400] = "./www/errors/400.html"; //
+    config.errorPages[400] = "./www/errors/400.html";
     config.errorPages[403] = "./www/errors/403.html";
     config.errorPages[404] = "./www/errors/404.html";
     config.errorPages[405] = "./www/errors/405.html";
@@ -61,9 +61,9 @@ ServerConfig createDefaultServerConfig() {
     config.locations.push_back(locPlay);
 
     /**
-	 *  test not authorized access to /admin
+	 *  test not authorized access to /secret
 	 *  because config says: denyAll = true 
-     get 403: forbidden (e.g., /admin with denyAll=true, or chmod 000 on a file/dir)
+     get 403: forbidden (e.g., /secret with denyAll=true, or chmod 000 on a file/dir)
 	*/	
     Location secret;
     secret.path = "/secret";
@@ -74,9 +74,7 @@ ServerConfig createDefaultServerConfig() {
     secret.denyAll = true;
     config.locations.push_back(secret);
 
-    // test client max body size
-
-    // test chmod 000 with
+    // test chmod 000 for root and/or root/index.html
     Location notAllowed;
     notAllowed.path = "/not_allowed";
     notAllowed.root = "./www/notAllowed";
@@ -94,7 +92,7 @@ ServerConfig createDefaultServerConfig() {
     config.locations.push_back(postBodyTooLarge);
 
 	// 404 file not found
-	 // test chmod 000 with
+	// test chmod 000 with: edge case, still need to get 404 if file is missing, even if dir is not accessible
     Location missing;
     missing.path = "/missing";
     missing.root = "./www";
