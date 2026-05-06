@@ -1,8 +1,7 @@
 #include "../includes/ErrorResponseBuilder.hpp"
 #include "../includes/StaticFileHandler.hpp"
 
-HttpResponse ErrorResponseBuilder::buildErrorResponse(int code,
-													  const ServerConfig &config) {
+HttpResponse ErrorResponseBuilder::buildErrorResponse(int code, const ServerConfig &config) {
 	std::map<int, std::string>::const_iterator ep = config.errorPages.find(code);
 	if (ep != config.errorPages.end()) {
 		HttpResponse custom = StaticFileHandler::serveStatic(ep->second);

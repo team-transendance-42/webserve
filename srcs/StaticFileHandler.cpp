@@ -15,12 +15,9 @@
 	Fills st with info if successful.
 	It does not open/read the file body, it only gets file info.
 	file metadata is (type, size, permissions, timestamps)
-
-	!!NB: stat + access + open is a classic TOCTOU pattern (time-of-check vs time-of-use)
  */
 
 HttpResponse StaticFileHandler::serveStatic(const std::string &filepath) {
-        // std::cerr << "[StaticFileHandler] Requested file path: " << filepath << std::endl;
     struct stat st; // POSIX API structure (size, mode/type, timestamps, etc.).
     if (stat(filepath.c_str(), &st) != 0) { //0 = success, -1 = failure and sets errno. 
         if (errno == ENOENT || errno == ENOTDIR) // error no entry(path or file doesnt exist, error no dir(/www/index.html/abc))
@@ -30,8 +27,8 @@ HttpResponse StaticFileHandler::serveStatic(const std::string &filepath) {
         return HttpResponse::make_500();
     }
 
-    if (S_ISDIR(st.st_mode)) // test in which case i really need it
-        return HttpResponse::make_403();
+    if (S_ISDIR(st.st_mode))
+        return HttpResponse::make_403(); // server refuses to serve the directory as a file
 
     // Ensure permission-denied on file read maps to 403, not generic 500.
     if (access(filepath.c_str(), R_OK) != 0) {

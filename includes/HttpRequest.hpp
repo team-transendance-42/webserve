@@ -43,7 +43,6 @@ public:
 
     HttpRequest();
 
-    ParseResult feed(const std::string &data);
     ParseResult feed(const char *data, size_t len);
 
     // helpers

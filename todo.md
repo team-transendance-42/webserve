@@ -1,6 +1,8 @@
 https://github.com/team-transendance-42/webserve
 https://euria.infomaniak.com/
 
+** not handled status codes: 501, 504
+
 Petya:
 * HTTP server ✓
 * socket setup ✓

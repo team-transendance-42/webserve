@@ -42,7 +42,7 @@ Server::~Server() {
 // ── init ──────────────────────────────────────────────────────────────────────
 
 void Server::init() {
-    _epoll.init(); // create epoll instance, store fd internally
+    _epoll.init(); // 1. create epoll instance, store fd internally
 
     _listen_fd = socket(AF_INET, SOCK_STREAM, 0); // 2. TCP socket
     if (_listen_fd < 0)
@@ -54,14 +54,14 @@ void Server::init() {
         throw std::runtime_error("setsockopt() failed");
 
     // 4. bind
-    struct sockaddr_in addr; // hold the address info for the socket.
-    std::memset(&addr, 0, sizeof(addr)); // Sets all bytes of addr to zero (clears memory). This prevents garbage values and ensures all fields are initialized.
-    addr.sin_family      = AF_INET; //Sets the address family to IPv4
-    addr.sin_port        = htons(_configs[0].port); // htons converts the port number from host byte order to network byte order (big-endian). This is necessary for correct communication over the network, as different machines may have different byte orders.
+    struct sockaddr_in addr; // hold the IP address info for the socket (sockaddr_internet)
+    std::memset(&addr, 0, sizeof(addr)); // Sets all bytes of addr to zero (clears memory)
+    addr.sin_family      = AF_INET; // Sets the address family to IPv4 (sin = socket internet, AF_INET = Address Family_INET for IPv4)
+    addr.sin_port        = htons(_configs[0].port); // Set port, convert from host to network byte order (sin_port = socket internet port, htons = Host TO Network Short)
     if (_configs[0].host == "localhost")
-        addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+        addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK); // Set IP to 127.0.0.1 (sin_addr = socket internet address, s_addr = struct address, htonl = Host TO Network Long, INADDR_LOOPBACK = Internet Address Loopback)
     else
-        addr.sin_addr.s_addr = inet_addr(_configs[0].host.c_str());
+        addr.sin_addr.s_addr = inet_addr(_configs[0].host.c_str()); // Convert string IP to binary (inet_addr = internet address)
 
     if (bind(_listen_fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) //s ssigns address/port to server socket (_listen_fd).  "I want to receive connections on this IP and port"
         throw std::runtime_error("bind() failed on "

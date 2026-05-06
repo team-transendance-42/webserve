@@ -24,6 +24,7 @@ public:
 
 private:
     std::map<int, Client *>             &_clients;
+    /* the second arg (EPOLLOUT | EPOLLRDHUP) is an integer value (specifically, a bitmask of event flags) */
     std::function<void(int, uint32_t)>  _epollMod;
     std::function<void(int)>            _epollDel;
     ProcessRequest                      &_processorRequest;

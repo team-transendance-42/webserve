@@ -27,14 +27,20 @@ ConnectionManager::ConnectionManager(std::map<int, Client *> &clients,
 	  _epollDel(std::move(epollDel)),
 	  _processorRequest(requestProcessor) {}
 
+/**
+ *  Drains the socket in a non-blocking loop, feeding each chunk into the incremental HTTP parser.
+ *  PARSE_INCOMPLETE is handled implicitly: the loop continues calling recv until EAGAIN/EWOULDBLOCK,
+ *  then returns — epoll re-fires on the next incoming data and resumes feeding the same client.request.
+ *  PARSE_ERROR → 400 and close. COMPLETE → hand off to the request processor and switch to write mode.
+ */
 void ConnectionManager::readClient(Client &client, std::size_t readBufSize) {
 	std::string chunk(readBufSize, '\0'); // chunk is a var; create a string of length readBufSize, fill it with '\0' chars.
 	client.lastTimestamp = std::time(0); // update last activity time on each read
 	while (true) {
-		ssize_t bytes = recv(client.fd, &chunk[0], chunk.size(), 0); // n = {num of bytes received, 0 = orderly shutdown by peer, -1 err }
+		ssize_t bytes = recv(client.fd, &chunk[0], chunk.size(), 0);
 
 		if (bytes < 0) {
-			if (errno == EAGAIN || errno == EWOULDBLOCK) break;
+			if (errno == EAGAIN || errno == EWOULDBLOCK) 	break; // try again
 			closeClient(client.fd);
 			return;
 		}
@@ -61,12 +67,10 @@ void ConnectionManager::readClient(Client &client, std::size_t readBufSize) {
 }
 
 /**
- *  epoll MOD does not change the fd number itself.
-	It changes what events epoll watches for that same fd.
-
-	read phase: EPOLLIN | EPOLLRDHUP
-	write phase: EPOLLOUT | EPOLLRDHUP
-	That is how the server moves a client socket between “wait for request bytes” and “wait until response can be sent.”
+ *  Flushes the write buffer to the socket in a non-blocking loop.
+ *  On EAGAIN/EWOULDBLOCK, returns and lets epoll re-fire when the socket is writable again.
+ *  On completion: if keep-alive, clears the request, re-arms for EPOLLIN, and checks whether
+ *  a pipelined request is already buffered (tryParse). Otherwise closes the connection.
  */
 void ConnectionManager::writeClient(Client &client) {
 	client.lastTimestamp = std::time(0); // update last activity time on each write

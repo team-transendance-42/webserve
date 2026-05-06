@@ -1,24 +1,22 @@
 #include "../includes/HttpResponse.hpp"
 #include <sstream>
 
-// todo: no set up fo headers and body
+// headers and body are default-constructed empty by std::map and std::string automatically.
 HttpResponse::HttpResponse() : statusCode(200) {}
 
 // ── setters ──────────────────────────────────────────────────────────
 
 HttpResponse &HttpResponse::setStatus(int code) {
     statusCode = code;
-    return *this;
+    return *this; // this is 
 }
 
-HttpResponse &HttpResponse::setHeader(const std::string &key,
-                                       const std::string &value) {
+HttpResponse &HttpResponse::setHeader(const std::string &key, const std::string &value) {
     headers[key] = value;
     return *this;
 }
 
-HttpResponse &HttpResponse::setBody(const std::string &content,
-                                     const std::string &type) {
+HttpResponse &HttpResponse::setBody(const std::string &content, const std::string &type) {
     body = content;
     headers["Content-Type"]   = type;
     headers["Content-Length"] = std::to_string(content.size());
@@ -43,6 +41,7 @@ HttpResponse HttpResponse::make_redirect(int code, const std::string &location) 
     return r;
 }
 
+//After the function returns, the local r is destroyed, but the returned value is valid and independent.
 HttpResponse HttpResponse::make_400() {
     HttpResponse r;
     r.setStatus(400).setBody(_errorBody(400, "Bad Request"));
@@ -100,7 +99,7 @@ std::string HttpResponse::serialize() const {
     std::string reason = _reason(statusCode);
 
     std::ostringstream oss;
-    oss << "HTTP/1.1 " << statusCode << " " << reason << "\r\n";
+    oss << "HTTP " << statusCode << " " << reason << "\r\n";
 
     for (std::map<std::string,std::string>::const_iterator it = headers.begin();
          it != headers.end(); ++it)
@@ -115,11 +114,8 @@ std::string HttpResponse::serialize() const {
 std::string HttpResponse::_reason(int code) {
     switch (code) {
         case 200: return "OK";
-        case 201: return "Created";
-        case 204: return "No Content";
         case 301: return "Moved Permanently";
         case 302: return "Found";
-        case 304: return "Not Modified"; // todo: learn it
         case 400: return "Bad Request";
         case 403: return "Forbidden";
         case 404: return "Not Found";
