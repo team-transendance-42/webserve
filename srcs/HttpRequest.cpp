@@ -5,6 +5,7 @@
 #include <cctype> // isdigit
 #include "../includes/HttpRequest.hpp"
 
+/* path, query_string, version, headers,_buf and body are default-initialized to empty by their own constructors */
 HttpRequest::HttpRequest() : method(UNKNOWN), _state(REQUEST_LINE), _headerCount(0) {}
 
 // ── public feed ───────────────────────────────────────────────────────────────
@@ -27,8 +28,6 @@ limit for body size: protects for DoS attacks( Denial of Service: an attacker tr
 ParseResult HttpRequest::_parse() {
     const size_t MAX_HEADER_SIZE = 8192; // 8 KB
     const size_t MAX_BODY_SIZE = 10 * 1024 * 1024; // 10 MB parser safety cap; policy 413 is enforced later in ProcessRequest: prevents memory excaustion from malicious clients sending huge bodies; can be adjusted based on server capacity and expected use cases
-
-    //!!NB!! n a switch, you can't declare variables inside a case without a block {}
 
     while (true) {
         switch (_state) {
@@ -172,7 +171,7 @@ static bool is_valid_header_value(const std::string &value) {
 }
 
 /*
-    HTTP/1.0and HTTP/1.1 share the same "Name: Value" header format.
+    HTTP/1.0 and HTTP/1.1 share the same "Name: Value" header format.
     HTTP/1.1 (RFC 7230) defines stricter token rules for header names.
     We apply 1.1 rules to both versions — safe, simpler, no real-world compat loss.
 Choices:

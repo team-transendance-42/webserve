@@ -43,9 +43,7 @@ HttpResponse StaticFileHandler::serveStatic(const std::string &filepath) {
 
     std::ostringstream ss;
     ss << file.rdbuf(); // read buffer(read whole file into a string stream)
-    std::string content = ss.str();
-
-    return HttpResponse::make_200(content, mimeType(filepath));
+    return HttpResponse::make_200(ss.str(), mimeType(filepath));
 }
 
 std::string StaticFileHandler::mimeType(const std::string &path) {
@@ -67,28 +65,9 @@ std::string StaticFileHandler::mimeType(const std::string &path) {
 }
 
 /**
- * DIR is an opaque struct type from <dirent.h>.
-	It represents an opened directory stream (handle).
-	You don’t create it directly; OS functions do.
-
-	opendir()Opens a directory for iteration.
-
-		struct dirent
-	POSIX struct type from <dirent.h>.
-	Represents one item in a directory listing.
-	Common field you use: entry->d_name (file/folder name).
-	readdir(dir): Reads next entry from the opened directory stream.
-	Returns:
-	pointer to dirent when an entry exists
-	NULL when end reached or on error
-
-	Why closedir(dir) is needed
-	opendir() allocates OS resources (directory handle/file descriptor).
-	C++ will not auto-close this C/POSIX handle unless you explicitly call closedir().
-	Not calling it leaks resources.
-
-*/
-
+ prevents HTML injection and broken markup by converting special characters (like <, >, &, ") into safe HTML entities.
+ Example: "<script>" becomes "&lt;script&gt;"
+ */
 static std::string htmlEscape(const std::string &s) {
     std::string out;
     for (size_t i = 0; i < s.size(); ++i) {
@@ -103,6 +82,34 @@ static std::string htmlEscape(const std::string &s) {
     return out;
 }
 
+/*
+ special characters (like spaces, #, ?, &, non-ASCII) are safely included in URLs by converting them to percent-encoded form (like %20, %23, %3F, %26).
+*/
+static std::string urlEncode(const std::string &s) {
+    std::ostringstream out;
+    for (size_t i = 0; i < s.size(); ++i) {
+        unsigned char c = s[i];
+        if (isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~') {
+            out << c;
+        } else {
+            out << '%' << std::uppercase << std::hex << (int)c << std::nouppercase << std::dec;
+        }
+    }
+    return out.str();
+}
+
+/**
+ *  DIR is an opaque struct type from <dirent.h>.
+ *  Represents an opened directory stream (handle).
+ *  opendir(path) → returns DIR* (directory handle)
+ *  readdir(DIR*) → returns struct dirent* (info about each entry)
+ *  You use these functions to list the files/folders inside a directory.
+ *
+ *  Why closedir(dir) is needed:
+ *  opendir() allocates OS resources (directory handle/file descriptor).
+ *  C++ will not auto-close this C/POSIX handle unless you explicitly call closedir().
+ *  Not calling it leaks resources.
+ */
 HttpResponse StaticFileHandler::autoindex(const std::string &dirpath,
                                           const std::string &url_path) {
     DIR *dir = opendir(dirpath.c_str());
@@ -119,7 +126,7 @@ HttpResponse StaticFileHandler::autoindex(const std::string &dirpath,
         std::string safeName = htmlEscape(name);
         html << "<a href=\"" << url_path;
         if (url_path[url_path.size() - 1] != '/') html << '/';
-        html << name << "\">" << safeName << "</a>\n";
+        html << urlEncode(name) << "\">" << safeName << "</a>\n";
     }
     closedir(dir);
     html << "</pre><hr></body></html>";

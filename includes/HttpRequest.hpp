@@ -48,8 +48,8 @@ public:
     // helpers
     std::string getHeader    (const std::string &key) const;
     bool        hasHeader    (const std::string &key) const;
-    size_t      content_length()                        const;
-    bool        is_keep_alive ()                        const;
+    size_t      content_length()                      const;
+    bool        is_keep_alive ()                      const;
 
     void        clear();        // reset for next request (keep-alive)
     void        debugPrint()   const;

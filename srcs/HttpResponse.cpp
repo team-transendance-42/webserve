@@ -8,7 +8,7 @@ HttpResponse::HttpResponse() : statusCode(200) {}
 
 HttpResponse &HttpResponse::setStatus(int code) {
     statusCode = code;
-    return *this; // this is 
+    return *this; // this is a pointer to the current object, *this is the object itself. Returning *this allows method chaining, e.g., resp.setStatus(404).setBody("Not found");
 }
 
 HttpResponse &HttpResponse::setHeader(const std::string &key, const std::string &value) {
@@ -111,6 +111,7 @@ std::string HttpResponse::serialize() const {
 
 // ── private helpers ───────────────────────────────────────────────────────────
 
+/* returns meaning of HTTP status code */
 std::string HttpResponse::_reason(int code) {
     switch (code) {
         case 200: return "OK";
@@ -129,9 +130,7 @@ std::string HttpResponse::_reason(int code) {
     }
 }
 
-/**
- * 
- */
+/* returns the HTML body for an error response */
 std::string HttpResponse::_errorBody(int code, const std::string &reason) {
     std::ostringstream oss;
     oss << "<html><body><h1>"

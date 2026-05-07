@@ -10,11 +10,6 @@
 #include "../includes/ProcessRequest.hpp"
 
 /**
- * 	std::string a = "hello";
-	std::string b = std::move(a); // b takes resources from a
-	a is valid, but its content is unspecified (often "")
-	An rvalue is a temporary value, usually with no stable name, typically used on the right side of assignment.
-
 	EPOLLOUT: socket is writable now, so send should not block (you can write response bytes).
 	EPOLLRDHUP: peer has closed its write side (remote half-close). For HTTP server logic, this usually means client disconnected or will send no more request body bytes. switching to EPOLLOUT | EPOLLRDHUP means: wait until response can be sent, but also detect client disconnect while waiting.
  */
@@ -34,7 +29,7 @@ ConnectionManager::ConnectionManager(std::map<int, Client *> &clients,
  *  PARSE_ERROR → 400 and close. COMPLETE → hand off to the request processor and switch to write mode.
  */
 void ConnectionManager::readClient(Client &client, std::size_t readBufSize) {
-	std::string chunk(readBufSize, '\0'); // chunk is a var; create a string of length readBufSize, fill it with '\0' chars.
+	std::string chunk(readBufSize, '\0');
 	client.lastTimestamp = std::time(0); // update last activity time on each read
 	while (true) {
 		ssize_t bytes = recv(client.fd, &chunk[0], chunk.size(), 0);
@@ -54,7 +49,7 @@ void ConnectionManager::readClient(Client &client, std::size_t readBufSize) {
 		if (result == PARSE_ERROR) {
 			client.writeBuf  = HttpResponse::make_400().serialize();
 			client.keep_alive = false;
-			_epollMod(client.fd, EPOLLOUT | EPOLLRDHUP);
+			_epollMod(client.fd, EPOLLOUT | EPOLLRDHUP); // switch to write mode to send the 400 response, but also detect disconnect while waiting
 			return;
 		}
 
@@ -95,7 +90,7 @@ void ConnectionManager::writeClient(Client &client) {
 			_processorRequest.handle(client);
 			_epollMod(client.fd, EPOLLOUT | EPOLLRDHUP);
 		} else if (res == PARSE_ERROR) {
-			client.writeBuf = HttpResponse::make_400().serialize(); // build obj->set fields->flatten to bytes->send bytes
+			client.writeBuf = HttpResponse::make_400().serialize();
 			client.keep_alive = false;
 			_epollMod(client.fd, EPOLLOUT | EPOLLRDHUP);
 		}

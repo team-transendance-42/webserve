@@ -63,7 +63,7 @@ void Server::init() {
     else
         addr.sin_addr.s_addr = inet_addr(_configs[0].host.c_str()); // Convert string IP to binary (inet_addr = internet address)
 
-    if (bind(_listen_fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) //s ssigns address/port to server socket (_listen_fd).  "I want to receive connections on this IP and port"
+    if (bind(_listen_fd, (struct sockaddr *)&addr, sizeof(addr)) < 0)
         throw std::runtime_error("bind() failed on "
             + _configs[0].host + ":" + std::to_string(_configs[0].port)
             + " — " + strerror(errno));
@@ -74,7 +74,7 @@ void Server::init() {
 
     _setNonBlocking(_listen_fd);
 
-    _epoll.add(_listen_fd, EPOLLIN); // 7. register server with epoll to wait for incoming connection events (EPOLLIN on _listen_fd means new client is trying to connect)
+    _epoll.add(_listen_fd, EPOLLIN); // 7. register server with epoll to wait for incoming connection events (EPOLLIN: read on _listen_fd means new client is trying to connect)
 
     std::string names;
     for (size_t i = 0; i < _configs.size(); ++i) {
@@ -87,8 +87,6 @@ void Server::init() {
     std::cout << "[Server] [" << names << "] listening on "
               << _configs[0].host << ":" << _configs[0].port << "\n";
 }
-
-// ── tick ───────────────────────────────────────────────────────────────────────
 
 /*
     EPOLLERR: An error occurred on the file descriptor (e.g., socket error).
@@ -113,15 +111,16 @@ void Server::init() {
             ++it;
     }
  }
- /**
- * One event-loop step: wait for ready fds, accept new clients,
- * and route client events to read/write/close handlers.
+/**
+    server socket (_listen_fd) only accepts new connections.
+    Each client gets its own socket (fd).
+    readClient() reads bytes from the client’s socket, parses the HTTP request, and handles it.
+    writeClient() sends the HTTP response from the server to the client’s socket (fd) when it is ready to be written.
 */
 
 void Server::tick() {
-    struct epoll_event events[MAX_EVENTS];
-
-    int numReadyEvents = _epoll.wait(events, MAX_EVENTS, POLL_TIMEOUT);
+    struct epoll_event  events[MAX_EVENTS]; //bitmask of event types (e.g., EPOLLIN for readable, EPOLLOUT for writable, EPOLLRDHUP for disconnect, etc.)
+    int                 numReadyEvents = _epoll.wait(events, MAX_EVENTS, POLL_TIMEOUT);
 
     if (numReadyEvents < 0) {
         if (errno == EINTR) return;  // signal interrupted — main will check g_running
