@@ -105,7 +105,7 @@ std::string HttpResponse::serialize() const {
     std::string reason = _reason(statusCode);
 
     std::ostringstream oss;
-    oss << "HTTP " << statusCode << " " << reason << "\r\n";
+    oss << "HTTP/1.1 " << statusCode << " " << reason << "\r\n";
 
     for (std::map<std::string,std::string>::const_iterator it = headers.begin();
          it != headers.end(); ++it)
