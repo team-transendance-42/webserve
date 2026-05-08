@@ -8,7 +8,6 @@
 #include <arpa/inet.h>  // inet_addr()
 #include <unistd.h>     // close()
 #include <fcntl.h>      // fcntl() non-blocking
-#include "ServerConfig.hpp"
 #include "HttpRequest.hpp"
 #include "Client.hpp"
 #include "StaticFileHandler.hpp"

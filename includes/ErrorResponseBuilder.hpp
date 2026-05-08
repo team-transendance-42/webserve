@@ -1,6 +1,6 @@
 #pragma once
 
-#include "ServerConfig.hpp"
+#include "config/Config.hpp"
 #include "HttpResponse.hpp"
 
 /**

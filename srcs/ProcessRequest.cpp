@@ -6,12 +6,17 @@
 #include <fstream>
 #include <iostream>
 #include <sys/types.h>
+#include <cctype>
+#include <cstdlib>
+#include <sstream>
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "../includes/CgiExecutor.hpp"
 #include "../includes/ErrorResponseBuilder.hpp"
 #include "../includes/ProcessRequest.hpp"
 #include "../includes/StaticFileHandler.hpp"
+#include "../includes/UploadHandler.hpp"
 
 //  If keepAlive is true, sets 'Connection: keep-alive', otherwise 'Connection: close'.
 static void stampConnection(std::string &response, bool keepAlive) {
@@ -107,7 +112,7 @@ bool ProcessRequest::_validateLocationRulesOrError(const HttpRequest &req,
         return false;
     }
 
-    return true;
+    return (true);
 }
 
 // Returns a redirect response when location has redirect rules.
@@ -116,7 +121,7 @@ bool ProcessRequest::_handleRedirectIfNeeded(const Location &loc, Client &client
         client.writeBuf = HttpResponse::make_redirect(loc.redirect_code, loc.redirect_url).serialize();
         return true;
     }
-    return false;
+    return (false);
 }
 
 static std::string normalizeUploadFilename(const std::string &rawName) {
@@ -349,12 +354,14 @@ bool ProcessRequest::_resolvePathStatOrError(const std::string &filepath,
     if (stat(filepath.c_str(), &st) != 0) {
         if (errno == EACCES) {
             client.writeBuf = ErrorResponseBuilder::buildErrorResponse(403, cfg).serialize();
-            return false;
+            return (false);
         }
         client.writeBuf = ErrorResponseBuilder::buildErrorResponse(404, cfg).serialize();
         return false;
     }
-    return true;
+
+    client.writeBuf = fromCgi.serialize();
+    return (true);
 }
 
 // Serves file content or directory index/autoindex fallback for resolved path.

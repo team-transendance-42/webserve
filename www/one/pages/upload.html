@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html>
+<head><title>Upload</title></head>
+<body>
+    <h1>Upload & Download Files</h1>
+
+    <h2>Upload</h2>
+    <form action="/cgi-bin/upload.py" method="POST" enctype="multipart/form-data">
+        <input type="file" name="file" required>
+        <button type="submit">Upload</button>
+    </form>
+
+    <h2>Download</h2>
+    <p><a href="/upload/">Browse uploaded files</a></p>
+</body>
+</html>

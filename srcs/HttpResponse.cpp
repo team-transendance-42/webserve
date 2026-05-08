@@ -79,6 +79,12 @@ HttpResponse HttpResponse::make_413() {
     return r;
 }
 
+HttpResponse HttpResponse::make_415() {
+    HttpResponse r;
+    r.setStatus(415).setBody(_errorBody(415, "Unsupported Media Type"));
+    return r;
+}
+
 HttpResponse HttpResponse::make_500() {
     HttpResponse r;
     r.setStatus(500).setBody(_errorBody(500, "Internal Server Error"));
@@ -123,6 +129,7 @@ std::string HttpResponse::_reason(int code) {
         case 405: return "Method Not Allowed";
         case 408: return "Request Timeout";
         case 413: return "Payload Too Large";
+        case 415: return "Unsupported Media Type";
         case 500: return "Internal Server Error";
         //case 502: return "Bad Gateway"; // todo: not implemented
         //case 504: return "Gateway Timeout";

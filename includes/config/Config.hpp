@@ -1,7 +1,13 @@
 #pragma once
 
+#include <map>
 #include <string>
 #include <vector>
+
+struct CgiConfig {
+    std::string extension;   // e.g. ".py"
+    std::string interpreter; // e.g. "/usr/bin/python3"
+};
 #include <map>
 #include <iostream> // for debug logging
 
@@ -9,6 +15,8 @@ struct Location {
     std::string              path;
     std::string              root;
     std::string              index;
+    std::string              cgi_extension;
+    std::string              cgi_pass;
     std::vector<std::string> allowedMethod;
     bool                     autoindex            = false;
     bool                     denyAll             = false; // for guarding sensitive locations
@@ -19,7 +27,10 @@ struct Location {
 	bool                     upload_enabled = false;
 	std::string              upload_path; // absolute path on server to save uploaded files, e.g. "/var/www/uploads";
     std::vector<std::string>  upload_allowed_types; // e.g. {".jpg", ".png", ".pdf"}
-	// std::vector<CgiConfig>   cgi;
+
+    bool hasCgi() const {
+        return (!cgi_extension.empty() && !cgi_pass.empty());
+    }
 };
 
 // todo: hard coded values for now, to be replaced by filename.conf parser
@@ -36,9 +47,18 @@ struct ServerConfig {
     const Location *matchLocation(const std::string &uri) const;
 };
 
+struct ConfigFile {
+    std::vector<ServerConfig> servers;
+};
+
 // todo: placeholder to be replaced by filename.conf parser
 ServerConfig createDefaultServerConfig();
 
 // Returns all server blocks — swap this call for parseConfigFile() when parser is ready
 std::vector<ServerConfig> createDefaultServerConfigs();
 
+class ConfigParser {
+public:
+    ConfigFile parseFile(const std::string& filePath) const;
+    ConfigFile parseString(const std::string& text) const;
+};

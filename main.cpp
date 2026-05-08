@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 #include <csignal>
+#include <memory>
 
 /*The variable keeps its value for the lifetime of the program (static).
 The compiler must always actually read/write the variable’s value, not cache it in a register (volatile, cpu fast storage), because it might change outside the normal program flow (e.g., in a signal handler).*/
@@ -20,7 +21,7 @@ int main(int argc, char *argv[])
     if (argc > 2) {
         std::cerr << "Usage: ./webserv [config_file.conf]\n"
                   << "       or leave empty to use default.conf\n";
-        return 1;
+        return (1);
     }
 
     // Signal handling — graceful shutdown on Ctrl+C / SIGTERM
@@ -31,6 +32,8 @@ int main(int argc, char *argv[])
     sigaction(SIGTERM, &sa, nullptr);
 
     std::string configFile = (argc == 2) ? argv[1] : "default.conf";
+
+    std::cout << "--- webserv — loading " << configFile << " ---\n";
 
     try
     {
@@ -60,13 +63,11 @@ int main(int argc, char *argv[])
             delete servers[i];
         }
         std::cout << "---------------------\nwebserv shut down cleanly\n";
-    }
-    catch (const std::exception &e)
-    {
+    } catch (const std::exception &e) {
         std::cerr << "Fatal: " << e.what() << "\n";
         // ~Server() destructor handles fd cleanup
-        return 1;
+        return (1);
     }
 
-    return 0;
+    return (0);
 }

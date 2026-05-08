@@ -2,7 +2,9 @@
 
 #include <vector>
 #include "Client.hpp"
-#include "ServerConfig.hpp"
+#include "CgiExecutor.hpp"
+
+#include <sys/stat.h>
 
 /*
 * Converts a parsed HttpRequest (stored in Client) into a serialized HTTP response. (convert from in-mem cpp obj into plain text http format that can be sent over socket)
@@ -53,6 +55,15 @@ private:
                      const std::string &filename,
                      const std::string &content,
                      std::string &savedPath) const;
+    bool _shouldExecuteCgi(const Location &loc, const std::string &filepath) const;
+    bool _executeCgiOrError(const HttpRequest &req,
+                            const Location &loc,
+                            const std::string &filepath,
+                            Client &client) const;
+    CgiRequest _buildCgiRequest(const HttpRequest &req,
+                                const std::string &filepath) const;
+    bool _buildHttpResponseFromCgiOutput(const std::string &raw,
+                                         HttpResponse &response) const;
     void _serveFromStat(const Location &loc,
                         const std::string &urlPath,
                         const std::string &filepath,

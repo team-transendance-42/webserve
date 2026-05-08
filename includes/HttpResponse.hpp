@@ -33,6 +33,8 @@ public:
     // static builders for common responses
     static HttpResponse make_200(const std::string &body,
                                  const std::string &type = "text/html");
+    static HttpResponse make_201(); // created: file uploaded
+    static HttpResponse make_204(); // no content: successful delete
     static HttpResponse make_redirect(int code, const std::string &location); // no html body, just headers
     static HttpResponse make_400(); // bad request: client sent malformed request, e.g., invalid HTTP syntax, invalid method, missing Host header in HTTP/1.1, etc.
     static HttpResponse make_403(); // forbidden: server knows who you are (or auth is irrelevant), but access is denied.
@@ -40,6 +42,7 @@ public:
     static HttpResponse make_405(); // method not allowed
     static HttpResponse make_408(); // request timeout: client idle for too long, server closes connection
     static HttpResponse make_413(); // payload too large
+    static HttpResponse make_415(); // unsupported media type
     static HttpResponse make_500(); // internal server error: generic catch-all for unexpected server errors during request handling, e.g., unhandled exceptions, resource limits, etc.
 
     // serialize(from httpRes obj) to raw HTTP string — hand this to send()

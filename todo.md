@@ -16,8 +16,7 @@ Petya:
 -> test 500 too
 
 Noah:
-* config parsing
-* error handling
+* config parsing ✓
 * cgi/dynamic content
 * logging /utilities
 * install Linter: for coding style
