@@ -1,0 +1,3 @@
+A c-string is a raw array of characters ending with a null byte (char* or const char*), used in C and many C APIs. A std::string is a C++ class that manages string data, size, and memory safely and conveniently.
+
+You need to convert (using .c_str()) when calling C or POSIX functions (like stat, open, access, opendir) because they expect a c-string (const char*), not a std::string. std::string::c_str() gives you a pointer to the internal C-style string for compatibility.

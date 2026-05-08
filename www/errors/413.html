@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>413 - Zombie Kittens Ate Your Upload!</title>
+    <style>
+        body {
+            background: #111;
+            color: #fff;
+            font-family: 'Comic Sans MS', cursive, sans-serif;
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            box-shadow: 0 0 80px 10px #ffb6c1 inset, 0 0 120px 20px #8a2be2 inset;
+        }
+        .container {
+            max-width: 650px;
+            margin: 80px auto;
+            background: rgba(34, 34, 34, 0.92);
+            border-radius: 20px;
+            box-shadow: 0 0 40px 10px #ffb6c1, 0 0 60px 20px #6a5acd;
+            padding: 40px;
+            text-align: center;
+        }
+        .errorCode {
+            font-size: 4em;
+            color: #ff6b9d;
+            text-shadow: 0 0 20px #ff6b9d;
+            margin: 0;
+            font-weight: bold;
+        }
+        h1 {
+            font-size: 2em;
+            color: #ffb6c1;
+            text-shadow: 0 0 12px #ffb6c1, 0 0 8px #8a2be2;
+            margin: 10px 0 0 0;
+        }
+        .emoji {
+            font-size: 3em;
+            margin: 20px 0;
+            animation: bounce 0.8s infinite;
+        }
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-20px); }
+        }
+        .msg {
+            font-size: 1.1em;
+            line-height: 1.8;
+            margin: 25px 0;
+            color: #00bfff;
+        }
+        .msg strong {
+            color: #ffb6c1;
+            text-shadow: 0 0 8px #ffb6c1;
+        }
+        .funky {
+            color: #8a2be2;
+            font-style: italic;
+            margin-top: 20px;
+        }
+        .homeBtn {
+            background: linear-gradient(90deg, #8a2be2 0%, #ffb6c1 100%);
+            color: #fff;
+            border: none;
+            border-radius: 12px;
+            padding: 14px 28px;
+            font-size: 1.1em;
+            cursor: pointer;
+            box-shadow: 0 4px 16px #ffb6c1, 0 0 8px #00bfff;
+            font-weight: bold;
+            text-decoration: none;
+            display: inline-block;
+            margin-top: 20px;
+            transition: transform 0.2s;
+        }
+        .homeBtn:hover {
+            background: linear-gradient(90deg, #ffb6c1 0%, #8a2be2 100%);
+            transform: scale(1.05);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <p class="errorCode">413</p>
+        <h1>🧟 PAYLOAD TOO THICC! 🧟</h1>
+        <div class="emoji">💀😹💀</div>
+        <div class="msg">
+            <strong>ERROR!</strong> Your upload was SO BIG that the zombie kittens couldn't handle it!<br>
+            They tried to eat it whole and got a tummy ache. 😵
+        </div>
+        <div class="msg">
+            Your payload exceeded the <strong>server limit of 1 MB</strong>.<br>
+            Please reduce the size and try again, or the kittens might bite you! 🐾
+        </div>
+        <div class="funky">
+            💡 Pro tip: The zombie kittens prefer snack-sized uploads!
+        </div>
+        <a href="/" class="homeBtn">← Back Home</a>
+        <div style="margin-top: 30px; color: #6a5acd; font-size: 0.9em;">
+            The kittens are watching... and they're hungry! 👀
+        </div>
+    </div>
+</body>
+</html>

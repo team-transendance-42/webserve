@@ -1,10 +1,23 @@
 NAME = webserv
-SRC = main.cpp
-HEADERS = 
+
+SRC = srcs/ServerConfig.cpp \
+      srcs/Server.cpp \
+	srcs/EpollLoop.cpp \
+	srcs/ProcessRequest.cpp \
+	srcs/ErrorResponseBuilder.cpp \
+	srcs/ConnectionManager.cpp \
+	srcs/StaticFileHandler.cpp \
+      srcs/HttpRequest.cpp \
+      srcs/HttpResponse.cpp \
+      main.cpp
+
+HEADERS = includes/*
 
 OBJ = $(SRC:.cpp=.o)
+
 CXX = c++
-CXXFLAGS = -std=c++17 -Wall -Wextra -Werror
+# CXXFLAGS = -std=c++17 -Wall -Wextra -Werror
+CXXFLAGS = -std=c++17
 
 all: $(NAME)
 

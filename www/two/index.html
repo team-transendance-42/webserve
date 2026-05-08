@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>WEbserver Two</title>
+    <link rel="stylesheet" href="/style.css">
+    <style>
+        table   { border-collapse: collapse; width: 100%; margin: 16px 0; }
+        th, td  { text-align: left; padding: 8px 12px; border-bottom: 1px solid #30363d; }
+        th      { color: #58a6ff; }
+        .m-get  { color: #3fb950; }
+        .m-post { color: #d29922; }
+        .m-del  { color: #f85149; }
+        .badge  { display: inline-block; padding: 2px 8px; border-radius: 3px;
+                  font-size: 0.8em; font-weight: bold; }
+        .s200   { background: #1a4020; color: #3fb950; }
+        .s404   { background: #3d1a1a; color: #f85149; }
+        .s403   { background: #3d2e0a; color: #d29922; }
+        .s405   { background: #2a1a3d; color: #a371f7; }
+    </style>
+</head>
+<body>
+    <h1>TWO</h1>
+    <p>C++17 HTTP/1.1 server — built for the 42 webserv project</p>
+
+    <hr>
+
+    <h2>Pages</h2>
+    <table>
+        <tr><th>Method</th><th>Path</th><th>Description</th><th>Expected</th></tr>
+        <tr>
+            <td><span class="m-get badge">GET</span></td>
+            <td><a href="/">/</a></td>
+            <td>This page</td>
+            <td><span class="badge s200">200</span></td>
+        </tr>
+        <tr>
+            <td><span class="m-get badge">GET</span></td>
+            <td><a href="/about.html">/about.html</a></td>
+            <td>About page</td>
+            <td><span class="badge s200">200</span></td>
+        </tr>
+        <tr>
+            <td><span class="m-get badge">GET</span></td>
+            <td><a href="/style.css">/style.css</a></td>
+            <td>Stylesheet (text/css)</td>
+            <td><span class="badge s200">200</span></td>
+        </tr>
+        <tr>
+            <td><span class="m-get badge">GET</span></td>
+            <td><a href="/sub/">/sub/</a></td>
+            <td>Directory → resolves to /sub/index.html</td>
+            <td><span class="badge s200">200</span></td>
+        </tr>
+        <!-- <tr>
+            <td><span class="m-get badge">GET</span></td>
+            <td><a href="/upload.html">/upload.html</a></td>
+            <td>POST form test</td>
+            <td><span class="badge s200">200</span></td>
+        </tr> -->
+        <tr>
+            <td><span class="m-get badge">GET</span></td>
+            <td><a href="/delete.html">/delete.html</a></td>
+            <td>DELETE method test</td>
+            <td><span class="badge s200">200</span></td>
+        </tr>
+        <tr>
+            <td><span class="m-get badge">GET</span></td>
+            <td><a href="/errors.html">/errors.html</a></td>
+            <td>Interactive error code tester</td>
+            <td><span class="badge s200">200</span></td>
+        </tr>
+    </table>
+
+    <h2>API</h2>
+    <table>
+        <tr><th>Method</th><th>Path</th><th>Description</th><th>Expected</th></tr>
+        <tr>
+            <td><span class="m-get badge">GET</span></td>
+            <td><a href="/api/data.json">/api/data.json</a></td>
+            <td>Server info JSON</td>
+            <td><span class="badge s200">200</span></td>
+        </tr>
+        <tr>
+            <td><span class="m-get badge">GET</span></td>
+            <td><a href="/api/status.json">/api/status.json</a></td>
+            <td>Status JSON</td>
+            <td><span class="badge s200">200</span></td>
+        </tr>
+    </table>
+
+    <h2>Error cases</h2>
+    <table>
+        <tr><th>Method</th><th>Path</th><th>Description</th><th>Expected</th></tr>
+        <tr>
+            <td><span class="m-get badge">GET</span></td>
+            <td><a href="/missing.html">/missing.html</a></td>
+            <td>File does not exist</td>
+            <td><span class="badge s404">404</span></td>
+        </tr>
+        <tr>
+            <td><span class="m-get badge">GET</span></td>
+            <td><a href="/../etc/passwd">/../etc/passwd</a></td>
+            <td>Directory traversal</td>
+            <td><span class="badge s403">403</span></td>
+        </tr>
+    </table>
+
+    <hr>
+    <p>Stack: <code>ConfigParser</code> → <code>HttpRequest</code> → <code>HttpResponse</code> → <code>poll()</code> loop</p>
+</body>
+</html>

@@ -1,0 +1,77 @@
+#pragma once
+
+#include <string>
+#include <map>
+
+// global — used by Server/Client to check status
+enum Method      { GET, POST, DELETE, UNKNOWN };
+enum ParseResult { INCOMPLETE, COMPLETE, PARSE_ERROR };
+
+
+/**
+ * _buf is the parser’s internal byte queue.
+Every time recv() gets bytes from socket, feed() appends them into _buf.
+_buf stores raw, not-yet-fully-consumed bytes.
+
+TCP(Transmission Control Protocol) is a byte stream, not message packets.
+One recv() may return half a request.
+Or one recv() may return one full request plus part/all of the next one.
+HTTP keep-alive reuses same connection.
+Client can send request #2 on same socket after request #1.
+Those bytes can arrive before the parser finishes processing #1.
+HTTP pipelining (or fast clients) can send multiple requests back-to-back.
+Example stream in one recv():
+REQ1_HEADERS + REQ1_BODY + REQ2_HEADERS...
+After parsing REQ1, leftover bytes belong to REQ2, so they stay in _buf.
+ */
+
+ /**
+ * parsed HTTP request received from a client.
+ * Handles parsing of raw TCP byte streams into HTTP method, path, headers, and body fields.
+ * Used by the server to process incoming requests, support keep-alive, and extract request data for routing/handling.
+ * Provides helpers for header lookup, content length, and connection state.
+ */
+class HttpRequest {
+public:
+    // ── parsed data — read these after feed() returns 
+    Method                             method;
+    std::string                        path;
+    std::string                        query_string;
+    std::string                        version;
+    std::map<std::string, std::string> headers;
+    std::string                        body;
+
+    HttpRequest();
+
+    ParseResult feed(const char *data, size_t len);
+
+    // helpers
+    std::string getHeader    (const std::string &key) const;
+    bool        hasHeader    (const std::string &key) const;
+    size_t      content_length()                      const;
+    bool        is_keep_alive ()                      const;
+
+    void        clear();        // reset for next request (keep-alive)
+    void        debugPrint()   const;
+	ParseResult tryParse();	
+    bool        hasStarted() const;
+    bool        isComplete() const;
+
+private:
+    // internal parse state
+    enum ParseState { REQUEST_LINE, HEADERS, BODY, DONE, ERROR };
+
+    ParseState  _state;
+    std::string _buf;
+    size_t      _headerCount;
+
+    ParseResult _parse();
+    bool        _parse_request_line(const std::string &line);
+    bool        _parse_header_line (const std::string &line);
+    bool        _parse_method      (const std::string &tok);
+    bool        _parsePath        (const std::string &raw);
+
+    std::string _next_line   ();
+    bool        _line_ready  () const;
+    std::string _to_lower    (const std::string &s) const;
+};

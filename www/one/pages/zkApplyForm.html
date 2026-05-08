@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Zombie Kittens Apply Form</title>
+	<link rel="stylesheet" href="../common.css">
+    <style>
+        .container {
+            max-width: 750px;
+            margin: 40px auto;
+            background: rgba(34, 34, 34, 0.92);
+            border-radius: 20px;
+            box-shadow: 0 0 40px 10px #ff6b9d, 0 0 60px 20px #c44569;
+            padding: 40px;
+        }
+        h1 {
+            font-size: 2.2em;
+            color: #ff6b9d;
+            text-shadow: 0 0 12px #ff6b9d, 0 0 8px #00bfff;
+            margin: 0 0 0.5em 0;
+        }
+        .emoji {
+            font-size: 2em;
+            margin: 10px 0;
+        }
+        .row {
+            margin-top: 18px;
+        }
+        label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: bold;
+            color: #00ff88;
+        }
+        input, textarea {
+            width: 100%;
+            box-sizing: border-box;
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid #ff6b9d;
+            border-radius: 8px;
+            padding: 10px;
+            font-size: 0.95em;
+            color: #fff;
+            font-family: 'Comic Sans MS', cursive;
+        }
+        input:focus, textarea:focus {
+            outline: none;
+            box-shadow: 0 0 12px #ff6b9d, inset 0 0 8px rgba(255, 107, 157, 0.3);
+        }
+        textarea {
+            min-height: 120px;
+            resize: vertical;
+        }
+        .submitBtn {
+            margin-top: 20px;
+            border: none;
+            border-radius: 12px;
+            padding: 12px 24px;
+            font-size: 1.1em;
+            background: linear-gradient(90deg, #ff6b9d 0%, #c44569 100%);
+            color: #fff;
+            cursor: pointer;
+            box-shadow: 0 4px 16px #ff6b9d, 0 0 8px #00bfff;
+            font-family: 'Comic Sans MS', cursive;
+            font-weight: bold;
+        }
+        .submitBtn:hover {
+            background: linear-gradient(90deg, #c44569 0%, #ff6b9d 100%);
+        }
+        .hint {
+            margin-top: 12px;
+            font-size: 0.9em;
+            color: #00bfff;
+        }
+        .hint a {
+            color: #ff6b9d;
+            text-decoration: none;
+        }
+        .hint a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div>
+        <a href="/">&larr; Home</a>
+    </div>
+    <div class="container">
+        <h1>🧟 Zombie Kittens Application</h1>
+        <div class="emoji">😻💀😻</div>
+        <p style="margin-bottom: 20px;">Simple POST form for backend parsing and body handling tests.</p>
+
+        <form method="POST" action="/zk_apply_form">
+            <div class="row">
+                <label for="name">Name</label>
+                <input id="name" name="name" type="text" placeholder="Your zombie kitten name">
+            </div>
+
+            <div class="row">
+                <label for="motto">Why should we recruit you?</label>
+                <textarea id="motto" name="motto" placeholder="Type your application message..."></textarea>
+            </div>
+
+            <button type="submit" class="submitBtn">🚀 Submit Application</button>
+        </form>
+
+        <p class="hint">For oversized-body testing, visit <a href="/post_body_too_large">/post_body_too_large</a>.</p>
+    </div>
+</body>
+</html>
