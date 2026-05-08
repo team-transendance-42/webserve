@@ -1,6 +1,6 @@
-#include "../includes/Server.hpp"
 #include "../includes/HttpResponse.hpp"
 #include "../includes/ErrorResponseBuilder.hpp"
+#include "../includes/Server.hpp"
 #include <iostream>
 #include <stdexcept>
 #include <cstring>
@@ -19,10 +19,10 @@ Client fd: for reading requests and writing responses.
 epoll manages all active fds and notifies you when they’re ready for I/O.
  */
 Server::Server(const std::vector<ServerConfig> &configs)
-    :  _configs(configs),
-        _listen_fd(-1),
-        _epoll(), // has default constructor that initializes internal fd
+    :   _listen_fd(-1),
         _running(true),
+        _configs(configs),
+        _epoll(), // has default constructor that initializes internal fd
         _process_request(_configs),
         _connection_manager(
                 _clients,
