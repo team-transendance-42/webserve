@@ -9,33 +9,33 @@
 HttpResponse UploadHandler::handleUpload(const HttpRequest &req,
                                          const Location &loc) {
     // Check Content-Type: only accept raw binary uploads (not multipart)
-    std::string content_type = req.get_header("content-type");
+    std::string content_type = req.getHeader("content-type");
     if (!content_type.empty() && content_type.find("multipart") != std::string::npos) {
         // Multipart form not supported here
         HttpResponse resp;
-        resp.set_status(415).set_body("Multipart uploads not supported", "text/plain");
+        resp.setStatus(415).setBody("Multipart uploads not supported", "text/plain");
         return (resp);
     }
 
     // Get filename from X-Filename header
-    std::string filename = req.get_header("x-filename");
+    std::string filename = req.getHeader("x-filename");
     if (filename.empty()) {
         HttpResponse resp;
-        resp.set_status(400).set_body("Missing X-Filename header", "text/plain");
+        resp.setStatus(400).setBody("Missing X-Filename header", "text/plain");
         return (resp);
     }
 
     // Validate filename
     if (!_isValidFilename(filename)) {
         HttpResponse resp;
-        resp.set_status(400).set_body("Invalid filename", "text/plain");
+        resp.setStatus(400).setBody("Invalid filename", "text/plain");
         return (resp);
     }
 
     // Ensure upload directory exists
     if (!_ensureUploadDir(loc.upload_path)) {
         HttpResponse resp;
-        resp.set_status(500).set_body("Failed to create upload directory", "text/plain");
+        resp.setStatus(500).setBody("Failed to create upload directory", "text/plain");
         return (resp);
     }
 
@@ -50,23 +50,23 @@ HttpResponse UploadHandler::handleUpload(const HttpRequest &req,
     if (upload_dir[upload_dir.size() - 1] != '/') upload_dir += '/';
     if (target_path.compare(0, upload_dir.size(), upload_dir) != 0) {
         HttpResponse resp;
-        resp.set_status(403).set_body("Access denied", "text/plain");
+        resp.setStatus(403).setBody("Access denied", "text/plain");
         return (resp);
     }
 
     // Write body to file atomically
     if (!_writeFileAtomically(target_path, req.body)) {
         HttpResponse resp;
-        resp.set_status(500).set_body("Failed to write file", "text/plain");
+        resp.setStatus(500).setBody("Failed to write file", "text/plain");
         return (resp);
     }
 
     // Return 201 Created
     HttpResponse resp;
-    resp.set_status(201);
+    resp.setStatus(201);
     std::ostringstream oss;
     oss << "File uploaded: " << filename;
-    resp.set_body(oss.str(), "text/plain");
+    resp.setBody(oss.str(), "text/plain");
     return (resp);
 }
 
@@ -76,14 +76,14 @@ HttpResponse UploadHandler::handleDelete(const HttpRequest &req,
     std::string filename = _extractFilenameFromPath(req.path, loc.path);
     if (filename.empty()) {
         HttpResponse resp;
-        resp.set_status(400).set_body("Invalid path", "text/plain");
+        resp.setStatus(400).setBody("Invalid path", "text/plain");
         return (resp);
     }
 
     // Validate filename
     if (!_isValidFilename(filename)) {
         HttpResponse resp;
-        resp.set_status(403).set_body("Access denied", "text/plain");
+        resp.setStatus(403).setBody("Access denied", "text/plain");
         return (resp);
     }
 
@@ -97,27 +97,27 @@ HttpResponse UploadHandler::handleDelete(const HttpRequest &req,
     if (upload_dir[upload_dir.size() - 1] != '/') upload_dir += '/';
     if (target_path.compare(0, upload_dir.size(), upload_dir) != 0) {
         HttpResponse resp;
-        resp.set_status(403).set_body("Access denied", "text/plain");
+        resp.setStatus(403).setBody("Access denied", "text/plain");
         return (resp);
     }
 
     // Check file exists
     if (access(target_path.c_str(), F_OK) != 0) {
         HttpResponse resp;
-        resp.set_status(404).set_body("File not found", "text/plain");
+        resp.setStatus(404).setBody("File not found", "text/plain");
         return (resp);
     }
 
     // Delete file
     if (unlink(target_path.c_str()) != 0) {
         HttpResponse resp;
-        resp.set_status(500).set_body("Failed to delete file", "text/plain");
+        resp.setStatus(500).setBody("Failed to delete file", "text/plain");
         return (resp);
     }
 
     // Return 204 No Content
     HttpResponse resp;
-    resp.set_status(204);
+    resp.setStatus(204);
     return (resp);
 }
 

@@ -167,7 +167,7 @@ ServerConfig Parser::parseServerBlock() {
 	ServerConfig server;
 	server.host = "";
 	server.port = -1;
-	server.client_max_body_size = -1;
+	server.clientMaxBodySize = -1;
 	server.default_server = false;
 
 	while (!check(TOKEN_RBRACE)) {
@@ -267,16 +267,16 @@ void Parser::assignKnownServerFields(ServerConfig& server, const Token& key, con
 			throw ParseError("server_name expects at least one value", key.line, key.column);
 		}
 		server.server_names = values;
-	} else if (key.value == "client_max_body_size") {
+	} else if (key.value == "clientMaxBodySize") {
 		if (values.size() != 1 || !isUnsigned(values[0])) {
-			throw ParseError("client_max_body_size expects one numeric value", key.line, key.column);
+			throw ParseError("clientMaxBodySize expects one numeric value", key.line, key.column);
 		}
-		server.client_max_body_size = static_cast<long>(toUnsigned(values[0]));
+		server.clientMaxBodySize = static_cast<long>(toUnsigned(values[0]));
 	} else if (key.value == "error_page") {
 		if (values.size() != 2 || !isUnsigned(values[0])) {
 			throw ParseError("error_page expects: <code> <path>", key.line, key.column);
 		}
-		server.error_pages[static_cast<int>(toUnsigned(values[0]))] = values[1];
+		server.errorPages[static_cast<int>(toUnsigned(values[0]))] = values[1];
 	} else if (key.value == "default_server") {
 		if (values.empty()) {
 			server.default_server = true;
@@ -297,11 +297,11 @@ void Parser::assignKnownLocationFields(Location& location, const Token& key, con
 			throw ParseError("root expects one value", key.line, key.column);
 		}
 		location.root = values[0];
-	} else if (key.value == "alias") {
-		if (values.size() != 1) {
-			throw ParseError("alias expects one value", key.line, key.column);
-		}
-		location.alias = values[0];
+	// } else if (key.value == "alias") { TODO
+	// 	if (values.size() != 1) {
+	// 		throw ParseError("alias expects one value", key.line, key.column);
+	// 	}
+	// 	location.alias = values[0];
 	} else if (key.value == "index") {
 		if (values.size() != 1) {
 			throw ParseError("index expects one value", key.line, key.column);
@@ -316,23 +316,23 @@ void Parser::assignKnownLocationFields(Location& location, const Token& key, con
 		if (values.size() != 1 || (values[0] != "on" && values[0] != "off")) {
 			throw ParseError("deny_all expects one value: on|off", key.line, key.column);
 		}
-		location.deny_all = (values[0] == "on");
-	} else if (key.value == "allowed_methods") {
+		location.denyAll = (values[0] == "on");
+	} else if (key.value == "allowedMethod") {
 		if (values.empty()) {
-			throw ParseError("allowed_methods expects at least one method", key.line, key.column);
+			throw ParseError("allowedMethod expects at least one method", key.line, key.column);
 		}
-		location.allowed_methods = values;
+		location.allowedMethod = values;
 	} else if (key.value == "return") {
 		if (values.size() != 2 || !isUnsigned(values[0])) {
 			throw ParseError("return expects: <code> <url>", key.line, key.column);
 		}
 		location.redirect_code = static_cast<int>(toUnsigned(values[0]));
 		location.redirect_url = values[1];
-	} else if (key.value == "client_max_body_size") {
+	} else if (key.value == "clientMaxBodySize") {
 		if (values.size() != 1 || !isUnsigned(values[0])) {
-			throw ParseError("client_max_body_size expects one numeric value", key.line, key.column);
+			throw ParseError("clientMaxBodySize expects one numeric value", key.line, key.column);
 		}
-		location.client_max_body_size = static_cast<long>(toUnsigned(values[0]));
+		location.clientMaxBodySize = static_cast<long>(toUnsigned(values[0]));
 	} else if (key.value == "cgi_extension") {
 		if (values.size() != 1) {
 			throw ParseError("cgi_extension expects one value", key.line, key.column);
@@ -352,13 +352,13 @@ void Parser::assignKnownLocationFields(Location& location, const Token& key, con
 		if (values.size() != 1 || values[0] != "all") {
 			throw ParseError("deny expects one value: all", key.line, key.column);
 		}
-		location.deny_all = true;
+		location.denyAll = true;
 	} else {
 		throw ParseError("unknown location directive: " + key.value, key.line, key.column);
 	}
 }
 
-// Validate that the server block has all required directives and that location blocks have valid allowed_methods
+// Validate that the server block has all required directives and that location blocks have valid allowedMethods
 void Parser::validateServer(const ServerConfig& server) {
 	if (server.port < 0) {
 		throw ParseError("missing required directive 'listen'", peek().line, peek().column);
@@ -375,7 +375,7 @@ void Parser::validateServer(const ServerConfig& server) {
 	}
 }
 
-// Validate that the allowed_methods directive in 'location' only contains valid HTTP methods
+// Validate that the allowedMethods directive in 'location' only contains valid HTTP methods
 void Parser::validateLocation(const Location& location) {
 	if (!location.cgi_extension.empty() && location.cgi_extension[0] != '.') {
 		throw ParseError("cgi_extension must start with '.'", peek().line, peek().column);
@@ -385,14 +385,14 @@ void Parser::validateLocation(const Location& location) {
 		throw ParseError("cgi_extension and cgi_pass must be set together", peek().line, peek().column);
 	}
 
-	if (location.allowed_methods.empty()) {
+	if (location.allowedMethod.empty()) {
 		return;
 	}
 
-	const std::vector<std::string>& methods = location.allowed_methods;
+	const std::vector<std::string>& methods = location.allowedMethod;
 	for (std::size_t i = 0; i < methods.size(); ++i) {
 		if (methods[i] != "GET" && methods[i] != "POST" && methods[i] != "DELETE") {
-			throw ParseError("invalid method in allowed_methods: " + methods[i], peek().line, peek().column);
+			throw ParseError("invalid method in allowedMethods: " + methods[i], peek().line, peek().column);
 		}
 	}
 }

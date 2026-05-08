@@ -17,6 +17,7 @@
 #include "../includes/ProcessRequest.hpp"
 #include "../includes/StaticFileHandler.hpp"
 #include "../includes/UploadHandler.hpp"
+#include "../includes/config/Config.hpp"
 
 //  If keepAlive is true, sets 'Connection: keep-alive', otherwise 'Connection: close'.
 static void stampConnection(std::string &response, bool keepAlive) {
@@ -360,7 +361,7 @@ bool ProcessRequest::_resolvePathStatOrError(const std::string &filepath,
         return false;
     }
 
-    client.writeBuf = fromCgi.serialize();
+    // client.writeBuf = fromCgi.serialize(); TODO
     return (true);
 }
 

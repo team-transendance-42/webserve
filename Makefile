@@ -1,6 +1,7 @@
 NAME = webserv
 
-SRC = srcs/ServerConfig.cpp \
+SRC = srcs/config/Config.cpp \
+	  srcs/config/ConfigParser.cpp \
       srcs/Server.cpp \
 	  srcs/EpollLoop.cpp \
 	  srcs/ProcessRequest.cpp \
@@ -9,7 +10,6 @@ SRC = srcs/ServerConfig.cpp \
 	  srcs/StaticFileHandler.cpp \
       srcs/HttpRequest.cpp \
       srcs/HttpResponse.cpp \
-	  srcs/config/ConfigParser.cpp \
 	  srcs/CgiExecutor.cpp \
 	  srcs/UploadHandler.cpp \
       main.cpp
