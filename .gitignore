@@ -34,3 +34,5 @@ cmake_install.cmake
 webserv
 .env
 uploads/
+CLAUDE.md
+en.subject.pdf
