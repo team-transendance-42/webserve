@@ -4,13 +4,6 @@
 #include <string>
 #include <vector>
 
-struct CgiConfig {
-    std::string extension;   // e.g. ".py"
-    std::string interpreter; // e.g. "/usr/bin/python3"
-};
-#include <map>
-#include <iostream> // for debug logging
-
 struct Location {
     std::string              path;
     std::string              root;
@@ -35,9 +28,9 @@ struct Location {
 
 // todo: hard coded values for now, to be replaced by filename.conf parser
 struct ServerConfig {
-    std::string              	host                 = "127.0.0.1";
+    std::string              	host; //                 = "127.0.0.1";
     int                      	port                 = 0;
-    long                     	clientMaxBodySize= 1048576;  // 1MB default
+    long                     	clientMaxBodySize; //= 1048576;  // 1MB default
     std::vector<std::string> 	server_names; // for Host: header matching in virtual hosting
     std::map<int,std::string>	errorPages;
     bool                      	default_server = false;
@@ -50,12 +43,6 @@ struct ServerConfig {
 struct ConfigFile {
     std::vector<ServerConfig> servers;
 };
-
-// todo: placeholder to be replaced by filename.conf parser
-ServerConfig createDefaultServerConfig();
-
-// Returns all server blocks — swap this call for parseConfigFile() when parser is ready
-std::vector<ServerConfig> createDefaultServerConfigs();
 
 class ConfigParser {
 public:

@@ -20,7 +20,6 @@ epoll manages all active fds and notifies you when they’re ready for I/O.
  */
 Server::Server(const std::vector<ServerConfig> &configs)
     :   _listen_fd(-1),
-        _running(true),
         _configs(configs),
         _epoll(), // has default constructor that initializes internal fd
         _process_request(_configs),
@@ -151,12 +150,6 @@ void Server::tick() {
         if (ev & EPOLLIN)  _connection_manager.readClient(client, READ_BUF);
         if (ev & EPOLLOUT) _connection_manager.writeClient(client);
     }
-}
-
-void Server::stop() {
-    _running = false;
-    std::string name = _configs[0].server_names.empty() ? "(unnamed)" : _configs[0].server_names[0];
-    std::cout << "[Server] stopping '" << name << "'\n";
 }
 
 // ── _acceptClient ─────────────────────────────────────────────────────────────

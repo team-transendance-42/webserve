@@ -51,17 +51,17 @@ int main(int argc, char *argv[])
 
         std::vector<Server *> servers;
         for (std::map<AddrKey, std::vector<ServerConfig> >::iterator it = groups.begin();
-             it != groups.end(); ++it)
-            servers.push_back(new Server(it->second));
-        for (size_t i = 0; i < servers.size(); ++i)
-            servers[i]->init();
+            it != groups.end(); ++it) {
+            Server* s = new Server(it->second);
+            s->init();
+            servers.push_back(s);
+            }
 
         while (g_running)
             for (size_t i = 0; i < servers.size(); ++i)
                 servers[i]->tick();
 
         for (size_t i = 0; i < servers.size(); ++i) {
-            servers[i]->stop();
             delete servers[i];
         }
         std::cout << "---------------------\nwebserv shut down cleanly\n";
