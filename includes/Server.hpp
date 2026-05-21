@@ -34,7 +34,6 @@ class Server {
 
 		void init();    // call once — socket, bind, listen, epoll setup
 		void tick();    // call in a loop — ONE epoll_wait iteration
-		void stop();    // sets _running = false
 
 	private:
 		void			_acceptClient();
@@ -51,7 +50,6 @@ class Server {
 		};
 
 		int                     _listen_fd;
-		bool                    _running;
 		std::vector<ServerConfig> _configs;
 		EpollLoop               _epoll;
 		std::map<int, Client *> _clients;
