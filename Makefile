@@ -25,7 +25,7 @@ CXXFLAGS = -std=c++17
 LDFLAGS =
 
 UNAME_S := $(shell uname -s)
-ifeq ($(UNAME_S),Darwin) // If on MacOs, use epoll-shim installed via homebrew.
+ifeq ($(UNAME_S),Darwin) # If on MacOs, use epoll-shim installed via homebrew.
     EPOLL_SHIM_PREFIX ?= $(shell brew --prefix epoll-shim 2>/dev/null)
     ifneq ($(EPOLL_SHIM_PREFIX),)
         CXXFLAGS += -I$(EPOLL_SHIM_PREFIX)/include/libepoll-shim
@@ -38,7 +38,7 @@ endif
 all: $(NAME)
 
 $(NAME): $(OBJ)
-	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDFLAGS) // Append LDFLAGS on MacOs
+	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDFLAGS) # Append LDFLAGS on MacOs
 
 
 $(OBJ_DIR)/%.o: %.cpp $(HEADERS) Makefile
