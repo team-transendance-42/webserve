@@ -1,0 +1,78 @@
+ Terminal 1 — start the server:
+  ./webserv default.conf
+
+  Terminal 2 — connect and send partial request:
+  nc localhost 8080
+  GET / HTTP/1.1
+  (one Enter, then immediately Ctrl+C)
+
+***
+expected: server should not crash, but stay alive
+----------
+  Test 2 — SIGINT graceful shutdown (Ctrl+C on server)
+  
+  Start the server, connect a client with nc, then in terminal 1 hit Ctrl+C.
+
+  Expected: server prints webserv shut down cleanly, exits with code 0, no memory leaks, all client fds closed.
+
+  What it checks: g_running = 0 propagates correctly through the main loop, destructor runs, _clients map is cleaned up.
+-----------
+ Test 3 — SIGTERM graceful shutdown
+
+  Start the server, then from a third terminal:
+  kill <pid>
+  Get the pid with pgrep webserv or look at the shell output.
+
+  Expected: same clean shutdown as Ctrl+C.
+
+  What it checks: SIGTERM is what process managers (like Docker, systemd) send before force-killing. Both should behave identically since both
+  point to the same onSignal handler.
+-------------
+  Test 4 — Multiple rapid disconnects (SIGPIPE stress)
+
+  for i in $(seq 1 20); do nc localhost 8080 & done
+  This opens 20 connections simultaneously, all with no request sent. Then kill them all:
+  kill %1 %2 %3 ...
+  or just kill $(jobs -p).
+
+  Expected: server handles all 20 disconnects cleanly and keeps running.
+----------------
+Open 3 separate terminals and run one in each:
+
+  Terminal 2:
+  nc localhost 8080
+
+  Terminal 3:
+  nc localhost 8080
+
+  Terminal 4:
+  nc localhost 8080
+
+  Each one connects but sends nothing — just leave them open. You should see in terminal 1:
+  [Server] new client fd=5
+  [Server] new client fd=6
+  [Server] new client fd=7
+  
+  Then Ctrl+C the server in terminal 1.
+  ---------------------------
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

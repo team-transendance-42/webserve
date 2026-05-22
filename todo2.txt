@@ -1,0 +1,150 @@
+--
+  BUGS
+
+  2. Timeout 408 response sent on a non-blocking socket without epoll
+  Server.cpp:106-109 — send(fd, resp.c_str(), ...) is a raw fire-and-forget call on a O_NONBLOCK fd. It will silently drop the 408 response if the
+   socket buffer is full (returns EAGAIN). Should set client.writeBuf and let epoll drive the write instead.
+
+  3. make_201() and make_204() declared but never defined
+  HttpResponse.hpp:36-37 — both static builders are declared but have no definition in HttpResponse.cpp. Linker error the moment any code path
+  calls them.
+
+  4. atoi() for CGI status code — no validation
+  ProcessRequestCgi.cpp:140,178 — atoi(value.c_str()) silently returns 0 on non-numeric input (e.g. Status: broken). Use strtol() with end-pointer
+   + range check.
+
+  5. CGI header value offset is hardcoded +2
+  ProcessRequestCgi.cpp:137,175 — value = line.substr(colonPos + 2) assumes ": " but if the CGI outputs Content-Type:text/html (no space), the
+  first real character is silently dropped. Should trim leading whitespace instead.
+
+  ---
+  VULNERABILITIES
+
+  6. TOCTOU in serveStatic() — access() then ifstream::open()
+  StaticFileHandler.cpp:34-42 — file permissions can change between access() and ifstream::open(). The access() call is also wrong for setuid
+  servers (uses real UID, not effective UID). Just remove access() entirely — the ifstream open already handles permission errors, return
+  make_403() when !file.is_open().
+
+  7. inet_addr() is deprecated and doesn't validate IPs
+  Server.cpp:63 — inet_addr() returns INADDR_NONE (0xFFFFFFFF) on invalid input, which is also a valid broadcast IP. Use inet_pton(AF_INET, ...)
+  instead.
+
+  8. CGI header injection — no output sanitization
+  ProcessRequestCgi.cpp:143,181 — CGI Status/header values from result.raw_output are injected directly into HttpResponse with no validation. A
+  buggy or malicious script can inject \r\n sequences, corrupt the HTTP response stream, or set arbitrary headers (e.g. Set-Cookie, downgrade
+  X-Frame-Options). Strip control characters from CGI header values before inserting.
+
+  9. No max connection limit — fd exhaustion DoS
+  Server.cpp:159-178 — _acceptClient() creates new Client(fd) with no cap. An attacker can open thousands of idle connections, exhaust the process
+   fd limit, and deny service to real users. Add a check: if (_clients.size() >= MAX_CLIENTS) { close(clientFd); continue; }.
+
+  ---
+  REDUNDANCIES / DEAD CODE
+
+  10. UploadHandler class is entirely dead code
+  srcs/UploadHandler.cpp + includes/UploadHandler.hpp — UploadHandler::handleUpload() and handleDelete() are never called. The actual logic lives
+  in ProcessRequest::_handleUploadIfNeeded() and _handleDeleteIfNeeded(). The file is compiled (in Makefile) but never linked into any call.
+  Remove or replace.
+
+  11. Duplicate CGI header parsing — two near-identical code paths
+  ProcessRequestCgi.cpp:120-153 vs ProcessRequestCgi.cpp:164-193 — the \n\n and \r\n\r\n branches do identical header parsing. The commented-out
+  _applyCgiHeaders stub at line 196 shows this was already noticed but left unfinished. Extract into one helper.
+
+  12. Double stat() on the same path
+  ProcessRequest.cpp:381 calls stat(indexPath) → then StaticFileHandler::serveStatic(indexPath) calls stat(indexPath) again at line 22 of
+  StaticFileHandler.cpp. Pass the already-known struct stat into serveStatic or skip the redundant check.
+
+  13. access() in serveStatic() is redundant
+  StaticFileHandler.cpp:34-38 — the access() check duplicates what ifstream::open() already does. If the file can't be opened for read, is_open()
+  fails; no separate access check needed.
+
+  14. Duplicate lowercase conversion logic
+  ProcessRequest.cpp:48-49 and ProcessRequest.cpp:56 — manual tolower loops over strings. HttpRequest already has _to_lower()
+  (HttpRequest.cpp:303) but it's private. Promote it to a free static utility (or a common header) and reuse it everywhere.
+
+  15. normalizeUploadFilename() is local to ProcessRequest.cpp but UploadHandler has its own _isValidFilename()
+  Two separate validation approaches for filenames, in parallel implementations that are never reconciled.
+
+  ---
+  BAD PRACTICES
+
+  16. Warnings disabled in Makefile
+  Makefile:24 — # CXXFLAGS = -std=c++17 -Wall -Wextra -Werror is commented out. Compiling without warnings masks real issues silently.
+
+  17. Raw owning pointers instead of unique_ptr
+  main.cpp:36,53 (std::vector<Server *>) and Server.hpp:55 (std::map<int, Client *>) — if an exception fires between new and push_back, or between
+   multiple push_back calls, you leak. Use std::unique_ptr<Server> and std::unique_ptr<Client>.
+
+  18. CLIENT_TIMEOUT = 6 is a test value, never reset
+  Server.hpp:49 — the comment says "for testing: usually is 60 seconds". This is a ticking bomb for production.
+
+  19. _to_lower is an instance method but uses no instance state
+  HttpRequest.cpp:303 / HttpRequest.hpp:76 — should be static (or a free function). An instance call for a pure string utility is misleading.
+
+  20. Multi-server architecture blocks 100ms per server
+  main.cpp:58-60 — each Server::tick() calls epoll_wait(..., 100ms). With N servers you get 100*N ms worst-case response latency. All servers
+  should share one epoll instance, not each have their own.
+
+  21. Inconsistent naming in HttpRequest
+  _parse_method / _parse_request_line (snake_case) vs _parsePath (camelCase). content_length() / query_string (snake_case) vs isComplete() /
+  hasStarted() (camelCase) — pick one convention.
+
+  22. closeIdleClients() missing _ prefix
+  Server.hpp private section — all other private methods use _prefix (_acceptClient, _setNonBlocking) but closeIdleClients doesn't. Rename to
+  _closeIdleClients().
+
+  23. std::time(0) — prefer std::time(nullptr)
+  ConnectionManager.cpp:33,71, Client.hpp:35, Server.cpp:103 — nullptr is the idiomatic C++ form.
+
+  24. Redundant ternary in _buildCgiRequest()
+  ProcessRequestCgi.cpp:86 — cgiReq.content_type = (contentType.empty() ? "" : contentType) is equivalent to cgiReq.content_type = contentType.
+
+  25. stampConnection(client.writeBuf, false) repeated 4 times in handle()
+  ProcessRequest.cpp:407-455 — the pattern client.keep_alive = false; stampConnection(..., false); return; appears on every early-exit error path.
+   Extract into a helper or restructure the flow.
+
+  26. make_redirect() silently coerces any code to 302
+  HttpResponse.cpp:37 — int redirectCode = (code == 301) ? 301 : 302; masks config bugs where invalid redirect codes are passed.
+
+  27. remote_addr hardcoded to "127.0.0.1"
+  ProcessRequestCgi.cpp:101 — REMOTE_ADDR CGI env var is always localhost, even for external clients. Should be populated from the accepted socket
+   address.
+
+  ---
+  Summary table
+
+  ┌───────┬──────────┬──────────────┬───────────────────────┐
+  │   #   │ Severity │   Category   │         File          │
+  ├───────┼──────────┼──────────────┼───────────────────────┤
+  │ 1     │ Critical │ Bug          │ main.cpp              │
+  ├───────┼──────────┼──────────────┼───────────────────────┤
+  │ 2     │ High     │ Bug          │ Server.cpp            │
+  ├───────┼──────────┼──────────────┼───────────────────────┤
+  │ 6     │ High     │ Vuln         │ StaticFileHandler.cpp │
+  ├───────┼──────────┼──────────────┼───────────────────────┤
+  │ 7     │ High     │ Vuln         │ Server.cpp            │
+  ├───────┼──────────┼──────────────┼───────────────────────┤
+  │ 8     │ High     │ Vuln         │ ProcessRequestCgi.cpp │
+  ├───────┼──────────┼──────────────┼───────────────────────┤
+  │ 9     │ High     │ Vuln         │ Server.cpp            │
+  ├───────┼──────────┼──────────────┼───────────────────────┤
+  │ 3     │ Medium   │ Bug          │ HttpResponse.hpp/.cpp │
+  ├───────┼──────────┼──────────────┼───────────────────────┤
+  │ 4,5   │ Medium   │ Bug          │ ProcessRequestCgi.cpp │
+  ├───────┼──────────┼──────────────┼───────────────────────┤
+  │ 10    │ Medium   │ Redundancy   │ UploadHandler.*       │
+  ├───────┼──────────┼──────────────┼───────────────────────┤
+  │ 11    │ Medium   │ Redundancy   │ ProcessRequestCgi.cpp │
+  ├───────┼──────────┼──────────────┼───────────────────────┤
+  │ 16    │ Medium   │ Bad Practice │ Makefile              │
+  ├───────┼──────────┼──────────────┼───────────────────────┤
+  │ 17    │ Medium   │ Bad Practice │ main.cpp, Server.hpp  │
+  ├───────┼──────────┼──────────────┼───────────────────────┤
+  │ 18    │ Medium   │ Bad Practice │ Server.hpp            │
+  ├───────┼──────────┼──────────────┼───────────────────────┤
+  │ 20    │ Medium   │ Bad Practice │ main.cpp              │
+  ├───────┼──────────┼──────────────┼───────────────────────┤
+  │ 12-15 │ Low      │ Redundancy   │ various               │
+  ├───────┼──────────┼──────────────┼───────────────────────┤
+  │ 21-27 │ Low      │ Bad Practice │ various               │
+  └───────┴──────────┴──────────────┴───────────────────────┘

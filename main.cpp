@@ -29,6 +29,20 @@ int main(int argc, char *argv[])
     sigemptyset(&sa.sa_mask);
     sigaction(SIGINT,  &sa, nullptr);
     sigaction(SIGTERM, &sa, nullptr);
+	/*
+	When the server calls send() on a socket and the client has already closed their end, the OS sends the process a signal named SIGPIPE ("broken
+   	pipe").
+	Signals are asynchronous notifications from the OS. Each signal has a default action. For SIGPIPE, the default action is: terminate the process 
+	immediately.
+	This is sensible for command-line pipes (cat file | grep foo) but catastrophic for a server — one disconnecting client should never kill the
+	whole server.
+	---
+	When a client disconnected mid-write, send() triggered SIGPIPE. The OS default action for SIGPIPE is process termination — one bad client killed
+	the entire server.
+	SIG_IGN tells the OS: instead of terminating, just make send() return -1 with errno == EPIPE.
+	*/
+	sa.sa_handler = SIG_IGN; // ignore signal on disconnected client
+	sigaction(SIGPIPE, &sa, nullptr);
 
     std::string configFile = (argc == 2) ? argv[1] : "default.conf";
 

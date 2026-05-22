@@ -92,7 +92,7 @@ static std::string urlEncode(const std::string &s) {
         if (isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~') {
             out << c;
         } else {
-            out << '%' << std::uppercase << std::hex << (int)c << std::nouppercase << std::dec;
+            out << '%' << std::uppercase << std::hex << static_cast<int>(c) << std::nouppercase << std::dec;
         }
     }
     return out.str();

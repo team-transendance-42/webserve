@@ -5,6 +5,7 @@ SRC = srcs/config/Config.cpp \
       srcs/Server.cpp \
 	  srcs/EpollLoop.cpp \
 	  srcs/ProcessRequest.cpp \
+	  srcs/ProcessRequestCgi.cpp \
 	  srcs/ErrorResponseBuilder.cpp \
 	  srcs/ConnectionManager.cpp \
 	  srcs/StaticFileHandler.cpp \
@@ -20,8 +21,7 @@ OBJ_DIR = obj
 OBJ = $(addprefix $(OBJ_DIR)/,$(SRC:.cpp=.o))
 
 CXX = c++
-# CXXFLAGS = -std=c++17 -Wall -Wextra -Werror
-CXXFLAGS = -std=c++17
+CXXFLAGS = -std=c++17 -Wall -Wextra -Werror
 LDFLAGS =
 
 UNAME_S := $(shell uname -s)
