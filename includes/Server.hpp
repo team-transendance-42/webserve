@@ -38,7 +38,7 @@ class Server {
 	private:
 		void			_acceptClient();
 		static void	 	_setNonBlocking(int fd);
-		void 			handleServerTimeout();
+		void 			closeIdleClients();
 
 		// named constants for server tuning
 		enum {
@@ -46,7 +46,7 @@ class Server {
 			POLL_TIMEOUT = 100,  // ms —  how often to check for shutdown signal (SIGINT) in main loop; if too long, server may be slow to respond to shutdown; if too short, may cause more CPU wakeups and slightly higher CPU usage when idle
 			MAX_EVENTS   = 64,  // max ready events handled per tick call
 			READ_BUF     = 4096, // chunk size per recv
-			SERVER_TIMEOUT = 6 // for testing: usually is 60 seconds of idle time before server closes client connection
+			CLIENT_TIMEOUT = 6 // for testing: usually is 60 seconds of idle time before server closes client connection
 		};
 
 		int                     _listen_fd;

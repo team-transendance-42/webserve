@@ -82,10 +82,7 @@ const Location *ProcessRequest::_resolveLocationOrError(const HttpRequest &req, 
 }
 
 // Applies deny/method/body-size rules and writes error responses on failure.
-bool ProcessRequest::_validateLocationRulesOrError(const HttpRequest &req,
-                                                   const Location &loc,
-                                                   Client &client,
-                                                   const ServerConfig &cfg) const {
+bool ProcessRequest::_validateLocationRulesOrError(const HttpRequest &req, const Location &loc, Client &client, const ServerConfig &cfg) const {
     // denyAll first: protected locations return 403 regardless of method; 403 Forbidden
     if (loc.denyAll) {
         client.writeBuf = ErrorResponseBuilder::buildErrorResponse(403, cfg).serialize();
@@ -105,9 +102,7 @@ bool ProcessRequest::_validateLocationRulesOrError(const HttpRequest &req,
         return false;
     }
 
-    long maxBody = (loc.clientMaxBodySize >= 0)
-                    ? loc.clientMaxBodySize
-                    : cfg.clientMaxBodySize;
+    long maxBody = (loc.clientMaxBodySize >= 0) ? loc.clientMaxBodySize : cfg.clientMaxBodySize;
     if ((long)req.body.size() > maxBody) { // 413 payload too large
         client.writeBuf = ErrorResponseBuilder::buildErrorResponse(413, cfg).serialize();
         return false;
@@ -210,7 +205,7 @@ bool ProcessRequest::_handleUploadIfNeeded(const HttpRequest &req,
                                            const Location &loc,
                                            Client &client,
                                            const ServerConfig &cfg) const {
-    if (!loc.upload_enabled || req.method != POST) return false;
+    if (loc.upload_path.empty() || req.method != POST) return false;
 
     std::string filename;
     std::string content;

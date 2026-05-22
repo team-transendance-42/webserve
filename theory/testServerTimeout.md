@@ -1,7 +1,7 @@
 #Idle TCP Connection (no data sent)
 nc -v localhost 8080
 #Expected: 408 timeout
-#After SERVER_TIMEOUT seconds, the server closes the connection and (optionally) sends a 408 response.
+#After CLIENT_TIMEOUT seconds, the server closes the connection and (optionally) sends a 408 response.
 #Explained: netcat: open TCP socket(lets manually to send data), pipe stdin/stdout through it
 
 nc opens a TCP connection, server accepts it, then waits for data
