@@ -3,6 +3,8 @@
 #include "../../includes/config/Tokenizer.hpp"
 
 #include <cctype>
+#include <cerrno>
+#include <cstdlib>
 #include <fstream>
 #include <iostream>
 #include <set>
@@ -165,10 +167,6 @@ ServerConfig Parser::parseServerBlock() {
 	consume(TOKEN_LBRACE, "expected '{' after server");
 
 	ServerConfig server;
-	server.host = "";
-	server.port = -1;
-	server.clientMaxBodySize = -1;
-	server.default_server = false;
 
 	while (!check(TOKEN_RBRACE)) {
 		if (check(TOKEN_EOF)) {
@@ -362,9 +360,6 @@ void Parser::assignKnownLocationFields(Location& location, const Token& key, con
 void Parser::validateServer(const ServerConfig& server) {
 	if (server.port < 0) {
 		throw ParseError("missing required directive 'listen'", peek().line, peek().column);
-	}
-	if (server.host.empty()) {
-		throw ParseError("missing required directive 'host'", peek().line, peek().column);
 	}
 	if (server.server_names.empty()) {
 		throw ParseError("missing required directive 'server_name'", peek().line, peek().column);

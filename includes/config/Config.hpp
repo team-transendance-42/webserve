@@ -12,12 +12,10 @@ struct Location {
     std::string              cgi_pass;
     std::vector<std::string> allowedMethod;
     bool                     autoindex            = false;
-    bool                     denyAll             = false; // for guarding sensitive locations
-    int                      redirect_code        = 0;   // 0 = no redirect
+    bool                     denyAll             = false;
+    int                      redirect_code        = 0;   // no redirect
     std::string              redirect_url;
-    long                     clientMaxBodySize= -1;  // -1 = inherit from server
-    // todo: upload handling
-	bool                     upload_enabled = false;
+    long                     clientMaxBodySize= -1;  // inherit from server
 	std::string              upload_path; // absolute path on server to save uploaded files, e.g. "/var/www/uploads";
     std::vector<std::string>  upload_allowed_types; // e.g. {".jpg", ".png", ".pdf"}
 
@@ -26,11 +24,10 @@ struct Location {
     }
 };
 
-// todo: hard coded values for now, to be replaced by filename.conf parser
 struct ServerConfig {
-    std::string              	host; //                 = "127.0.0.1";
-    int                      	port                 = 0;
-    long                     	clientMaxBodySize; //= 1048576;  // 1MB default
+    std::string              	host = "0.0.0.0";
+    int                      	port                 = -1;
+    long                     	clientMaxBodySize = 1048576;  // 1MB default
     std::vector<std::string> 	server_names; // for Host: header matching in virtual hosting
     std::map<int,std::string>	errorPages;
     bool                      	default_server = false;

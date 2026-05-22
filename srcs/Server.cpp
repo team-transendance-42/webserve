@@ -94,12 +94,13 @@ void Server::init() {
 	The & operator in this context is a bitwise AND. It checks if any of the specified event flags (EPOLLERR, EPOLLHUP, EPOLLRDHUP) are set in ev.
 
 	If ev contains any of those flags, the result is non-zero, so the condition is true. This is a common way to test for specific bits in a bitmask.
+	todo: 
  */
 
- void Server::handleServerTimeout() {
+ void Server::closeIdleClients() {
     for (auto it = _clients.begin(); it != _clients.end();) {
         Client* client = it->second;
-        if (std::time(0) - client->lastTimestamp > SERVER_TIMEOUT) {
+        if (std::time(0) - client->lastTimestamp > CLIENT_TIMEOUT) {
             int fd = client->fd;
             std::cout << "[Server] timeout: closing client fd=" << fd << "\n";
             std::string resp = ErrorResponseBuilder::buildErrorResponse(408, _configs[0]).serialize();
@@ -126,7 +127,7 @@ void Server::tick() {
         throw std::runtime_error("epoll_wait() failed: "
             + std::string(strerror(errno)));
     }
-    handleServerTimeout() ; // check for idle clients and close them before processing ready events
+    closeIdleClients() ; // check for idle clients and close them before processing ready events
     
     if (numReadyEvents == 0) return;  // timeout — nothing ready, return to main
 

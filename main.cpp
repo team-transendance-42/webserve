@@ -33,7 +33,7 @@ int main(int argc, char *argv[])
     std::string configFile = (argc == 2) ? argv[1] : "default.conf";
 
     std::cout << "--- webserv — loading " << configFile << " ---\n";
-
+	std::vector<Server *> servers;
     try {
         // Parse config file into ConfigFile structure
         ConfigParser parser;
@@ -43,18 +43,16 @@ int main(int argc, char *argv[])
         }
 
         // Group configs by (host, port) — one Server (one listen socket) per unique address.
-        // Configs sharing an address become virtual hosts; Host: header selects among them.
         typedef std::pair<std::string, int> AddrKey;
         std::map<AddrKey, std::vector<ServerConfig> > groups;
         for (size_t i = 0; i < config.servers.size(); ++i)
             groups[std::make_pair(config.servers[i].host, config.servers[i].port)].push_back(config.servers[i]);
 
-        std::vector<Server *> servers;
         for (std::map<AddrKey, std::vector<ServerConfig> >::iterator it = groups.begin();
             it != groups.end(); ++it) {
-            Server* s = new Server(it->second);
-            s->init();
-            servers.push_back(s);
+				Server* s = new Server(it->second);
+				servers.push_back(s);
+				s->init();
             }
 
         while (g_running)
@@ -67,7 +65,7 @@ int main(int argc, char *argv[])
         std::cout << "---------------------\nwebserv shut down cleanly\n";
     } catch (const std::exception &e) {
         std::cerr << "Fatal: " << e.what() << "\n";
-        // ~Server() destructor handles fd cleanup
+		for (size_t i = 0; i < servers.size(); ++i) delete servers[i];
         return (1);
     }
 
