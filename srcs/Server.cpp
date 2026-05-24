@@ -6,17 +6,31 @@
 #include <cstring>
 
 /**
- * lambda expression: [this](int fd, uint32_t events) { _epoll.mod(fd, events); }
- * [ ] = capture list that specifies what variables/pointers the lambda can access
-this = captures the pointer to the current object (the Server instance)
-Effect: Inside the lambda body, we can access all member variables and methods of Server like _epoll, _clients, etc.
-Without [this], calling _epoll.mod() would fail—the lambda wouldn't know what _epoll is
-
 Each browser tab or curl command is a separate client (separate TCP connection, separate fd).
 When a client disconnects, we remove its fd from epoll and close it.
 Server fd: only for new connections.
 Client fd: for reading requests and writing responses.
-epoll manages all active fds and notifies you when they’re ready for I/O.
+epoll manages all active fds and notifies us when they’re ready for I/O.
+
+
+Your CPU (x86/x64) is little-endian — it stores the least significant
+  byte first. So port 8080 in memory looks like: 0x90 0x1F.
+
+  The TCP/IP network standard requires big-endian (most significant byte
+   first): 0x1F 0x90.
+
+  If you put 8080 straight into sin_port without converting, the kernel
+  reads the bytes in network order and sees port 0x901F = 36895 — wrong
+  port, bind fails or binds to the wrong one.
+
+  htons = Host To Network Short:
+  - Host = your machine's byte order (little-endian on x86)
+  - Network = big-endian (TCP/IP standard)
+  - Short = 16-bit integer — ports fit in 16 bits (max 65535)
+ */
+/*
+ * Constructor: wires together all subsystems. ConnectionManager gets lambdas to
+ * call back into EpollLoop without needing a direct pointer to Server.
  */
 Server::Server(const std::vector<ServerConfig> &configs)
     :   _listen_fd(-1),
@@ -29,6 +43,7 @@ Server::Server(const std::vector<ServerConfig> &configs)
             [this](int fd) { _epoll.del(fd); },
             _process_request) {} // map *clients is auto initialized as empty, we will add client objects to it in _acceptClient when new clients connect
 
+/* Destructor: closes all client fds and frees their heap objects, then closes the listen socket. */
 Server::~Server() {
     typedef std::map<int, Client *>::iterator It;
     for (It it = _clients.begin(); it != _clients.end(); ++it) {
@@ -38,8 +53,11 @@ Server::~Server() {
     if (_listen_fd >= 0) close(_listen_fd);
 }
 
-// ── init ──────────────────────────────────────────────────────────────────────
-
+/*
+ * create the TCP listen socket, binds to host:port, starts listening,
+ * sets non-blocking mode, and registers the fd with epoll for incoming connections.
+ * Must be called once after construction, before tick().
+ */
 void Server::init() {
     _epoll.init(); // 1. create epoll instance, store fd internally
 
@@ -56,18 +74,18 @@ void Server::init() {
     struct sockaddr_in addr; // hold the IP address info for the socket (sockaddr_internet)
     std::memset(&addr, 0, sizeof(addr)); // Sets all bytes of addr to zero (clears memory)
     addr.sin_family      = AF_INET; // Sets the address family to IPv4 (sin = socket internet, AF_INET = Address Family_INET for IPv4)
-    addr.sin_port        = htons(_configs[0].port); // Set port, convert from host to network byte order (sin_port = socket internet port, htons = Host TO Network Short)
-    if (_configs[0].host == "localhost")
-        addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK); // Set IP to 127.0.0.1 (sin_addr = socket internet address, s_addr = struct address, htonl = Host TO Network Long, INADDR_LOOPBACK = Internet Address Loopback)
-    else
-        addr.sin_addr.s_addr = inet_addr(_configs[0].host.c_str()); // Convert string IP to binary (inet_addr = internet address)
+    addr.sin_port        = htons(_configs[0].port); // htons: swap bytes from CPU little-endian to network big-endian. Port must be in network byte order or the kernel binds to the wrong port.
+    // inet presentation: converts "127.0.0.1" → 0x7F000001 (4 bytes packed together in network byte order).
+    if (inet_pton(AF_INET, _configs[0].host.c_str(), &addr.sin_addr) != 1)
+      throw std::runtime_error("invalid host address: " +
+  _configs[0].host);// Convert string IP to binary (inet_addr = internet address)
 
     if (bind(_listen_fd, (struct sockaddr *)&addr, sizeof(addr)) < 0)
         throw std::runtime_error("bind() failed on "
             + _configs[0].host + ":" + std::to_string(_configs[0].port)
             + " — " + strerror(errno));
 
-    if (listen(_listen_fd, BACKLOG) < 0) // // 5. listen, ready to accept connections. BACKLOG = max pending connections in queue before new ones are refused.
+    if (listen(_listen_fd, BACKLOG) < 0) //5. listen; BACKLOG = max pending connections in queue before new ones are refused.
         throw std::runtime_error("listen() failed: "
             + std::string(strerror(errno)));
 
@@ -97,18 +115,21 @@ void Server::init() {
 	todo: 
  */
 
+/*
+ * closeIdleClients: walks all active clients and closes any that have been silent
+ * longer than CLIENT_TIMEOUT seconds. Sends a 408 response before closing.
+ * Called at the start of every tick() before processing new epoll events.
+ */
  void Server::closeIdleClients() {
-    for (auto it = _clients.begin(); it != _clients.end();) {
+    for (auto it = _clients.begin(); it != _clients.end(); ++it) {
         Client* client = it->second;
-        if (std::time(0) - client->lastTimestamp > CLIENT_TIMEOUT) {
-            int fd = client->fd;
-            std::cout << "[Server] timeout: closing client fd=" << fd << "\n";
-            std::string resp = ErrorResponseBuilder::buildErrorResponse(408, _configs[0]).serialize();
-            send(fd, resp.c_str(), resp.size(), 0);
-            ++it; // advance before closeClient erases the entry from _clients
-            _connection_manager.closeClient(fd); // handles delete + erase + epoll.del + close
-        } else
-            ++it;
+        if (std::time(nullptr) - client->lastTimestamp > CLIENT_TIMEOUT
+                && client->writeBuf.empty()) {
+            std::cout << "[Server] timeout: closing client fd=" << client->fd << "\n";
+            client->writeBuf   = ErrorResponseBuilder::buildErrorResponse(408, _configs[0]).serialize();
+            client->keep_alive = false;
+            _epoll.mod(client->fd, EPOLLOUT | EPOLLRDHUP); // writeClient sends 408 then closes since keep_alive=false
+        }
     }
  }
 /**
@@ -118,6 +139,12 @@ void Server::init() {
     writeClient() sends the HTTP response from the server to the client’s socket (fd) when it is ready to be written.
 */
 
+/*
+ * tick: one iteration of the event loop. Calls epoll_wait once, then dispatches
+ * each ready fd: new connections go to _acceptClient(), existing clients go to
+ * readClient() or writeClient() depending on the event flags.
+ * Called repeatedly from main() as long as g_running is set.
+ */
 void Server::tick() {
     struct epoll_event  events[MAX_EVENTS]; //bitmask of event types (e.g., EPOLLIN for readable, EPOLLOUT for writable, EPOLLRDHUP for disconnect, etc.)
     int                 numReadyEvents = _epoll.wait(events, MAX_EVENTS, POLL_TIMEOUT);
@@ -155,6 +182,11 @@ void Server::tick() {
 
 // ── _acceptClient ─────────────────────────────────────────────────────────────
 
+/*
+ * _acceptClient: drains all pending connections from the listen socket in a loop
+ * (non-blocking accept until EAGAIN). Each accepted fd is set non-blocking,
+ * registered with epoll for read events, and added to the _clients map.
+ */
 void Server::_acceptClient() {
     while (true) {
         struct sockaddr_in addr;
@@ -166,10 +198,6 @@ void Server::_acceptClient() {
             std::cerr << "[accept] failed: " << strerror(errno) << "\n";
             break;
         }
-        if (clientFd == 0) {
-            std::cerr << "[accept] returned fd=0 (invalid client), skipping.\n";
-            continue;
-        }
         _setNonBlocking(clientFd);
         _epoll.add(clientFd, EPOLLIN | EPOLLRDHUP);
         _clients[clientFd] = new Client(clientFd);
@@ -178,8 +206,10 @@ void Server::_acceptClient() {
     }
 }
 
-// ── utils ─────────────────────────────────────────────────────────────────────
-
+/*
+ * _setNonBlocking: sets O_NONBLOCK on fd so recv/send/accept return immediately
+ * with EAGAIN instead of blocking the process when no data is available.
+ */
 void Server::_setNonBlocking(int fd) {
     int flags = fcntl(fd, F_GETFL, 0);
     if (flags < 0)

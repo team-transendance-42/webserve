@@ -43,7 +43,7 @@ class Server {
 		// named constants for server tuning
 		enum {
 			BACKLOG      = 128,   // max queued incoming connections waiting to be accepted; named so to match exact socket API term listen(fd, backlog), Kernel docs/man pages call it “backlog”
-			POLL_TIMEOUT = 100,  // ms —  how often to check for shutdown signal (SIGINT) in main loop; if too long, server may be slow to respond to shutdown; if too short, may cause more CPU wakeups and slightly higher CPU usage when idle
+			POLL_TIMEOUT = 10,   // ms — with N servers the main loop runs each tick() sequentially, so worst-case latency = N * POLL_TIMEOUT. 10ms keeps response latency acceptable without burning CPU when idle. Proper fix: shared epoll across all servers (refactor branch).
 			MAX_EVENTS   = 64,  // max ready events handled per tick call
 			READ_BUF     = 4096, // chunk size per recv
 			CLIENT_TIMEOUT = 6 // for testing: usually is 60 seconds of idle time before server closes client connection
