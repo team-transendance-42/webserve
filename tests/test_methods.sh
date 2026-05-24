@@ -69,3 +69,8 @@ echo ""
 echo "=========================================="
 echo "Results: $passed/$test_count tests passed"
 echo "=========================================="
+
+if [ "$passed" -ne "$test_count" ]; then
+    exit 1
+fi
+exit 0
