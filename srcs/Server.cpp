@@ -5,28 +5,11 @@
 #include <stdexcept>
 #include <cstring>
 
-/**
-Each browser tab or curl command is a separate client (separate TCP connection, separate fd).
-When a client disconnects, we remove its fd from epoll and close it.
-Server fd: only for new connections.
-Client fd: for reading requests and writing responses.
-epoll manages all active fds and notifies us when they’re ready for I/O.
-
-
-Your CPU (x86/x64) is little-endian — it stores the least significant
-  byte first. So port 8080 in memory looks like: 0x90 0x1F.
-
-  The TCP/IP network standard requires big-endian (most significant byte
-   first): 0x1F 0x90.
-
-  If you put 8080 straight into sin_port without converting, the kernel
-  reads the bytes in network order and sees port 0x901F = 36895 — wrong
-  port, bind fails or binds to the wrong one.
-
-  htons = Host To Network Short:
-  - Host = your machine's byte order (little-endian on x86)
-  - Network = big-endian (TCP/IP standard)
-  - Short = 16-bit integer — ports fit in 16 bits (max 65535)
+/*
+ * Each browser tab or curl command is a separate client (separate TCP connection, separate fd).
+ * Server fd: only for accepting new connections.
+ * Client fd: for reading requests and writing responses.
+ * epoll manages all active fds and notifies us when they are ready for I/O.
  */
 /*
  * Constructor: wires together all subsystems. ConnectionManager gets lambdas to
@@ -78,7 +61,7 @@ void Server::init() {
     // inet presentation: converts "127.0.0.1" → 0x7F000001 (4 bytes packed together in network byte order).
     if (inet_pton(AF_INET, _configs[0].host.c_str(), &addr.sin_addr) != 1)
       throw std::runtime_error("invalid host address: " +
-  _configs[0].host);// Convert string IP to binary (inet_addr = internet address)
+  _configs[0].host);// inet_pton: converts string IP to binary; returns 1 on success, 0 on invalid input, -1 on error
 
     if (bind(_listen_fd, (struct sockaddr *)&addr, sizeof(addr)) < 0)
         throw std::runtime_error("bind() failed on "
@@ -106,18 +89,9 @@ void Server::init() {
 }
 
 /*
-    EPOLLERR: An error occurred on the file descriptor (e.g., socket error).
-	EPOLLHUP: The file descriptor was "hung up" (connection closed by peer).
-	EPOLLRDHUP: The peer closed its read end (remote shutdown).
-	The & operator in this context is a bitwise AND. It checks if any of the specified event flags (EPOLLERR, EPOLLHUP, EPOLLRDHUP) are set in ev.
-
-	If ev contains any of those flags, the result is non-zero, so the condition is true. This is a common way to test for specific bits in a bitmask.
-	todo: 
- */
-
-/*
  * closeIdleClients: walks all active clients and closes any that have been silent
- * longer than CLIENT_TIMEOUT seconds. Sends a 408 response before closing.
+ * longer than CLIENT_TIMEOUT seconds. Queues a 408 into writeBuf and switches to write mode;
+ * writeClient then sends it and closes since keep_alive=false.
  * Called at the start of every tick() before processing new epoll events.
  */
  void Server::closeIdleClients() {
@@ -132,18 +106,18 @@ void Server::init() {
         }
     }
  }
-/**
-    server socket (_listen_fd) only accepts new connections.
-    Each client gets its own socket (fd).
-    readClient() reads bytes from the client’s socket, parses the HTTP request, and handles it.
-    writeClient() sends the HTTP response from the server to the client’s socket (fd) when it is ready to be written.
-*/
 
 /*
  * tick: one iteration of the event loop. Calls epoll_wait once, then dispatches
  * each ready fd: new connections go to _acceptClient(), existing clients go to
  * readClient() or writeClient() depending on the event flags.
  * Called repeatedly from main() as long as g_running is set.
+ *
+ * Event flags checked per fd:
+ *   EPOLLERR  — error on the fd (e.g. socket error) → close client.
+ *   EPOLLHUP  — peer closed the connection → close client.
+ *   EPOLLRDHUP — peer closed its write side (half-close) → close client.
+ *   ev & (EPOLLERR|EPOLLHUP|EPOLLRDHUP): bitwise AND — true if any of those bits are set.
  */
 void Server::tick() {
     struct epoll_event  events[MAX_EVENTS]; //bitmask of event types (e.g., EPOLLIN for readable, EPOLLOUT for writable, EPOLLRDHUP for disconnect, etc.)
