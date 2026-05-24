@@ -9,9 +9,15 @@
 #include "../includes/ConnectionManager.hpp"
 #include "../includes/ProcessRequest.hpp"
 
-/**
-	EPOLLOUT: socket is writable now, so send should not block (you can write response bytes).
-	EPOLLRDHUP: peer has closed its write side (remote half-close). For HTTP server logic, this usually means client disconnected or will send no more request body bytes. switching to EPOLLOUT | EPOLLRDHUP means: wait until response can be sent, but also detect client disconnect while waiting.
+/*
+ * Constructor: stores references to the shared clients map and epoll callbacks.
+ * epollMod/epollDel are lambdas passed in from Server so ConnectionManager can
+ * change epoll watch mode or remove an fd without holding a pointer to Server.
+ *
+ * EPOLLOUT: socket is writable — send() will not block, safe to write response bytes.
+ * EPOLLRDHUP: peer closed its write side (remote half-close) — client disconnected
+ * or will send no more data. Combined EPOLLOUT | EPOLLRDHUP means: notify when
+ * writable to send the response, but also catch disconnect while waiting.
  */
 ConnectionManager::ConnectionManager(std::map<int, Client *> &clients,
 					 std::function<void(int, uint32_t)> epollMod,
@@ -28,11 +34,11 @@ ConnectionManager::ConnectionManager(std::map<int, Client *> &clients,
  *  then returns — epoll re-fires on the next incoming data and resumes feeding the same client.request.
  *  PARSE_ERROR → 400 and close. COMPLETE → hand off to the request processor and switch to write mode.
  */
-void ConnectionManager::readClient(Client &client, std::size_t readBufSize) {
-	std::string chunk(readBufSize, '\0');
-	client.lastTimestamp = std::time(0); // update last activity time on each read
+void ConnectionManager::readClient(Client &client, std::size_t) {
+	char chunk[4096]; // stack array: no heap allocation, no cleanup, already in CPU cache
+	client.lastTimestamp = std::time(nullptr);
 	while (true) {
-		ssize_t bytes = recv(client.fd, &chunk[0], chunk.size(), 0);
+		ssize_t bytes = recv(client.fd, chunk, sizeof(chunk), 0);
 
 		if (bytes < 0) {
 			if (errno == EAGAIN || errno == EWOULDBLOCK) 	break; // try again
@@ -44,7 +50,7 @@ void ConnectionManager::readClient(Client &client, std::size_t readBufSize) {
 			return;
 		}
 
-		ParseResult result = client.request.feed(&chunk[0], static_cast<size_t>(bytes));
+		ParseResult result = client.request.feed(chunk, static_cast<size_t>(bytes));
 
 		if (result == PARSE_ERROR) {
 			client.writeBuf  = HttpResponse::make_400().serialize();
@@ -68,7 +74,7 @@ void ConnectionManager::readClient(Client &client, std::size_t readBufSize) {
  *  a pipelined request is already buffered (tryParse). Otherwise closes the connection.
  */
 void ConnectionManager::writeClient(Client &client) {
-	client.lastTimestamp = std::time(0); // update last activity time on each write
+	client.lastTimestamp = std::time(nullptr); // update last activity time on each write
 	while (!client.writeBuf.empty()) {
 		ssize_t sent = send(client.fd,
 							client.writeBuf.c_str(),
@@ -99,12 +105,13 @@ void ConnectionManager::writeClient(Client &client) {
 	}
 }
 
-/**
- *  Server passes a lambda that calls its own method.
-	Real function body is Server::_epollDel(int fd).
-	_epollDel in ConnectionManager is a callback handle, not a function definition.
+/*
+ * closeClient: removes a client cleanly — unregisters fd from epoll, closes the
+ * socket, frees the heap Client object, and erases it from the clients map.
+ * Safe to call if fd is already gone (early return if not found).
+ * _epollDel is a lambda from Server: it calls _epoll.del(fd) without ConnectionManager
+ * needing a direct pointer to EpollLoop.
  */
-
 void ConnectionManager::closeClient(int fd) {
 	std::map<int, Client *>::iterator it = _clients.find(fd);
 	if (it == _clients.end()) return; // already closed
