@@ -23,12 +23,26 @@ int main(int argc, char *argv[])
         return (1);
     }
 
-    // Signal handling — graceful shutdown on Ctrl+C / SIGTERM
+    /*Signal handling — graceful shutdown on Ctrl+C / SIGTERM
+    SIGPIPE is a Unix signal sent to a process when it tries to write to a
+   socket/pipe whose read end is already closed — i.e., the client
+  disconnected before the server finished sending the response.
+  Default behavior: the OS kills the process immediately. No error
+  code, no exception — just dead server.
+   By setting SIG_IGN, we tell the kernel "don't kill me, just return an
+  error." Now when send() writes to a gone client it returns -1 with
+  errno = EPIPE. Your existing code in ConnectionManager::writeClient
+  already handles sent <= 0 → closeClient(fd), so the dead connection is
+   cleaned up gracefully and the server keeps running.
+    */
+
     struct sigaction sa{};
     sa.sa_handler = onSignal;
     sigemptyset(&sa.sa_mask);
     sigaction(SIGINT,  &sa, nullptr);
     sigaction(SIGTERM, &sa, nullptr);
+    sa.sa_handler = SIG_IGN;
+    sigaction(SIGPIPE, &sa, nullptr);
 
     std::string configFile = (argc == 2) ? argv[1] : "tests/conf/default.conf";
 
