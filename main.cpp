@@ -19,7 +19,7 @@ int main(int argc, char *argv[])
 {
     if (argc > 2) {
         std::cerr << "Usage: ./webserv [config_file.conf]\n"
-                  << "       or leave empty to use default.conf\n";
+                  << "       or leave empty to use tests/conf/default.conf\n";
         return (1);
     }
 
@@ -30,7 +30,7 @@ int main(int argc, char *argv[])
     sigaction(SIGINT,  &sa, nullptr);
     sigaction(SIGTERM, &sa, nullptr);
 
-    std::string configFile = (argc == 2) ? argv[1] : "default.conf";
+    std::string configFile = (argc == 2) ? argv[1] : "tests/conf/default.conf";
 
     std::cout << "--- webserv — loading " << configFile << " ---\n";
 	std::vector<Server *> servers;
