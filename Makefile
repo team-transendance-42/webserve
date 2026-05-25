@@ -2,7 +2,8 @@ NAME = webserv
 
 SRC = srcs/config/Config.cpp \
 	  srcs/config/ConfigParser.cpp \
-      srcs/Server.cpp \
+      srcs/Listener.cpp \
+	  srcs/EventLoop.cpp \
 	  srcs/EpollLoop.cpp \
 	  srcs/ProcessRequest.cpp \
 	  srcs/ErrorResponseBuilder.cpp \

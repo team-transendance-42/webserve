@@ -3,6 +3,7 @@
 #include <vector>
 #include "Client.hpp"
 #include "CgiExecutor.hpp"
+#include "HttpResponse.hpp"
 
 #include <sys/stat.h>
 
