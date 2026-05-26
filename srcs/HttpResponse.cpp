@@ -99,8 +99,10 @@ HttpResponse HttpResponse::make_500() {
    3) Header/body separator: "\r\n"
    4) Body bytes appended as-is
  The returned string is a complete response payload ready for socket send().
- */
 
+ * Serialized = converting structured data(like obj) into a flat byte/text format that can be sent or stored. HttpResponse is an object (status, headers, body)
+ * .serialize() turns it into raw HTTP text
+ */
 std::string HttpResponse::serialize() const {
     std::string reason = _reason(statusCode);
 

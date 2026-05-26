@@ -18,8 +18,8 @@ public:
 
 	void init();
 	int wait(struct epoll_event *events, int maxEvents, int timeoutMs) const;
-	void add(int fd, uint32_t events) const;
-	void mod(int fd, uint32_t events) const;
+	bool add(int fd, uint32_t events) const;
+	bool mod(int fd, uint32_t events) const;
 	void del(int fd) const;
 
 private:
