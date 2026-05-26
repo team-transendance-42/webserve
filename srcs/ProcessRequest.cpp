@@ -97,8 +97,16 @@ bool ProcessRequest::_validateLocationRulesOrError(const HttpRequest &req, const
             break;
         }
     }
-    if (!allowed) { // 405 method not allowed
-        client.writeBuf = ErrorResponseBuilder::buildErrorResponse(405, cfg).serialize();
+    if (!allowed) {
+        // RFC 9110 §15.5.6: 405 MUST include an Allow header listing permitted methods.
+        std::string allow;
+        for (size_t i = 0; i < loc.allowedMethod.size(); i++) {
+            if (i > 0) allow += ", ";
+            allow += loc.allowedMethod[i];
+        }
+        HttpResponse r = ErrorResponseBuilder::buildErrorResponse(405, cfg);
+        r.setHeader("Allow", allow);
+        client.writeBuf = r.serialize();
         return false;
     }
 
@@ -212,8 +220,10 @@ bool ProcessRequest::_handleUploadIfNeeded(const HttpRequest &req,
     std::string contentType = req.getHeader("content-type");
 
     if (contentType.find("multipart/form-data") == 0) {
-        // TODO: Implement multipart parsing and file extraction if needed in the future.
-        return false;
+        // Multipart parsing is not implemented; reject with 415 so the client
+        // knows to use a plain POST with X-Filename instead of a form upload.
+        client.writeBuf = ErrorResponseBuilder::buildErrorResponse(415, cfg).serialize();
+        return true;
     } else {
         filename = req.getHeader("x-filename"); // Custom header for simple uploads; in a real implementation, this would depend on the client-side upload method.
         content = req.body;
@@ -505,21 +515,15 @@ bool ProcessRequest::_executeCgiOrError(const HttpRequest &req,
     CgiExecutor executor;
     CgiResult result = executor.execute(cgiReq, loc);
     
-    if (!result.success) {
-        // If CGI execution failed, return 500
-        HttpResponse response;
-        response.setStatus(500)
-                .setBody("<html><body><h1>500 Internal Server Error</h1><p>CGI execution failed</p></body></html>", "text/html");
-        client.writeBuf = response.serialize();
+    // timed_out must be checked before !success: a timeout sets success=false,
+    // so checking success first would swallow the timeout and return 500 instead of 504.
+    if (result.timed_out) {
+        client.writeBuf = HttpResponse::make_504().serialize();
         return true;
     }
-    
-    if (result.timed_out) {
-        // CGI script timed out, return 504
-        HttpResponse response;
-        response.setStatus(504)
-                .setBody("<html><body><h1>504 Gateway Timeout</h1><p>CGI script took too long</p></body></html>", "text/html");
-        client.writeBuf = response.serialize();
+
+    if (!result.success) {
+        client.writeBuf = HttpResponse::make_500().serialize();
         return true;
     }
     

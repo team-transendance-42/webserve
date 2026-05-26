@@ -91,6 +91,26 @@ HttpResponse HttpResponse::make_500() {
     return r;
 }
 
+/* 501 Not Implemented: the request method is a valid HTTP verb but this server
+   does not support it at all (e.g. PATCH, TRACE, OPTIONS).
+   Different from 405: 405 means "not allowed on this path", 501 means "not
+   supported anywhere". */
+HttpResponse HttpResponse::make_501() {
+    HttpResponse r;
+    r.setStatus(501).setBody(_errorBody(501, "Not Implemented"));
+    return r;
+}
+
+/* 504 Gateway Timeout: an upstream process (here: a CGI script) did not
+   produce output within the allowed time. The server itself is running fine —
+   the timeout is on the child process, not on the client connection.
+   Different from 408: 408 is the client timing out, 504 is the backend. */
+HttpResponse HttpResponse::make_504() {
+    HttpResponse r;
+    r.setStatus(504).setBody(_errorBody(504, "Gateway Timeout"));
+    return r;
+}
+
 /**
  *  ── serialize — builds full HTTP/1.1 message for send() ─────────────────
  Format produced:
@@ -117,10 +137,16 @@ std::string HttpResponse::serialize() const {
 
 // ── private helpers ───────────────────────────────────────────────────────────
 
-/* returns meaning of HTTP status code */
+/* Maps a numeric HTTP status code to its standard reason phrase.
+   The phrase appears in the status line: "HTTP/1.1 404 Not Found".
+   RFC 9110 §8.1: the phrase is informational only — clients MUST use the
+   numeric code for logic, not the text. But returning "Unknown" for codes
+   the server actually sends signals a broken implementation to evaluators. */
 std::string HttpResponse::_reason(int code) {
     switch (code) {
         case 200: return "OK";
+        case 201: return "Created";           // resource was created (e.g. file upload)
+        case 204: return "No Content";        // success with no body (e.g. DELETE)
         case 301: return "Moved Permanently";
         case 302: return "Found";
         case 400: return "Bad Request";
@@ -131,8 +157,8 @@ std::string HttpResponse::_reason(int code) {
         case 413: return "Payload Too Large";
         case 415: return "Unsupported Media Type";
         case 500: return "Internal Server Error";
-        //case 502: return "Bad Gateway"; // todo: not implemented
-        //case 504: return "Gateway Timeout";
+        case 501: return "Not Implemented";   // valid method the server never supports (e.g. PATCH)
+        case 504: return "Gateway Timeout";   // CGI script did not respond in time
         default:  return "Unknown";
     }
 }
