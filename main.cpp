@@ -1,19 +1,17 @@
-#include "includes/Server.hpp"
+#include "includes/EventLoop.hpp"
+#include "includes/Listener.hpp"
 
+#include <csignal>
 #include <iostream>
+#include <map>
 #include <string>
 #include <vector>
-#include <csignal>
-#include <memory>
 
-/*The variable keeps its value for the lifetime of the program (static).
-The compiler must always actually read/write the variable’s value, not cache it in a register (volatile, cpu fast storage), because it might change outside the normal program flow (e.g., in a signal handler).*/
+/* The variable keeps its value for the lifetime of the program (static).
+ * volatile so the signal handler's write is always observed. */
 static volatile sig_atomic_t g_running = 1;
 
 static void onSignal(int) { g_running = 0; }
-
-
-// make -j4 runs up to 4 build jobs in parallel
 
 int main(int argc, char *argv[])
 {
@@ -23,19 +21,8 @@ int main(int argc, char *argv[])
         return (1);
     }
 
-    /*Signal handling — graceful shutdown on Ctrl+C / SIGTERM
-    SIGPIPE is a Unix signal sent to a process when it tries to write to a
-   socket/pipe whose read end is already closed — i.e., the client
-  disconnected before the server finished sending the response.
-  Default behavior: the OS kills the process immediately. No error
-  code, no exception — just dead server.
-   By setting SIG_IGN, we tell the kernel "don't kill me, just return an
-  error." Now when send() writes to a gone client it returns -1 with
-  errno = EPIPE. Your existing code in ConnectionManager::writeClient
-  already handles sent <= 0 → closeClient(fd), so the dead connection is
-   cleaned up gracefully and the server keeps running.
-    */
-
+    /* SIGPIPE → SIG_IGN: send() to a closed peer returns -1/EPIPE instead of
+     * killing the process. ConnectionManager::writeClient closes on sent <= 0. */
     struct sigaction sa{};
     sa.sa_handler = onSignal;
     sigemptyset(&sa.sa_mask);
@@ -45,41 +32,41 @@ int main(int argc, char *argv[])
     sigaction(SIGPIPE, &sa, nullptr);
 
     std::string configFile = (argc == 2) ? argv[1] : "tests/conf/default.conf";
-
     std::cout << "--- webserv — loading " << configFile << " ---\n";
-	std::vector<Server *> servers;
+
+    std::vector<Listener *> listeners;
     try {
-        // Parse config file into ConfigFile structure
         ConfigParser parser;
         ConfigFile config = parser.parseFile(configFile);
-        if (config.servers.empty()) {
+        if (config.servers.empty())
             throw std::runtime_error("no servers defined in config");
-        }
 
-        // Group configs by (host, port) — one Server (one listen socket) per unique address.
+        /* Group configs by (host, port). One Listener per unique listen address;
+         * configs sharing an address become virtual hosts behind that Listener. */
         typedef std::pair<std::string, int> AddrKey;
         std::map<AddrKey, std::vector<ServerConfig> > groups;
         for (size_t i = 0; i < config.servers.size(); ++i)
-            groups[std::make_pair(config.servers[i].host, config.servers[i].port)].push_back(config.servers[i]);
+            groups[std::make_pair(config.servers[i].host, config.servers[i].port)]
+                .push_back(config.servers[i]);
+
+        EventLoop loop;
+        loop.init();
 
         for (std::map<AddrKey, std::vector<ServerConfig> >::iterator it = groups.begin();
-            it != groups.end(); ++it) {
-				Server* s = new Server(it->second);
-				servers.push_back(s);
-				s->init();
-            }
-
-        while (g_running)
-            for (size_t i = 0; i < servers.size(); ++i)
-                servers[i]->tick();
-
-        for (size_t i = 0; i < servers.size(); ++i) {
-            delete servers[i];
+             it != groups.end(); ++it) {
+            Listener *l = new Listener(it->second);
+            listeners.push_back(l);
+            l->init();
+            loop.addListener(l);
         }
+
+        loop.run(g_running);
+
+        for (size_t i = 0; i < listeners.size(); ++i) delete listeners[i];
         std::cout << "---------------------\nwebserv shut down cleanly\n";
     } catch (const std::exception &e) {
         std::cerr << "Fatal: " << e.what() << "\n";
-		for (size_t i = 0; i < servers.size(); ++i) delete servers[i];
+        for (size_t i = 0; i < listeners.size(); ++i) delete listeners[i];
         return (1);
     }
 

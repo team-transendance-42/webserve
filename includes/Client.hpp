@@ -31,7 +31,7 @@ struct Client {
     std::string writeBuf;
     bool        keep_alive;
     time_t      lastTimestamp;
-    
+
     explicit Client(int fd) : fd(fd), keep_alive(false), lastTimestamp(std::time(0)) {}
 
     Client(const Client &) = delete;

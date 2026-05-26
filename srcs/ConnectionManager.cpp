@@ -7,6 +7,7 @@
 
 #include "../includes/HttpResponse.hpp"
 #include "../includes/ConnectionManager.hpp"
+#include "../includes/Listener.hpp"
 #include "../includes/ProcessRequest.hpp"
 
 /*
@@ -20,13 +21,13 @@
  * writable to send the response, but also catch disconnect while waiting.
  */
 ConnectionManager::ConnectionManager(std::map<int, Client *> &clients,
+					 std::map<int, Listener *> &clientToListener,
 					 std::function<void(int, uint32_t)> epollMod,
-					 std::function<void(int)> epollDel,
-					 ProcessRequest &requestProcessor)
+					 std::function<void(int)> epollDel)
 	: _clients(clients),
+	  _clientToListener(clientToListener),
 	  _epollMod(std::move(epollMod)), // no longer need the original value and want efficiency
-	  _epollDel(std::move(epollDel)),
-	  _processorRequest(requestProcessor) {}
+	  _epollDel(std::move(epollDel)) {}
 
 /**
  *  Drains the socket in a non-blocking loop, feeding each chunk into the incremental HTTP parser.
@@ -60,7 +61,7 @@ void ConnectionManager::readClient(Client &client, std::size_t) {
 		}
 
 		if (result == COMPLETE) {
-			_processorRequest.handle(client);
+			_clientToListener.at(client.fd)->processRequest().handle(client);
 			_epollMod(client.fd, EPOLLOUT | EPOLLRDHUP); // | is bitwise OR, so both flags are enabled at once; epoll reports whenever any enabled flag occurs.
 			return;
 		}
@@ -93,7 +94,7 @@ void ConnectionManager::writeClient(Client &client) {
 
 		ParseResult res = client.request.tryParse();
 		if (res == COMPLETE) {
-			_processorRequest.handle(client);
+			_clientToListener.at(client.fd)->processRequest().handle(client);
 			_epollMod(client.fd, EPOLLOUT | EPOLLRDHUP);
 		} else if (res == PARSE_ERROR) {
 			client.writeBuf = HttpResponse::make_400().serialize();
@@ -119,4 +120,5 @@ void ConnectionManager::closeClient(int fd) {
 	close(fd);
 	delete it->second;
 	_clients.erase(it);
+	_clientToListener.erase(fd);
 }
