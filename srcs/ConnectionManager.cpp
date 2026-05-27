@@ -56,7 +56,8 @@ void ConnectionManager::readClient(Client &client, std::size_t) {
 		if (result == PARSE_ERROR) {
 			client.writeBuf  = HttpResponse::make_400().serialize();
 			client.keep_alive = false;
-			_epollMod(client.fd, EPOLLOUT | EPOLLRDHUP); // switch to write mode to send the 400 response, but also detect disconnect while waiting
+			HttpResponse::injectConnectionHeader(client.writeBuf, false);
+			_epollMod(client.fd, EPOLLOUT | EPOLLRDHUP);
 			return;
 		}
 
@@ -103,6 +104,7 @@ void ConnectionManager::writeClient(Client &client) {
 		} else if (res == PARSE_ERROR) {
 			client.writeBuf = HttpResponse::make_400().serialize();
 			client.keep_alive = false;
+			HttpResponse::injectConnectionHeader(client.writeBuf, false);
 			_epollMod(client.fd, EPOLLOUT | EPOLLRDHUP);
 		}
 	} else {

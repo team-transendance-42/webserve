@@ -124,14 +124,16 @@ void EventLoop::_acceptFrom(Listener *listener) {
                           << listener->listenFd() << " (" << strerror(errno) << ")\n";
             break;
         }
+        Client *c = new Client(cfd); // allocate before epoll.add so fd is never in epoll without a Client owner
         if (!_epoll.add(cfd, EPOLLIN | EPOLLRDHUP)) {
             int err = errno;
             std::cerr << "[EventLoop] epoll ADD failed for new client fd=" << cfd
                       << " (" << strerror(err) << ") — dropping connection\n";
             close(cfd);
+            delete c;
             continue;
         }
-        _clients[cfd] = new Client(cfd);
+        _clients[cfd] = c;
         _clientToListener[cfd] = listener;
         std::cout << "[EventLoop] new client fd=" << cfd
                   << " on listen_fd=" << listener->listenFd() << "\n";
@@ -158,11 +160,7 @@ void EventLoop::_closeIdleClients() {
             std::cout << "[EventLoop] timeout: closing client fd=" << client->fd << "\n";
             client->writeBuf   = ErrorResponseBuilder::buildErrorResponse(408, cfg).serialize();
             client->keep_alive = false;
-            // RFC 9110 §15.5.9: 408 must carry Connection: close so the client knows we're closing
-            size_t pos = client->writeBuf.find("\r\n");
-            if (pos != std::string::npos)
-                client->writeBuf.insert(pos + 2, "Connection: close\r\n");
-            _epoll.mod(client->fd, EPOLLOUT | EPOLLRDHUP);
+            HttpResponse::injectConnectionHeader(client->writeBuf, false); // RFC 9110 §15.5.9: 408 must carry Connection: close
             if (!_epoll.mod(client->fd, EPOLLOUT | EPOLLRDHUP)) {
                 int err = errno;
                 std::cerr << "[EventLoop] epoll MOD failed for timeout fd=" << client->fd

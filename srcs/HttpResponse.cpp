@@ -130,6 +130,14 @@ HttpResponse HttpResponse::make_504() {
  * Serialized = converting structured data(like obj) into a flat byte/text format that can be sent or stored. HttpResponse is an object (status, headers, body)
  * .serialize() turns it into raw HTTP text
  */
+void HttpResponse::injectConnectionHeader(std::string &response, bool keepAlive) {
+    size_t pos = response.find("\r\n");
+    if (pos == std::string::npos) return;
+    const std::string header = keepAlive ? "Connection: keep-alive\r\n"
+                                         : "Connection: close\r\n";
+    response.insert(pos + 2, header);
+}
+
 std::string HttpResponse::serialize() const {
     std::string reason = _reason(statusCode);
 
