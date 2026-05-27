@@ -80,8 +80,8 @@ void ConnectionManager::writeClient(Client &client) {
 		ssize_t sent = send(client.fd,
 							client.writeBuf.c_str(),
 							client.writeBuf.size(), 0);
-		if (sent <= 0) {
-			if (sent < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) return;
+		if (sent < 0) {
+			if (errno == EAGAIN || errno == EWOULDBLOCK) return;
 			closeClient(client.fd);
 			return;
 		}

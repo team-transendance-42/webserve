@@ -130,6 +130,10 @@ void EventLoop::_closeIdleClients() {
             std::cout << "[EventLoop] timeout: closing client fd=" << client->fd << "\n";
             client->writeBuf   = ErrorResponseBuilder::buildErrorResponse(408, cfg).serialize();
             client->keep_alive = false;
+            // RFC 9110 §15.5.9: 408 must carry Connection: close so the client knows we're closing
+            size_t pos = client->writeBuf.find("\r\n");
+            if (pos != std::string::npos)
+                client->writeBuf.insert(pos + 2, "Connection: close\r\n");
             _epoll.mod(client->fd, EPOLLOUT | EPOLLRDHUP);
         }
     }
