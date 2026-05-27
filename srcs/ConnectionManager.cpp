@@ -61,8 +61,10 @@ void ConnectionManager::readClient(Client &client, std::size_t) {
 		}
 
 		if (result == COMPLETE) {
-			_clientToListener.at(client.fd)->processRequest().handle(client);
-			_epollMod(client.fd, EPOLLOUT | EPOLLRDHUP); // | is bitwise OR, so both flags are enabled at once; epoll reports whenever any enabled flag occurs.
+			std::map<int, Listener *>::iterator listenerIt = _clientToListener.find(client.fd); //at() throws
+			if (listenerIt == _clientToListener.end()) { closeClient(client.fd); return; }
+			listenerIt->second->processRequest().handle(client);
+			_epollMod(client.fd, EPOLLOUT | EPOLLRDHUP);
 			return;
 		}
 	}
@@ -94,7 +96,9 @@ void ConnectionManager::writeClient(Client &client) {
 
 		ParseResult res = client.request.tryParse();
 		if (res == COMPLETE) {
-			_clientToListener.at(client.fd)->processRequest().handle(client);
+			std::map<int, Listener *>::iterator listenerIt = _clientToListener.find(client.fd); // at() throws
+			if (listenerIt == _clientToListener.end()) { closeClient(client.fd); return; }
+			listenerIt->second->processRequest().handle(client);
 			_epollMod(client.fd, EPOLLOUT | EPOLLRDHUP);
 		} else if (res == PARSE_ERROR) {
 			client.writeBuf = HttpResponse::make_400().serialize();
