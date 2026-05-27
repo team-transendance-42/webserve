@@ -1,0 +1,39 @@
+# 201 — upload
+  curl -v -X POST http://localhost:19090/testfiles \
+    -H "X-Filename: manual.txt" \
+    -H "Content-Type: text/plain" \
+    --data "hello"
+
+  # 204 — delete (upload the file first, then delete)
+  curl -v -X DELETE http://localhost:19090/testfiles/manual.txt
+
+  # 400 — missing Host (nc sends raw bytes, no auto-headers)
+  printf "GET / HTTP/1.1\r\n\r\n" | nc localhost 19090
+
+  # 403
+  curl -v http://localhost:19090/secret
+
+  # 404
+  curl -v http://localhost:19090/doesnotexist
+
+  # 405 — check Allow header in response
+  curl -v -X POST http://localhost:19090/
+
+  # 413 — body over the 5-byte limit in /limited
+  curl -v -X POST http://localhost:19090/limited \
+    -H "Content-Type: text/plain" \
+    --data "this is way too long"
+
+  # 415 — multipart triggers the unsupported path
+  curl -v -X POST http://localhost:19090/testfiles \
+    -H "Content-Type: multipart/form-data; boundary=abc" \
+    --data-binary $'--abc\r\n\r\nhello\r\n--abc--'
+
+  # 504 — CGI timeout (~6s wait)
+  curl -v http://localhost:19090/cgi-bin/slow.py
+
+  To see only the status line and headers without the body noise:
+
+  curl -s -o /dev/null -w "HTTP %{http_code}\n" http://localhost:19090/secret
+  # or for full headers only:
+  curl -sI -X POST http://localhost:19090/
