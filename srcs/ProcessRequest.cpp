@@ -384,6 +384,11 @@ void ProcessRequest::_serveFromStat(const Location &loc,
                                     const struct stat &st,
                                     Client &client,
                                     const ServerConfig &cfg) const {
+    if (S_ISDIR(st.st_mode) && !urlPath.empty() && urlPath[urlPath.size() - 1] != '/') {
+        client.writeBuf = HttpResponse::make_redirect(301, urlPath + "/").serialize();
+        return;
+    }
+
     if (!S_ISDIR(st.st_mode)) {
         HttpResponse fileResponse = StaticFileHandler::serveStatic(filepath);
         if (fileResponse.statusCode >= 400)
