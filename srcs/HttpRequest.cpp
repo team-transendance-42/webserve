@@ -42,14 +42,23 @@ ParseResult HttpRequest::_parse() {
                 break;
 
             case HEADERS: {
-                if (!_line_ready()) return INCOMPLETE;
                 if (_buf.size() > MAX_HEADER_SIZE) {
+                    /* without \n, the parser never consumes any data from _buf,
+                       so the buffer just keeps growing until the size limit catches it. */
                     _state = ERROR;
                     return PARSE_ERROR;
                 }
+                if (!_line_ready()) return INCOMPLETE;
                 std::string line = _next_line();
                 if (line.empty()) {
                     // blank line = end of headers
+                    if (headers.count("transfer-encoding")) {
+                        /* Chunked (and any TE) not supported — reject cleanly
+                           rather than misreading the body as zero-length. */
+                        _state = ERROR;
+                        return PARSE_ERROR;
+                    }
+
                     size_t contentLen = content_length();
 
                     if (contentLen == (size_t)-1) {
@@ -115,11 +124,19 @@ bool HttpRequest::_parse_request_line(const std::string &line) {
  * tok(token)
  */
 bool HttpRequest::_parse_method(const std::string &tok) {
-    if      (tok == "GET")    method = GET;
-    else if (tok == "POST")   method = POST;
-    else if (tok == "DELETE") method = DELETE;
-    else { method = UNKNOWN; return false; }
-    return true;
+    if      (tok == "GET")    { method = GET;    return true; }
+    else if (tok == "POST")   { method = POST;   return true; }
+    else if (tok == "DELETE") { method = DELETE; return true; }
+
+    /* Real HTTP verbs this server doesn't implement → UNKNOWN → 501 in handle().
+       Anything else (garbage like "BLA") → false → PARSE_ERROR → 400. */
+    static const char *known[] = {
+        "PUT", "PATCH", "HEAD", "OPTIONS", "TRACE", "CONNECT", NULL
+    };
+    for (int i = 0; known[i]; ++i) {
+        if (tok == known[i]) { method = UNKNOWN; return true; }
+    }
+    return false;
 }
 
 /**
@@ -201,7 +218,17 @@ bool HttpRequest::_parse_header_line(const std::string &line) {
     if (!is_valid_header_value(value))
         return false;
 
-    headers[_to_lower(key)] = value;
+    std::string lkey = _to_lower(key);
+
+    /* Duplicate Content-Length with a different value is a request-smuggling
+       vector (RFC 9112 §6.3). Reject it. Identical duplicates are allowed. */
+    if (lkey == "content-length") {
+        std::map<std::string,std::string>::const_iterator it = headers.find(lkey);
+        if (it != headers.end() && it->second != value)
+            return false;
+    }
+
+    headers[lkey] = value;
     return true;
 }
 

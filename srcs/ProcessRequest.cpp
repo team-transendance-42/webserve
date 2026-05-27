@@ -415,7 +415,7 @@ void ProcessRequest::handle(Client &client) const {
     client.keep_alive = req.is_keep_alive();
 
     if (req.method == UNKNOWN) {
-        client.writeBuf = HttpResponse::make_400().serialize();
+        client.writeBuf = HttpResponse::make_501().serialize();
         client.keep_alive = false;
         stampConnection(client.writeBuf, false);
         return;
