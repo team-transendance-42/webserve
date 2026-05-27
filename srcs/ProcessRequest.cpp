@@ -474,6 +474,17 @@ void ProcessRequest::handle(Client &client) const {
         return;
     }
 
+    // Redirect bare directory URL to trailing-slash form only for autoindex
+    // directories. Without the trailing slash the generated hrefs would be
+    // relative to the parent, causing broken links. Index-file directories
+    // are handled directly by _serveFromStat without needing a redirect.
+    if (S_ISDIR(st.st_mode) && loc->autoindex &&
+            !urlPath.empty() && urlPath[urlPath.size() - 1] != '/') {
+        client.writeBuf = HttpResponse::make_redirect(301, urlPath + "/").serialize();
+        stampConnection(client.writeBuf, client.keep_alive);
+        return;
+    }
+
     // Check if this is a CGI executable before serving as static
     if (!S_ISDIR(st.st_mode) && _shouldExecuteCgi(*loc, filepath)) {
         if (_executeCgiOrError(req, *loc, filepath, client)) {

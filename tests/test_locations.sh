@@ -12,7 +12,7 @@ TESTS=(
   "/secret|GET|403|denyAll config location had dany all (access not allowed)"
   "/not_allowed|GET|200|directory served when permissions allow"
   "/files|GET|403|directory, autoindex off, no configured index"
-  "/files_auto|GET|200|directory autoindex on"
+  "/files-auto|GET|301|directory autoindex on, bare path redirects to trailing slash"
   "/api/data_json|GET|200|json endpoint"
   "/does_not_exist|GET|404|missing location/resource"
   "/zombie_kittens|POST|405|method not allowed"

@@ -33,7 +33,7 @@ rm -f "$tmpfile"
 echo ""
 echo "=== PORT 8082 (static server) ==="
 check "GET /static → 200"         "200" "http://127.0.0.1:8082/static"
-check "GET /downloads → 200"      "200" "http://127.0.0.1:8082/downloads"
+check "GET /downloads → 200"      "200" -L "http://127.0.0.1:8082/downloads"
 check "POST /static → 405"        "405" -X POST "http://127.0.0.1:8082/static"
 check "GET /unknown → 404"        "404" "http://127.0.0.1:8082/unknown"
 

@@ -64,6 +64,7 @@ run_test() {
 run_test "test_locations.sh"    ./tests/test_locations.sh
 run_test "test_methods.sh"      ./tests/test_methods.sh
 run_test "test_multi_server.sh" ./tests/test_multi_server.sh
+run_test "test_err_codes.py"    python3 ./tests/test_err_codes.py
 run_test "subject/tester"       ./tests/subject/tester
 
 echo ""
