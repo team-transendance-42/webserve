@@ -20,7 +20,7 @@
 #include "../includes/config/Config.hpp"
 
 //  If keepAlive is true, sets 'Connection: keep-alive', otherwise 'Connection: close'.
-static void stampConnection(std::string &response, bool keepAlive) {
+static void injectConnectionHeader(std::string &response, bool keepAlive) {
     size_t pos = response.find("\r\n");
     if (pos == std::string::npos) return;
     const std::string header = keepAlive ? "Connection: keep-alive\r\n"
@@ -422,7 +422,7 @@ void ProcessRequest::handle(Client &client) const {
     if (req.method == UNKNOWN) {
         client.writeBuf = HttpResponse::make_501().serialize();
         client.keep_alive = false;
-        stampConnection(client.writeBuf, false);
+        injectConnectionHeader(client.writeBuf, false);
         return;
     }
 
@@ -432,35 +432,35 @@ void ProcessRequest::handle(Client &client) const {
     if (req.version == "HTTP/1.1" && !req.hasHeader("Host")) {
         client.writeBuf = ErrorResponseBuilder::buildErrorResponse(400, cfg).serialize();
         client.keep_alive = false;
-        stampConnection(client.writeBuf, false);
+        injectConnectionHeader(client.writeBuf, false);
         return;
     }
 
     const Location *loc = _resolveLocationOrError(req, client, cfg);
     if (!loc) {
         client.keep_alive = false;
-        stampConnection(client.writeBuf, false);
+        injectConnectionHeader(client.writeBuf, false);
         return;
     }
 
     if (!_validateLocationRulesOrError(req, *loc, client, cfg)) {
         client.keep_alive = false;
-        stampConnection(client.writeBuf, false);
+        injectConnectionHeader(client.writeBuf, false);
         return;
     }
 
     if (_handleRedirectIfNeeded(*loc, client)) {
-        stampConnection(client.writeBuf, client.keep_alive);
+        injectConnectionHeader(client.writeBuf, client.keep_alive);
         return;
     }
 
     if (_handleUploadIfNeeded(req, *loc, client, cfg)) {
-        stampConnection(client.writeBuf, client.keep_alive);
+        injectConnectionHeader(client.writeBuf, client.keep_alive);
         return;
     }
 
     if (_handleDeleteIfNeeded(req, *loc, client, cfg)) {
-        stampConnection(client.writeBuf, client.keep_alive);
+        injectConnectionHeader(client.writeBuf, client.keep_alive);
         return;
     }
 
@@ -470,20 +470,20 @@ void ProcessRequest::handle(Client &client) const {
     struct stat st;
     if (!_resolvePathStatOrError(filepath, client, st, cfg)) {
         client.keep_alive = false;
-        stampConnection(client.writeBuf, false);
+        injectConnectionHeader(client.writeBuf, false);
         return;
     }
 
     // Check if this is a CGI executable before serving as static
     if (!S_ISDIR(st.st_mode) && _shouldExecuteCgi(*loc, filepath)) {
         if (_executeCgiOrError(req, *loc, filepath, client)) {
-            stampConnection(client.writeBuf, client.keep_alive);
+            injectConnectionHeader(client.writeBuf, client.keep_alive);
             return;
         }
     }
 
     _serveFromStat(*loc, urlPath, filepath, st, client, cfg);
-    stampConnection(client.writeBuf, client.keep_alive);
+    injectConnectionHeader(client.writeBuf, client.keep_alive);
 }
 
 // converts enum values to std::string
