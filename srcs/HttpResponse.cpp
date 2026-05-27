@@ -1,4 +1,5 @@
 #include "../includes/HttpResponse.hpp"
+#include <ctime>
 #include <sstream>
 
 // headers and body are default-constructed empty by std::map and std::string automatically.
@@ -119,6 +120,8 @@ HttpResponse HttpResponse::make_504() {
    3) Header/body separator: "\r\n"
    4) Body bytes appended as-is
  The returned string is a complete response payload ready for socket send().
+
+ RFC 7231 requires every HTTP/1.1 server to include a Date header in every response.
  */
 
 std::string HttpResponse::serialize() const {
@@ -126,6 +129,14 @@ std::string HttpResponse::serialize() const {
 
     std::ostringstream oss;
     oss << "HTTP/1.1 " << statusCode << " " << reason << "\r\n";
+
+    if (headers.find("Date") == headers.end()) {
+        char datebuf[64];
+        time_t now = time(nullptr);
+        struct tm *gmt = gmtime(&now);
+        strftime(datebuf, sizeof(datebuf), "%a, %d %b %Y %H:%M:%S GMT", gmt);
+        oss << "Date: " << datebuf << "\r\n";
+    }
 
     for (std::map<std::string,std::string>::const_iterator it = headers.begin();
          it != headers.end(); ++it)
