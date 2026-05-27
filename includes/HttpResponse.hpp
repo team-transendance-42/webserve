@@ -41,6 +41,7 @@ public:
     static HttpResponse make_408(); // request timeout: client idle for too long, server closes connection
     static HttpResponse make_413(); // payload too large: request body exceeds client_max_body_size
     static HttpResponse make_415(); // unsupported media type: Content-Type the server cannot process
+    static HttpResponse make_409(); // conflict: request conflicts with current resource state (e.g. DELETE on a directory)
     static HttpResponse make_500(); // internal server error: generic catch-all for unexpected failures
     static HttpResponse make_501(); // not implemented: valid HTTP method the server does not support at all (e.g. PATCH, TRACE)
     static HttpResponse make_504(); // gateway timeout: upstream process (CGI script) did not respond in time

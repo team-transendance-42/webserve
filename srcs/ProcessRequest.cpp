@@ -270,8 +270,9 @@ bool ProcessRequest::_handleDeleteIfNeeded(const HttpRequest &req,
 
     std::string filename = urlPath.substr(loc.path.size() + 1);
 
-    // Reject empty names and sub-directory references (DELETE is flat-files only).
-    if (filename.empty() || filename.find('/') != std::string::npos) {
+    // Reject empty names, dot/dot-dot, and sub-directory references.
+    if (filename.empty() || filename == "." || filename == ".." ||
+        filename.find('/') != std::string::npos) {
         client.writeBuf = ErrorResponseBuilder::buildErrorResponse(400, cfg).serialize();
         return true;
     }
@@ -282,13 +283,15 @@ bool ProcessRequest::_handleDeleteIfNeeded(const HttpRequest &req,
         return true;
     }
 
-    // Canonicalize and verify the target stays within the location root.
-    // This catches .., ., symlinks outside root, and any other traversal.
-    std::string filepath = _canonicalizeWithinRoot(loc.root, loc.root + "/" + filename);
-    if (filepath.empty()) {
-        client.writeBuf = ErrorResponseBuilder::buildErrorResponse(400, cfg).serialize();
+    /* Canonicalize the root only (it must exist). Appending the validated
+       filename with string concat avoids calling realpath() on the full path,
+       which would return NULL for nonexistent files and produce a false 400. */
+    char canonRootBuf[PATH_MAX];
+    if (!realpath(loc.root.c_str(), canonRootBuf)) {
+        client.writeBuf = ErrorResponseBuilder::buildErrorResponse(500, cfg).serialize();
         return true;
     }
+    std::string filepath = std::string(canonRootBuf) + "/" + filename;
 
     if (unlink(filepath.c_str()) == 0) {
         HttpResponse response;
@@ -299,6 +302,8 @@ bool ProcessRequest::_handleDeleteIfNeeded(const HttpRequest &req,
         client.writeBuf = ErrorResponseBuilder::buildErrorResponse(404, cfg).serialize();
     } else if (errno == EACCES || errno == EPERM) {
         client.writeBuf = ErrorResponseBuilder::buildErrorResponse(403, cfg).serialize();
+    } else if (errno == EISDIR) {
+        client.writeBuf = ErrorResponseBuilder::buildErrorResponse(409, cfg).serialize();
     } else {
         client.writeBuf = ErrorResponseBuilder::buildErrorResponse(500, cfg).serialize();
     }

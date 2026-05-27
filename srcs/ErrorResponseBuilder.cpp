@@ -24,6 +24,7 @@ HttpResponse ErrorResponseBuilder::_defaultErrorResponse(int code) {
 		case 404: return HttpResponse::make_404();
 		case 405: return HttpResponse::make_405();
 		case 408: return HttpResponse::make_408();
+		case 409: return HttpResponse::make_409();
 		case 413: return HttpResponse::make_413();
 		case 415: return HttpResponse::make_415(); // unsupported Content-Type
 		case 501: return HttpResponse::make_501(); // valid method, not supported by this server

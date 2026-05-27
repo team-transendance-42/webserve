@@ -85,6 +85,12 @@ HttpResponse HttpResponse::make_415() {
     return r;
 }
 
+HttpResponse HttpResponse::make_409() {
+    HttpResponse r;
+    r.setStatus(409).setBody(_errorBody(409, "Conflict"));
+    return r;
+}
+
 HttpResponse HttpResponse::make_500() {
     HttpResponse r;
     r.setStatus(500).setBody(_errorBody(500, "Internal Server Error"));
@@ -150,6 +156,7 @@ std::string HttpResponse::_reason(int code) {
         case 301: return "Moved Permanently";
         case 302: return "Found";
         case 400: return "Bad Request";
+        case 409: return "Conflict";
         case 403: return "Forbidden";
         case 404: return "Not Found";
         case 405: return "Method Not Allowed";
