@@ -614,7 +614,7 @@ bool ProcessRequest::_buildHttpResponseFromCgiOutput(const std::string &raw,
                     int statusCode = atoi(value.c_str());
                     response.setStatus(statusCode);
                     statusSet = true;
-                } else if (key != "Content-Length") {
+                } else if (key != "Content-Length" && key != "Connection") {
                     response.setHeader(key, value);
                 }
             }
@@ -653,7 +653,7 @@ bool ProcessRequest::_buildHttpResponseFromCgiOutput(const std::string &raw,
                 int statusCode = atoi(value.c_str());
                 response.setStatus(statusCode);
                 statusSet = true;
-            } else if (key != "Content-Length") {
+            } else if (key != "Content-Length" && key != "Connection") {
                 response.setHeader(key, value);
             }
         }
