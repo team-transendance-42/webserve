@@ -121,6 +121,7 @@ CgiResult CgiExecutor::execute(const CgiRequest& request, const Location& locati
         envStorage.reserve(16 + request.headers.size());
 
         // Standard CGI environment variables
+        envStorage.push_back("PATH=/usr/local/bin:/usr/bin:/bin");
         envStorage.push_back("REQUEST_METHOD=" + request.method);
         envStorage.push_back("QUERY_STRING=" + request.query_string);
         envStorage.push_back("CONTENT_TYPE=" + request.content_type);

@@ -1,3 +1,4 @@
+#include <arpa/inet.h>
 #include <cerrno>
 #include <cctype>
 #include <climits>
@@ -5,6 +6,8 @@
 #include <ctime>
 #include <fstream>
 #include <iostream>
+#include <netinet/in.h>
+#include <sys/socket.h>
 #include <sys/types.h>
 #include <cctype>
 #include <cstdlib>
@@ -522,12 +525,35 @@ bool ProcessRequest::_shouldExecuteCgi(const Location &loc, const std::string &f
     return false;
 }
 
+static std::string _getClientIp(int fd) {
+    struct sockaddr_in addr;
+    socklen_t len = sizeof(addr);
+    if (getpeername(fd, (struct sockaddr *)&addr, &len) == 0) {
+        char buf[INET_ADDRSTRLEN];
+        if (inet_ntop(AF_INET, &addr.sin_addr, buf, sizeof(buf)))
+            return std::string(buf);
+    }
+    return "127.0.0.1";
+}
+
+static std::string _computePathInfo(const std::string &urlPath,
+                                    const std::string &cgiExt) {
+    if (cgiExt.empty()) return "";
+    size_t extPos = urlPath.find(cgiExt);
+    if (extPos == std::string::npos) return "";
+    size_t afterExt = extPos + cgiExt.size();
+    if (afterExt >= urlPath.size()) return "";
+    return urlPath.substr(afterExt);
+}
+
 // Execute CGI script and write response to client
 bool ProcessRequest::_executeCgiOrError(const HttpRequest &req,
                                         const Location &loc,
                                         const std::string &filepath,
                                         Client &client) const {
     CgiRequest cgiReq = _buildCgiRequest(req, filepath);
+    cgiReq.remote_addr = _getClientIp(client.fd);
+    cgiReq.path_info   = _computePathInfo(req.path, loc.cgi_extension);
     CgiExecutor executor;
     CgiResult result = executor.execute(cgiReq, loc);
     
@@ -618,11 +644,13 @@ bool ProcessRequest::_buildHttpResponseFromCgiOutput(const std::string &raw,
             size_t colonPos = line.find(':');
             if (colonPos != std::string::npos) {
                 std::string key = line.substr(0, colonPos);
-                std::string value = line.substr(colonPos + 2);
-                
+                std::string value = line.substr(colonPos + 1);
+                size_t vstart = value.find_first_not_of(" \t");
+                value = (vstart == std::string::npos) ? "" : value.substr(vstart);
+
                 if (key == "Status") {
-                    // Parse status code
                     int statusCode = atoi(value.c_str());
+                    if (statusCode < 100 || statusCode > 599) statusCode = 500;
                     response.setStatus(statusCode);
                     statusSet = true;
                 } else if (key != "Content-Length") {
@@ -630,14 +658,14 @@ bool ProcessRequest::_buildHttpResponseFromCgiOutput(const std::string &raw,
                 }
             }
         }
-        
+
         if (!statusSet) {
             response.setStatus(200);
         }
-        
+
         return true;
     }
-    
+
     // Standard \r\n separator
     std::string headerSection = raw.substr(0, blankLinePos);
     std::string body = raw.substr(blankLinePos + 4);
@@ -657,11 +685,13 @@ bool ProcessRequest::_buildHttpResponseFromCgiOutput(const std::string &raw,
         size_t colonPos = line.find(':');
         if (colonPos != std::string::npos) {
             std::string key = line.substr(0, colonPos);
-            std::string value = line.substr(colonPos + 2);
-            
+            std::string value = line.substr(colonPos + 1);
+            size_t vstart = value.find_first_not_of(" \t");
+            value = (vstart == std::string::npos) ? "" : value.substr(vstart);
+
             if (key == "Status") {
-                // Parse status code
                 int statusCode = atoi(value.c_str());
+                if (statusCode < 100 || statusCode > 599) statusCode = 500;
                 response.setStatus(statusCode);
                 statusSet = true;
             } else if (key != "Content-Length") {

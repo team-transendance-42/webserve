@@ -1,0 +1,15 @@
+The browser talks HTTP to your server. CGI is the contract for how your server runs an external program and turns its stdout into an HTTP response.
+
+
+CLIENT                SERVER                   CGI SCRIPT
+  │                     │                          │
+  │── GET /cgi-bin/x.py?q=hi ──>│                 │
+  │                     │ fork() + execve()        │
+  │                     │──── stdin (POST body) ──>│
+  │                     │<─── stdout (headers+body)─│
+  │<── HTTP/1.1 200 OK ─│                          │
+The server communicates with the script through:
+
+stdin — the request body (POST data)
+stdout — the script's HTTP response (Status: 200\nContent-Type: ...\n\nbody)
+environment variables — everything else: REQUEST_METHOD, QUERY_STRING, CONTENT_TYPE, CONTENT_LENGTH, SERVER_NAME, all HTTP_* headers

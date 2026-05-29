@@ -41,9 +41,9 @@ int main(int argc, char *argv[])
         if (config.servers.empty())
             throw std::runtime_error("no servers defined in config");
 
-        /* Group configs by (host, port). One Listener per unique listen address;
+        /* Group configs by (host, port). One Listener(Server) per unique listen address;
          * configs sharing an address become virtual hosts behind that Listener. */
-        typedef std::pair<std::string, int> AddrKey;
+        typedef std::pair<std::string, int> AddrKey; // host, port
         std::map<AddrKey, std::vector<ServerConfig> > groups;
         for (size_t i = 0; i < config.servers.size(); ++i)
             groups[std::make_pair(config.servers[i].host, config.servers[i].port)]

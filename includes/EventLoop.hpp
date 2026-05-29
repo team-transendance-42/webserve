@@ -45,7 +45,7 @@ private:
         POLL_TIMEOUT_MS = 100,
         MAX_EVENTS      = 64,
         READ_BUF        = 4096,
-        CLIENT_TIMEOUT  = 6
+        CLIENT_TIMEOUT  = 60
     };
 
     EpollLoop                  _epoll;
