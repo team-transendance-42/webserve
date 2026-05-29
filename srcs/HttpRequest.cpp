@@ -33,6 +33,11 @@ ParseResult HttpRequest::_parse() {
         switch (_state) {
 
             case REQUEST_LINE:
+                // no newline yet but buffer already too large: slow-loris / DoS guard
+                if (_buf.size() > MAX_HEADER_SIZE) {
+                    _state = ERROR;
+                    return PARSE_ERROR;
+                }
                 if (!_line_ready()) return INCOMPLETE;
                 if (!_parse_request_line(_next_line())) {
                     _state = ERROR;

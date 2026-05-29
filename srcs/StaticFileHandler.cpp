@@ -28,7 +28,11 @@ HttpResponse StaticFileHandler::serveStatic(const std::string &filepath) {
     }
 
     if (S_ISDIR(st.st_mode))
-        return HttpResponse::make_403(); // server refuses to serve the directory as a file
+        return HttpResponse::make_403();
+
+    static const off_t MAX_STATIC_BYTES = 50 * 1024 * 1024; // 50 MB
+    if (st.st_size > MAX_STATIC_BYTES)
+        return HttpResponse::make_413();
 
     // Ensure permission-denied on file read maps to 403, not generic 500.
     if (access(filepath.c_str(), R_OK) != 0) {
@@ -124,9 +128,7 @@ HttpResponse StaticFileHandler::autoindex(const std::string &dirpath,
         std::string name = entry->d_name;
         if (name == ".") continue;
         std::string safeName = htmlEscape(name);
-        html << "<a href=\"" << url_path;
-        if (url_path[url_path.size() - 1] != '/') html << '/';
-        html << urlEncode(name) << "\">" << safeName << "</a>\n";
+        html << "<a href=\"" << urlEncode(name) << "\">" << safeName << "</a>\n";
     }
     closedir(dir);
     html << "</pre><hr></body></html>";

@@ -22,26 +22,17 @@
 #include "../includes/UploadHandler.hpp"
 #include "../includes/config/Config.hpp"
 
-//  If keepAlive is true, sets 'Connection: keep-alive', otherwise 'Connection: close'.
-static void stampConnection(std::string &response, bool keepAlive) {
-    size_t pos = response.find("\r\n");
-    if (pos == std::string::npos) return;
-    const std::string header = keepAlive ? "Connection: keep-alive\r\n"
-                                         : "Connection: close\r\n";
-    response.insert(pos + 2, header);
-}
 
-/**
- * Serialized = converting structured data(like obj) into a flat byte/text format that can be sent or stored. HttpResponse is an object (status, headers, body)
- * .serialize() turns it into raw HTTP text
- */
+/* Stores all server configs; the correct one is selected per-request via _selectConfig. */
 ProcessRequest::ProcessRequest(const std::vector<ServerConfig> &configs) : _configs(configs) {}
 
+/* Picks the best matching ServerConfig by comparing the Host header against server_names;
+   falls back to the default_server or first config. */
 const ServerConfig &ProcessRequest::_selectConfig(const HttpRequest &req) const {
     if (_configs.size() == 1) return _configs[0];
 
     std::string host = req.getHeader("host");
-    // Strip ":port" suffix if present (e.g. "alpha:8090" → "alpha")
+
     size_t colon = host.rfind(':');
     if (colon != std::string::npos) {
         std::string portPart = host.substr(colon + 1);
@@ -53,7 +44,6 @@ const ServerConfig &ProcessRequest::_selectConfig(const HttpRequest &req) const 
     for (size_t i = 0; i < host.size(); ++i)
         host[i] = tolower(host[i]);
 
-    // Pass 1: exact server_name match
     for (size_t i = 0; i < _configs.size(); ++i) {
         const std::vector<std::string> &names = _configs[i].server_names;
         for (size_t j = 0; j < names.size(); ++j) {
@@ -62,10 +52,8 @@ const ServerConfig &ProcessRequest::_selectConfig(const HttpRequest &req) const 
             if (lname == host) return _configs[i];
         }
     }
-    // Pass 2: default_server fallback
     for (size_t i = 0; i < _configs.size(); ++i)
         if (_configs[i].default_server) return _configs[i];
-    // Pass 3: first config
     return _configs[0];
 }
 
@@ -78,13 +66,13 @@ const Location *ProcessRequest::_resolveLocationOrError(const HttpRequest &req, 
         // std::cerr << "[DEBUG] Incoming request path: '" << req.path << "'" << std::endl;
     const Location *loc = cfg.matchLocation(req.path);
     if (!loc) {
-        client.writeBuf = ErrorResponseBuilder::buildErrorResponse(404, cfg).serialize();
+        client.writeBuf = ErrorResponseBuilder::buildErrorResponse(404, cfg).serialize(); /* converts it into raw HTTP text */
         return NULL;
     }
     return loc;
 }
 
-// Applies deny/method/body-size rules and writes error responses on failure.
+/* Applies deny/method/body-size rules and writes error responses on failure. */
 bool ProcessRequest::_validateLocationRulesOrError(const HttpRequest &req, const Location &loc, Client &client, const ServerConfig &cfg) const {
     // denyAll first: protected locations return 403 regardless of method; 403 Forbidden
     if (loc.denyAll) {
@@ -122,7 +110,7 @@ bool ProcessRequest::_validateLocationRulesOrError(const HttpRequest &req, const
     return (true);
 }
 
-// Returns a redirect response when location has redirect rules.
+/* Returns a redirect response when the location has a 301 or 302 redirect rule. */
 bool ProcessRequest::_handleRedirectIfNeeded(const Location &loc, Client &client) const {
     if (loc.redirect_code == 301 || loc.redirect_code == 302) {
         client.writeBuf = HttpResponse::make_redirect(loc.redirect_code, loc.redirect_url).serialize();
@@ -131,6 +119,8 @@ bool ProcessRequest::_handleRedirectIfNeeded(const Location &loc, Client &client
     return (false);
 }
 
+/* Sanitizes the raw filename: trims whitespace, strips path prefixes, and collapses
+   repeated extensions (e.g. "a.png.png" -> "a.png"). */
 static std::string normalizeUploadFilename(const std::string &rawName) {
     std::string name = rawName;
 
@@ -162,7 +152,8 @@ static std::string normalizeUploadFilename(const std::string &rawName) {
     return name;
 }
 
-// used only to create file for testing deletion, not the proper upload functionality
+/* Writes content to upload_path/<filename>, creating the directory if needed.
+   Appends _N suffix to avoid overwriting existing files. */
 bool ProcessRequest::_saveUpload(const Location &loc,
                                  const std::string &filename,
                                  const std::string &content,
@@ -200,7 +191,6 @@ bool ProcessRequest::_saveUpload(const Location &loc,
     return true;
 }
 
-// used only to create file for testing deletion, not the proper upload functionality
 /**
  * Handles file upload requests for a given location.
  *
@@ -257,6 +247,8 @@ bool ProcessRequest::_handleUploadIfNeeded(const HttpRequest &req,
     return true;
 }
 
+/* Handles DELETE requests: validates path stays within the location root,
+   refuses to delete the configured index file, and responds 204/404/403/500. */
 bool ProcessRequest::_handleDeleteIfNeeded(const HttpRequest &req,
                                            const Location &loc,
                                            Client &client,
@@ -337,13 +329,14 @@ std::string ProcessRequest::_canonicalizeWithinRoot(const std::string &root,
     return canon;
 }
 
-// Given a location and request path, build the absolute file path to serve.
-// Example:
-//   loc.path = "/delete_create_file", loc.root = "./www/files", loc.index = "index.html"
-//   requestPath = "/delete_create_file/foo.txt"
-//   => returns "./www/files/foo.txt"
-//   requestPath = "/delete_create_file"
-//   => returns "./www/files/index.html"
+/* Given a location and request path, build the absolute file path to serve.
+ Example:
+   loc.path = "/delete_create_file", loc.root = "./www/files", loc.index = "index.html"
+   requestPath = "/delete_create_file/foo.txt"
+   => returns "./www/files/foo.txt"
+   requestPath = "/delete_create_file"
+   => returns "./www/files/index.html"
+   */
 std::string ProcessRequest::_resolveFilePath(const Location &loc, const std::string &requestPath) const {
     std::string resolved;
     if (requestPath == loc.path) {
@@ -360,7 +353,7 @@ std::string ProcessRequest::_resolveFilePath(const Location &loc, const std::str
     return _canonicalizeWithinRoot(loc.root, resolved);
 }
 
-// Stats the resolved path and maps filesystem errors to HTTP errors.
+/* Stats the resolved path and maps filesystem errors to HTTP error responses. */
 bool ProcessRequest::_resolvePathStatOrError(const std::string &filepath,
                                              Client &client,
                                              struct stat &st,
@@ -378,13 +371,18 @@ bool ProcessRequest::_resolvePathStatOrError(const std::string &filepath,
     return (true);
 }
 
-// Serves file content or directory index/autoindex fallback for resolved path.
+/* Serves file content or directory index/autoindex fallback for the resolved path. */
 void ProcessRequest::_serveFromStat(const Location &loc,
                                     const std::string &urlPath,
                                     const std::string &filepath,
                                     const struct stat &st,
                                     Client &client,
                                     const ServerConfig &cfg) const {
+    if (S_ISDIR(st.st_mode) && !urlPath.empty() && urlPath[urlPath.size() - 1] != '/') {
+        client.writeBuf = HttpResponse::make_redirect(301, urlPath + "/").serialize();
+        return;
+    }
+
     if (!S_ISDIR(st.st_mode)) {
         HttpResponse fileResponse = StaticFileHandler::serveStatic(filepath);
         if (fileResponse.statusCode >= 400)
@@ -416,7 +414,8 @@ void ProcessRequest::_serveFromStat(const Location &loc,
     client.writeBuf = ErrorResponseBuilder::buildErrorResponse(403, cfg).serialize();
 }
 
-// Orchestrates full request handling from validation to final response build.
+/* Orchestrates full request handling: validates method/rules, dispatches to
+   upload/delete/CGI/static handlers, and injects the Connection header. */
 void ProcessRequest::handle(Client &client) const {
     HttpRequest &req = client.request;
     // req.debugPrint();
@@ -425,7 +424,7 @@ void ProcessRequest::handle(Client &client) const {
     if (req.method == UNKNOWN) {
         client.writeBuf = HttpResponse::make_501().serialize();
         client.keep_alive = false;
-        stampConnection(client.writeBuf, false);
+        HttpResponse::injectConnectionHeader(client.writeBuf, false);
         return;
     }
 
@@ -435,35 +434,35 @@ void ProcessRequest::handle(Client &client) const {
     if (req.version == "HTTP/1.1" && !req.hasHeader("Host")) {
         client.writeBuf = ErrorResponseBuilder::buildErrorResponse(400, cfg).serialize();
         client.keep_alive = false;
-        stampConnection(client.writeBuf, false);
+        HttpResponse::injectConnectionHeader(client.writeBuf, false);
         return;
     }
 
     const Location *loc = _resolveLocationOrError(req, client, cfg);
     if (!loc) {
         client.keep_alive = false;
-        stampConnection(client.writeBuf, false);
+        HttpResponse::injectConnectionHeader(client.writeBuf, false);
         return;
     }
 
     if (!_validateLocationRulesOrError(req, *loc, client, cfg)) {
         client.keep_alive = false;
-        stampConnection(client.writeBuf, false);
+        HttpResponse::injectConnectionHeader(client.writeBuf, false);
         return;
     }
 
     if (_handleRedirectIfNeeded(*loc, client)) {
-        stampConnection(client.writeBuf, client.keep_alive);
+        HttpResponse::injectConnectionHeader(client.writeBuf, client.keep_alive);
         return;
     }
 
     if (_handleUploadIfNeeded(req, *loc, client, cfg)) {
-        stampConnection(client.writeBuf, client.keep_alive);
+        HttpResponse::injectConnectionHeader(client.writeBuf, client.keep_alive);
         return;
     }
 
     if (_handleDeleteIfNeeded(req, *loc, client, cfg)) {
-        stampConnection(client.writeBuf, client.keep_alive);
+        HttpResponse::injectConnectionHeader(client.writeBuf, client.keep_alive);
         return;
     }
 
@@ -473,7 +472,7 @@ void ProcessRequest::handle(Client &client) const {
     struct stat st;
     if (!_resolvePathStatOrError(filepath, client, st, cfg)) {
         client.keep_alive = false;
-        stampConnection(client.writeBuf, false);
+        HttpResponse::injectConnectionHeader(client.writeBuf, false);
         return;
     }
 
@@ -484,23 +483,23 @@ void ProcessRequest::handle(Client &client) const {
     if (S_ISDIR(st.st_mode) && loc->autoindex &&
             !urlPath.empty() && urlPath[urlPath.size() - 1] != '/') {
         client.writeBuf = HttpResponse::make_redirect(301, urlPath + "/").serialize();
-        stampConnection(client.writeBuf, client.keep_alive);
+        HttpResponse::injectConnectionHeader(client.writeBuf, client.keep_alive);
         return;
     }
 
     // Check if this is a CGI executable before serving as static
     if (!S_ISDIR(st.st_mode) && _shouldExecuteCgi(*loc, filepath)) {
         if (_executeCgiOrError(req, *loc, filepath, client)) {
-            stampConnection(client.writeBuf, client.keep_alive);
+            HttpResponse::injectConnectionHeader(client.writeBuf, client.keep_alive);
             return;
         }
     }
 
     _serveFromStat(*loc, urlPath, filepath, st, client, cfg);
-    stampConnection(client.writeBuf, client.keep_alive);
+    HttpResponse::injectConnectionHeader(client.writeBuf, client.keep_alive);
 }
 
-// converts enum values to std::string
+/* converts enum values to std::string */
 std::string ProcessRequest::methodToString(Method method) {
     switch (method) {
         case GET: return "GET";
@@ -510,7 +509,7 @@ std::string ProcessRequest::methodToString(Method method) {
     }
 }
 
-// Check if file extension matches cgi_extension for this location
+/* Returns true if filepath ends with the location's cgi_extension. */
 bool ProcessRequest::_shouldExecuteCgi(const Location &loc, const std::string &filepath) const {
     if (loc.cgi_extension.empty()) {
         return false;
@@ -546,7 +545,8 @@ static std::string _computePathInfo(const std::string &urlPath,
     return urlPath.substr(afterExt);
 }
 
-// Execute CGI script and write response to client
+/* Runs the CGI script for the request; writes 500/504 on failure/timeout,
+   or the parsed CGI output as the HTTP response. Always returns true. */
 bool ProcessRequest::_executeCgiOrError(const HttpRequest &req,
                                         const Location &loc,
                                         const std::string &filepath,
@@ -581,7 +581,7 @@ bool ProcessRequest::_executeCgiOrError(const HttpRequest &req,
     return true;
 }
 
-// Build CgiRequest from HttpRequest
+/* Populates a CgiRequest from the incoming HttpRequest and resolved file path. */
 CgiRequest ProcessRequest::_buildCgiRequest(const HttpRequest &req,
                                             const std::string &filepath) const {
     CgiRequest cgiReq;
@@ -614,97 +614,59 @@ CgiRequest ProcessRequest::_buildCgiRequest(const HttpRequest &req,
     
     return cgiReq;
 }
+/*cpp way (in c it is static func) private for this file*/
+namespace {
+	/* Find the separator and split into headers + body. No parsing. */
+	bool _splitCgiOutput(const std::string &raw,std::string &headers, std::string &body) {
+		size_t pos = raw.find("\r\n\r\n");
+		if (pos != std::string::npos) {
+			headers = raw.substr(0, pos);
+			body	= raw.substr(pos + 4);
+			return true;
+		}
+		pos = raw.find("\n\n");
+		if (pos != std::string::npos) {
+			headers = raw.substr(0, pos);
+			body	= raw.substr(pos + 2);
+			return true;
+		}
+		return false;
+	}
 
-// Parse CGI output (headers + blank line + body) into HttpResponse
-bool ProcessRequest::_buildHttpResponseFromCgiOutput(const std::string &raw,
-                                                     HttpResponse &response) const {
-    // CGI output format: "Header: value\r\nHeader: value\r\n\r\nbody content"
-    size_t blankLinePos = raw.find("\r\n\r\n");
-    if (blankLinePos == std::string::npos) {
-        // Try Unix line endings
-        blankLinePos = raw.find("\n\n");
-        if (blankLinePos == std::string::npos) {
-            return false; // No valid CGI header/body separator found
-        }
-        // Parse headers up to \n\n
-        std::string headerSection = raw.substr(0, blankLinePos);
-        std::string body = raw.substr(blankLinePos + 2);
-        
-        // Set body
-        response.setBody(body, "text/html");
-        
-        // Parse headers
-        std::istringstream iss(headerSection);
-        std::string line;
-        bool statusSet = false;
-        while (std::getline(iss, line)) {
-            if (!line.empty() && line[line.size() - 1] == '\r') {
-                line.erase(line.size() - 1);
-            }
-            size_t colonPos = line.find(':');
-            if (colonPos != std::string::npos) {
-                std::string key = line.substr(0, colonPos);
-                std::string value = line.substr(colonPos + 1);
-                size_t vstart = value.find_first_not_of(" \t");
-                value = (vstart == std::string::npos) ? "" : value.substr(vstart);
+	/* Parses one already-split line and apply it to the response */
+	void _applyCgiHeaderLine(const std::string &line, HttpResponse &response, bool &statusSet) {
+		size_t colonPos = line.find(':');
+		if (colonPos == std::string::npos) return;
+		std::string key = line.substr(0, colonPos);
+		std::string val = (colonPos + 1 < line.size()) ? line.substr(colonPos + 1) : "";
+		if (!val.empty() && val[0] == ' ') val.erase(0, 1);
+		if (key == "Status") {
+			response.setStatus(atoi(val.c_str()));
+			statusSet = true;
+		} else if (key != "Content-Length")
+			response.setHeader(key, val);
+	}
 
-                if (key == "Status") {
-                    int statusCode = atoi(value.c_str());
-                    if (statusCode < 100 || statusCode > 599) statusCode = 500;
-                    response.setStatus(statusCode);
-                    statusSet = true;
-                } else if (key != "Content-Length") {
-                    response.setHeader(key, value);
-                }
-            }
-        }
-
-        if (!statusSet) {
-            response.setStatus(200);
-        }
-
-        return true;
-    }
-
-    // Standard \r\n separator
-    std::string headerSection = raw.substr(0, blankLinePos);
-    std::string body = raw.substr(blankLinePos + 4);
-    
-    // Set body
-    response.setBody(body, "text/html");
-    
-    // Parse headers
-    size_t pos = 0;
-    bool statusSet = false;
-    while (pos < headerSection.size()) {
-        size_t lineEnd = headerSection.find("\r\n", pos);
-        if (lineEnd == std::string::npos) lineEnd = headerSection.size();
-        
-        std::string line = headerSection.substr(pos, lineEnd - pos);
-        
-        size_t colonPos = line.find(':');
-        if (colonPos != std::string::npos) {
-            std::string key = line.substr(0, colonPos);
-            std::string value = line.substr(colonPos + 1);
-            size_t vstart = value.find_first_not_of(" \t");
-            value = (vstart == std::string::npos) ? "" : value.substr(vstart);
-
-            if (key == "Status") {
-                int statusCode = atoi(value.c_str());
-                if (statusCode < 100 || statusCode > 599) statusCode = 500;
-                response.setStatus(statusCode);
-                statusSet = true;
-            } else if (key != "Content-Length") {
-                response.setHeader(key, value);
-            }
-        }
-        
-        pos = lineEnd + 2;
-    }
-    
-    if (!statusSet) {
-        response.setStatus(200);
-    }
-    
-    return true;
+	/* Iterate lines (handle both \r\n and \n via getline + \r strip), call _applyCgiHeaderLine, sets 200 fallback. */
+	void _applyCgiHeaders(const std::string &headerSection, HttpResponse &response) {
+		std::istringstream iss(headerSection);
+		std::string line;
+		bool statusSet = false;
+		while (std::getline(iss, line)) {
+			if (!line.empty() && line[line.size() - 1] == '\r')
+				line.erase(line.size() - 1);
+			_applyCgiHeaderLine(line, response, statusSet);
+		}
+		if (!statusSet)
+			response.setStatus(200);
+	}
 }
+
+bool ProcessRequest::_buildHttpResponseFromCgiOutput(const std::string &raw, HttpResponse &response) const {
+	std::string headerSection, body;
+	if (!_splitCgiOutput(raw, headerSection, body)) return false;
+	response.setBody(body, "text/html");
+	_applyCgiHeaders(headerSection, response);
+	return true;
+}
+    

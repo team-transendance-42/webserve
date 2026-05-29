@@ -1,4 +1,5 @@
 #include "../includes/HttpResponse.hpp"
+#include <ctime>
 #include <sstream>
 
 // headers and body are default-constructed empty by std::map and std::string automatically.
@@ -125,13 +126,31 @@ HttpResponse HttpResponse::make_504() {
    3) Header/body separator: "\r\n"
    4) Body bytes appended as-is
  The returned string is a complete response payload ready for socket send().
+
+ * Serialized = converting structured data(like obj) into a flat byte/text format that can be sent or stored. HttpResponse is an object (status, headers, body)
+ * .serialize() turns it into raw HTTP text
  */
+void HttpResponse::injectConnectionHeader(std::string &response, bool keepAlive) {
+    size_t pos = response.find("\r\n");
+    if (pos == std::string::npos) return;
+    const std::string header = keepAlive ? "Connection: keep-alive\r\n"
+                                         : "Connection: close\r\n";
+    response.insert(pos + 2, header);
+}
 
 std::string HttpResponse::serialize() const {
     std::string reason = _reason(statusCode);
 
     std::ostringstream oss;
     oss << "HTTP/1.1 " << statusCode << " " << reason << "\r\n";
+
+    if (headers.find("Date") == headers.end()) {
+        char datebuf[64];
+        time_t now = time(nullptr);
+        struct tm *gmt = gmtime(&now);
+        strftime(datebuf, sizeof(datebuf), "%a, %d %b %Y %H:%M:%S GMT", gmt);
+        oss << "Date: " << datebuf << "\r\n";
+    }
 
     for (std::map<std::string,std::string>::const_iterator it = headers.begin();
          it != headers.end(); ++it)

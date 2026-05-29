@@ -56,13 +56,16 @@ void ConnectionManager::readClient(Client &client, std::size_t) {
 		if (result == PARSE_ERROR) {
 			client.writeBuf  = HttpResponse::make_400().serialize();
 			client.keep_alive = false;
-			_epollMod(client.fd, EPOLLOUT | EPOLLRDHUP); // switch to write mode to send the 400 response, but also detect disconnect while waiting
+			HttpResponse::injectConnectionHeader(client.writeBuf, false);
+			_epollMod(client.fd, EPOLLOUT | EPOLLRDHUP);
 			return;
 		}
 
 		if (result == COMPLETE) {
-			_clientToListener.at(client.fd)->processRequest().handle(client);
-			_epollMod(client.fd, EPOLLOUT | EPOLLRDHUP); // | is bitwise OR, so both flags are enabled at once; epoll reports whenever any enabled flag occurs.
+			std::map<int, Listener *>::iterator listenerIt = _clientToListener.find(client.fd); //at() throws
+			if (listenerIt == _clientToListener.end()) { closeClient(client.fd); return; }
+			listenerIt->second->processRequest().handle(client);
+			_epollMod(client.fd, EPOLLOUT | EPOLLRDHUP);
 			return;
 		}
 	}
@@ -80,8 +83,8 @@ void ConnectionManager::writeClient(Client &client) {
 		ssize_t sent = send(client.fd,
 							client.writeBuf.c_str(),
 							client.writeBuf.size(), 0);
-		if (sent <= 0) {
-			if (sent < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) return;
+		if (sent < 0) {
+			if (errno == EAGAIN || errno == EWOULDBLOCK) return;
 			closeClient(client.fd);
 			return;
 		}
@@ -94,11 +97,14 @@ void ConnectionManager::writeClient(Client &client) {
 
 		ParseResult res = client.request.tryParse();
 		if (res == COMPLETE) {
-			_clientToListener.at(client.fd)->processRequest().handle(client);
+			std::map<int, Listener *>::iterator listenerIt = _clientToListener.find(client.fd); // at() throws
+			if (listenerIt == _clientToListener.end()) { closeClient(client.fd); return; }
+			listenerIt->second->processRequest().handle(client);
 			_epollMod(client.fd, EPOLLOUT | EPOLLRDHUP);
 		} else if (res == PARSE_ERROR) {
 			client.writeBuf = HttpResponse::make_400().serialize();
 			client.keep_alive = false;
+			HttpResponse::injectConnectionHeader(client.writeBuf, false);
 			_epollMod(client.fd, EPOLLOUT | EPOLLRDHUP);
 		}
 	} else {

@@ -49,6 +49,9 @@ public:
     // serialize(from httpRes obj) to raw HTTP string — hand this to send()
     std::string serialize() const;
 
+    // inserts Connection: keep-alive or Connection: close after the status line
+    static void injectConnectionHeader(std::string &response, bool keepAlive);
+
 private:
     static std::string _reason(int code);
     static std::string _errorBody(int code, const std::string &reason);

@@ -3,10 +3,10 @@
 #include <cerrno>
 #include <cstring>
 #include <ctime>
-#include <fcntl.h>
 #include <iostream>
 #include <stdexcept>
 #include <string>
+#include <vector>
 #include <sys/epoll.h>
 #include <unistd.h>
 
@@ -21,10 +21,13 @@
  */
 EventLoop::EventLoop()
     : _epoll(),
-      _conn(_clients,
-            _clientToListener,
-            [this](int fd, uint32_t events) { _epoll.mod(fd, events); },
-            [this](int fd) { _epoll.del(fd); }) {}
+      _conn(_clients, _clientToListener, [this](int fd, uint32_t events) {
+                if (!_epoll.mod(fd, events)) {
+                    int err = errno;
+                    std::cerr << "[EventLoop] epoll MOD fd=" << fd
+                              << " (" << strerror(err) << ") — connection will time out\n";
+                }
+            }, [this](int fd) { _epoll.del(fd); }) {}
 
 EventLoop::~EventLoop() {
     for (std::map<int, Client *>::iterator it = _clients.begin(); it != _clients.end(); ++it) {
@@ -46,7 +49,11 @@ void EventLoop::addListener(Listener *listener) {
     if (lfd < 0)
         throw std::runtime_error("EventLoop::addListener: listener not initialised");
     _listenFds[lfd] = listener;
-    _epoll.add(lfd, EPOLLIN);
+    if (!_epoll.add(lfd, EPOLLIN)) {
+        int err = errno;
+        throw std::runtime_error("EventLoop::addListener: epoll ADD failed for listen fd="
+                                 + std::to_string(lfd) + " (" + strerror(err) + ")");
+    }
 }
 
 void EventLoop::run(volatile sig_atomic_t &running) {
@@ -68,7 +75,7 @@ void EventLoop::tick() {
 
     if (n < 0) {
         if (errno == EINTR) return;
-        throw std::runtime_error("epoll_wait() failed: " + std::string(strerror(errno)));
+        throw std::runtime_error("epoll_wait() failed: " + std::string(strerror(errno))); //EBADF/EINVAL here means the epoll fd is broken — unrecoverable, throw is correct. 
     }
 
     _closeIdleClients();
@@ -93,7 +100,12 @@ void EventLoop::tick() {
             _conn.closeClient(fd);
             continue;
         }
-        if (ev & EPOLLIN)  _conn.readClient(client, READ_BUF);
+        if (ev & EPOLLIN) {
+            _conn.readClient(client, READ_BUF);
+            /* readClient may have closed and deleted the client (disconnect, parse error).
+               Re-check before touching client again — use-after-free otherwise. */
+            if (_clients.find(fd) == _clients.end()) continue;
+        }
         if (ev & EPOLLOUT) _conn.writeClient(client);
     }
 }
@@ -106,31 +118,57 @@ void EventLoop::tick() {
 void EventLoop::_acceptFrom(Listener *listener) {
     while (true) {
         int cfd = listener->acceptOne();
-        if (cfd < 0) break;
-        _epoll.add(cfd, EPOLLIN | EPOLLRDHUP);
-        _clients[cfd] = new Client(cfd);
+        if (cfd < 0) {
+            if (errno != EAGAIN && errno != EWOULDBLOCK)
+                std::cerr << "[EventLoop] accept failed on listen_fd="
+                          << listener->listenFd() << " (" << strerror(errno) << ")\n";
+            break;
+        }
+        Client *c = new Client(cfd); // allocate before epoll.add so fd is never in epoll without a Client owner
+        if (!_epoll.add(cfd, EPOLLIN | EPOLLRDHUP)) {
+            int err = errno;
+            std::cerr << "[EventLoop] epoll ADD failed for new client fd=" << cfd
+                      << " (" << strerror(err) << ") — dropping connection\n";
+            close(cfd);
+            delete c;
+            continue;
+        }
+        _clients[cfd] = c;
         _clientToListener[cfd] = listener;
         std::cout << "[EventLoop] new client fd=" << cfd
                   << " on listen_fd=" << listener->listenFd() << "\n";
     }
 }
 
-/*
- * Walks every active client across every Listener. A client whose idle window
- * has elapsed (and isn't already mid-write) is handed a 408 built from its
- * owning Listener's first ServerConfig, then flipped to EPOLLOUT so the next
- * writeClient drains it and closes the socket (keep_alive=false).
- */
+/* Sends 408 to clients idle past CLIENT_TIMEOUT and arms them for EPOLLOUT.
+   On epoll MOD failure: collect the fd and close after the loop —
+   closing inside the loop would invalidate the _clients iterator. */
 void EventLoop::_closeIdleClients() {
     time_t now = std::time(nullptr);
+    std::vector<int> toForceClose;
     for (std::map<int, Client *>::iterator it = _clients.begin(); it != _clients.end(); ++it) {
         Client *client = it->second;
         if (now - client->lastTimestamp > CLIENT_TIMEOUT && client->writeBuf.empty()) {
-            const ServerConfig &cfg = _clientToListener.at(client->fd)->configs()[0];
+            std::map<int, Listener *>::iterator listenerIt = _clientToListener.find(client->fd);
+            if (listenerIt == _clientToListener.end()) {
+                /* maps out of sync — fd in _clients but not in _clientToListener.
+                   at() would throw here; collect for cleanup instead. */
+                toForceClose.push_back(client->fd);
+                continue;
+            }
+            const ServerConfig &cfg = listenerIt->second->configs()[0];
             std::cout << "[EventLoop] timeout: closing client fd=" << client->fd << "\n";
             client->writeBuf   = ErrorResponseBuilder::buildErrorResponse(408, cfg).serialize();
             client->keep_alive = false;
-            _epoll.mod(client->fd, EPOLLOUT | EPOLLRDHUP);
+            HttpResponse::injectConnectionHeader(client->writeBuf, false); // RFC 9110 §15.5.9: 408 must carry Connection: close
+            if (!_epoll.mod(client->fd, EPOLLOUT | EPOLLRDHUP)) {
+                int err = errno;
+                std::cerr << "[EventLoop] epoll MOD failed for timeout fd=" << client->fd
+                          << " (" << strerror(err) << ") — force closing\n";
+                toForceClose.push_back(client->fd);
+            }
         }
     }
+    for (size_t i = 0; i < toForceClose.size(); ++i)
+        _conn.closeClient(toForceClose[i]);
 }
