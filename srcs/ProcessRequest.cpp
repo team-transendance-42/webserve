@@ -378,7 +378,7 @@ void ProcessRequest::_serveFromStat(const Location &loc,
                                     const struct stat &st,
                                     Client &client,
                                     const ServerConfig &cfg) const {
-    if (S_ISDIR(st.st_mode) && !urlPath.empty() && urlPath[urlPath.size() - 1] != '/') {
+    if (S_ISDIR(st.st_mode) && loc.autoindex && !urlPath.empty() && urlPath[urlPath.size() - 1] != '/') {
         client.writeBuf = HttpResponse::make_redirect(301, urlPath + "/").serialize();
         return;
     }
