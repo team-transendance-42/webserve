@@ -334,7 +334,7 @@ std::string HttpRequest::_next_line() {
 */
 std::string HttpRequest::_to_lower(const std::string &s) const {
     std::string out = s;
-    std::transform(out.begin(), out.end(), out.begin(), ::tolower); // applies a function to each element in a range (like a loop, but more concise and flexible
+    std::transform(out.begin(), out.end(), out.begin(), ::tolower);
     return out;
 }
 
