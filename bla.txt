@@ -1,0 +1,95 @@
+git fetch origin
+git checkout 23-http-response-correctness
+
+
+Branch 2: fix/http-response-correctness
+  
+  Wrong HTTP text / missing headers — evaluator will notice these in browser DevTools.
+
+  ---
+  BUG-5: _reason() returns "Unknown" for 201, 204, 504
+
+  File: srcs/HttpResponse.cpp:121-138
+
+  The switch in _reason() has no cases for 201, 204, 501, 504. They fall through to default: return "Unknown".
+
+  What the evaluator sees in browser:
+  HTTP/1.1 201 Unknown         ← should be "Created"
+  HTTP/1.1 204 Unknown         ← should be "No Content"
+  HTTP/1.1 504 Unknown         ← should be "Gateway Timeout"
+
+  This is a protocol violation. The reason phrase is optional per RFC but "Unknown" is actively wrong — it signals a broken server, not just a
+  bare one.
+
+  Fix: Add cases to _reason():
+  case 201: return "Created";
+  case 204: return "No Content";
+  case 501: return "Not Implemented";
+  case 504: return "Gateway Timeout";
+
+  ---
+  BUG-6: 405 Method Not Allowed has no Allow header
+
+  Files: srcs/HttpResponse.cpp:64-68, srcs/ProcessRequest.cpp:100-102
+
+  RFC 9110 §15.5.6: "An origin server MUST generate an Allow header field in a 405 response."
+
+  Current code: make_405() creates a response with no Allow header. Evaluators can (and do) check this with curl -v.
+
+  Theory: The Allow header tells clients which methods ARE permitted. Without it, 405 is technically malformed. nginx always sends it. Evaluators
+  familiar with RFCs will check.
+
+  Problem: ErrorResponseBuilder::buildErrorResponse(405, cfg) doesn't have access to loc.allowedMethod. The allowed methods need to be passed
+  through.
+
+  Fix: Change _validateLocationRulesOrError to build the Allow header value from loc.allowedMethod and inject it into the error response. Or pass
+  allowed methods into the error builder.
+
+  // In _validateLocationRulesOrError:
+  std::string allow;
+  for (size_t i = 0; i < loc.allowedMethod.size(); i++) {
+      if (i > 0) allow += ", ";
+      allow += loc.allowedMethod[i];
+  }
+  HttpResponse r = ErrorResponseBuilder::buildErrorResponse(405, cfg);
+  r.setHeader("Allow", allow);
+  client.writeBuf = r.serialize();
+
+  Edge case: Location with empty allowedMethod vector — Allow:  with empty value. Should return Allow:  or handle 0-method locations as config
+  errors.
+
+  ---
+  BUG-7: CGI responses can end up with duplicate Connection headers
+  
+  File: srcs/ProcessRequest.cpp:23-29, :534
+
+  injectConnectionHeader() always inserts a Connection: header right after the status line. CGI output is parsed in _buildHttpResponseFromCgiOutput which
+   calls response.setHeader("Connection", ...) if the CGI script emits one. Then handle() calls injectConnectionHeader, producing:
+
+  HTTP/1.1 200 OK\r\n
+  Connection: keep-alive\r\n    ← injected by injectConnectionHeader
+  Connection: close\r\n          ← from CGI output
+  Content-Type: text/html\r\n
+
+  RFC says duplicate Connection headers are invalid. Browsers may pick the first or last unpredictably.
+
+  Fix: In injectConnectionHeader, check if a Connection: header already exists in the buffer before inserting. Or strip the CGI Connection header before
+  building the response.
+
+  ---
+  BUG-8: Missing Date header in all responses
+
+  Files: srcs/HttpResponse.cpp, srcs/ErrorResponseBuilder.cpp
+
+  RFC 7231 §7.1.1.2: "An HTTP/1.1 server SHOULD include a Date header in every response." Evaluators with browser DevTools will see it's missing.
+  nginx always sends it.
+
+  Fix: Add to HttpResponse::serialize():
+  // At the top of serialize(), after building status line:
+  char datebuf[64];
+  time_t now = time(nullptr);
+  struct tm *gmt = gmtime(&now);
+  strftime(datebuf, sizeof(datebuf), "%a, %d %b %Y %H:%M:%S GMT", gmt);
+  oss << "Date: " << datebuf << "\r\n";
+  
+  Caveat: gmtime is not thread-safe (returns a static struct). For a single-threaded server it's fine. gmtime_r is the thread-safe version.
