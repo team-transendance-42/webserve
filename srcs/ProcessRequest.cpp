@@ -476,7 +476,12 @@ void ProcessRequest::handle(Client &client) const {
     // Check if this is a CGI executable before serving as static
     if (!S_ISDIR(st.st_mode) && _shouldExecuteCgi(*loc, filepath)) {
         if (_executeCgiOrError(req, *loc, filepath, client)) {
-            HttpResponse::injectConnectionHeader(client.writeBuf, client.keep_alive);
+            /* If CGI is now pending (client.cgi != nullptr), do NOT inject Connection header yet.
+               EventLoop will do that when finalizeCgi() runs.
+               If CGI failed and an error response was written, inject as usual. */
+            if (!client.cgi) {
+                HttpResponse::injectConnectionHeader(client.writeBuf, client.keep_alive);
+            }
             return;
         }
     }
@@ -500,47 +505,36 @@ bool ProcessRequest::_shouldExecuteCgi(const Location &loc, const std::string &f
     if (loc.cgi_extension.empty()) {
         return false;
     }
-    
+
     // Check if filepath ends with cgi_extension (e.g., ".py")
     if (filepath.size() >= loc.cgi_extension.size()) {
         std::string ext = filepath.substr(filepath.size() - loc.cgi_extension.size());
         return ext == loc.cgi_extension;
     }
-    
+
     return false;
 }
 
-/* Runs the CGI script for the request; writes 500/504 on failure/timeout,
-   or the parsed CGI output as the HTTP response. Always returns true. */
+/* Starts a CGI session: fork, setup pipes, register with EventLoop.
+   Returns true if CGI was successfully started or is handled (error response written).
+   If true and client.cgi != nullptr, the session is pending on EventLoop.
+   If true and client.cgi == nullptr, the response was completed immediately (shouldn't happen with new design). */
 bool ProcessRequest::_executeCgiOrError(const HttpRequest &req,
                                         const Location &loc,
                                         const std::string &filepath,
                                         Client &client) const {
     CgiRequest cgiReq = _buildCgiRequest(req, filepath);
     CgiExecutor executor;
-    CgiResult result = executor.execute(cgiReq, loc);
-    
-    // timed_out must be checked before !success: a timeout sets success=false,
-    // so checking success first would swallow the timeout and return 500 instead of 504.
-    if (result.timed_out) {
-        client.writeBuf = HttpResponse::make_504().serialize();
-        return true;
-    }
 
-    if (!result.success) {
+    CgiSession *session = executor.start(cgiReq, loc);
+    if (!session) {
+        /* Fork or setup failed: return 500 */
         client.writeBuf = HttpResponse::make_500().serialize();
         return true;
     }
-    
-    // Parse CGI output into HTTP response
-    HttpResponse response;
-    if (!_buildHttpResponseFromCgiOutput(result.raw_output, response)) {
-        // If parsing failed, treat output as plain text body
-        response.setStatus(200)
-                .setBody(result.raw_output, "text/plain");
-    }
-    
-    client.writeBuf = response.serialize();
+
+    /* Success: attach session to client and mark as pending */
+    client.cgi = session;
     return true;
 }
 
@@ -553,13 +547,13 @@ CgiRequest ProcessRequest::_buildCgiRequest(const HttpRequest &req,
     cgiReq.script_name = req.path;
     cgiReq.query_string = req.query_string;
     cgiReq.body = req.body;
-    
+
     // Get Content-Type header and Content-Length from body
     std::string contentType = req.getHeader("content-type");
     cgiReq.content_type = (contentType.empty() ? "" : contentType);
-    
+
     cgiReq.server_protocol = req.version;
-    
+
     // Parse host header to get server_name and server_port
     std::string host = req.getHeader("host");
     size_t colon = host.find(':');
@@ -570,11 +564,11 @@ CgiRequest ProcessRequest::_buildCgiRequest(const HttpRequest &req,
         cgiReq.server_name = host;
         cgiReq.server_port = "80"; // default HTTP port
     }
-    
+
     cgiReq.remote_addr = "127.0.0.1"; // localhost for now
     cgiReq.path_info = ""; // PATH_INFO for extra path after script
     cgiReq.headers = req.headers;
-    
+
     return cgiReq;
 }
 /*cpp way (in c it is static func) private for this file*/
@@ -632,4 +626,4 @@ bool ProcessRequest::_buildHttpResponseFromCgiOutput(const std::string &raw, Htt
 	_applyCgiHeaders(headerSection, response);
 	return true;
 }
-    
+

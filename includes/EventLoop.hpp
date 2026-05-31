@@ -36,10 +36,15 @@ public:
     void addListener(Listener *listener);
     void tick();
     void run(volatile sig_atomic_t &running);
+    void registerCgiPipes(Client &client);
+    void cleanupCgiOnClientClose(Client &client);
 
 private:
     void _acceptFrom(Listener *listener);
     void _closeIdleClients();
+    void _handleCgiPipeEvent(int fd, uint32_t events);
+    void _finalizeCgi(Client &client);
+    void _cleanupCgiSession(Client &client);
 
     enum {
         POLL_TIMEOUT_MS = 100,
@@ -52,5 +57,6 @@ private:
     std::map<int, Listener *>  _listenFds;
     std::map<int, Client *>    _clients;
     std::map<int, Listener *>  _clientToListener;
+    std::map<int, Client *>    _cgiPipeToClient; /* Maps CGI pipe fd (stdin or stdout) to owning Client* */
     ConnectionManager          _conn;
 };

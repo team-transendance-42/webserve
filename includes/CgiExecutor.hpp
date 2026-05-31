@@ -1,6 +1,7 @@
 #pragma once
 
 #include "config/Config.hpp"
+#include "CgiSession.hpp"
 
 #include <cstddef>
 #include <map>
@@ -21,34 +22,30 @@ struct CgiRequest {
     std::map<std::string, std::string> headers;
 };
 
-struct CgiResult {
-    bool        success;
-    bool        timed_out;
-    bool        output_truncated;
-    int         exit_code;
-    std::string raw_output;
-    std::string error_message;
-
-    CgiResult()
-        : success(false),
-          timed_out(false),
-          output_truncated(false),
-          exit_code(-1),
-          raw_output(),
-          error_message() {
-    }
-};
-
+/*
+ * Refactored CgiExecutor: spawns CGI processes and tracks them via the EventLoop.
+ * No blocking poll() or waitpid() anymore — all I/O driven by the shared epoll.
+ */
 class CgiExecutor {
 public:
     CgiExecutor(std::size_t max_output_bytes = 1024 * 1024, int timeout_ms = 5000);
 
-    CgiResult execute(const CgiRequest& request, const Location& location) const;
+    /* Start a CGI session: fork, setup pipes, execve.
+       Returns a heap-allocated CgiSession on success; nullptr on failure.
+       The session is ready for epoll registration immediately after. */
+    CgiSession *start(const CgiRequest &request, const Location &location) const;
+
+    /* Parse CGI output into HTTP headers and body.
+       static so it can be called from EventLoop::_finalizeCgi.
+       Returns true if output was successfully split into headers+body. */
+    static bool parseOutput(const std::string &raw_output,
+                           std::string &headers,
+                           std::string &body);
 
 private:
     std::size_t _max_output_bytes;
     int         _timeout_ms;
 
-    static std::string sanitizeHeaderName(const std::string& key);
-    static bool        writeAll(int fd, const std::string& data);
+    static std::string sanitizeHeaderName(const std::string &key);
 };
+

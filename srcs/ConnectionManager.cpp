@@ -23,11 +23,15 @@
 ConnectionManager::ConnectionManager(std::map<int, Client *> &clients,
 					 std::map<int, Listener *> &clientToListener,
 					 std::function<void(int, uint32_t)> epollMod,
-					 std::function<void(int)> epollDel)
+					 std::function<void(int)> epollDel,
+					 std::function<void(Client&)> registerCgiPipes,
+					 std::function<void(Client&)> cleanupCgi)
 	: _clients(clients),
 	  _clientToListener(clientToListener),
 	  _epollMod(std::move(epollMod)), // no longer need the original value and want efficiency
-	  _epollDel(std::move(epollDel)) {}
+	  _epollDel(std::move(epollDel)),
+	  _registerCgiPipes(std::move(registerCgiPipes)),
+	  _cleanupCgi(std::move(cleanupCgi)) {}
 
 /**
  *  Drains the socket in a non-blocking loop, feeding each chunk into the incremental HTTP parser.
@@ -65,7 +69,18 @@ void ConnectionManager::readClient(Client &client, std::size_t) {
 			std::map<int, Listener *>::iterator listenerIt = _clientToListener.find(client.fd); //at() throws
 			if (listenerIt == _clientToListener.end()) { closeClient(client.fd); return; }
 			listenerIt->second->processRequest().handle(client);
-			_epollMod(client.fd, EPOLLOUT | EPOLLRDHUP);
+			
+			/* If a CGI session was started, register pipes with epoll */
+			if (client.cgi) {
+				if (_registerCgiPipes) {
+					_registerCgiPipes(client);
+				}
+				/* Switch the client socket to EPOLLRDHUP-only (no EPOLLOUT) to detect disconnects. */
+				_epollMod(client.fd, EPOLLRDHUP);
+			} else {
+				/* Normal response path: arm for writing */
+				_epollMod(client.fd, EPOLLOUT | EPOLLRDHUP);
+			}
 			return;
 		}
 	}
@@ -100,7 +115,16 @@ void ConnectionManager::writeClient(Client &client) {
 			std::map<int, Listener *>::iterator listenerIt = _clientToListener.find(client.fd); // at() throws
 			if (listenerIt == _clientToListener.end()) { closeClient(client.fd); return; }
 			listenerIt->second->processRequest().handle(client);
-			_epollMod(client.fd, EPOLLOUT | EPOLLRDHUP);
+			
+			/* If a new CGI session was started, register pipes with epoll */
+			if (client.cgi) {
+				if (_registerCgiPipes) {
+					_registerCgiPipes(client);
+				}
+				_epollMod(client.fd, EPOLLRDHUP);
+			} else {
+				_epollMod(client.fd, EPOLLOUT | EPOLLRDHUP);
+			}
 		} else if (res == PARSE_ERROR) {
 			client.writeBuf = HttpResponse::make_400().serialize();
 			client.keep_alive = false;
@@ -122,9 +146,19 @@ void ConnectionManager::writeClient(Client &client) {
 void ConnectionManager::closeClient(int fd) {
 	std::map<int, Client *>::iterator it = _clients.find(fd);
 	if (it == _clients.end()) return; // already closed
+
+	Client *client = it->second;
+
+	/* If there's an active CGI session, clean it up */
+	if (client->cgi) {
+		if (_cleanupCgi) {
+			_cleanupCgi(*client);
+		}
+	}
+
 	_epollDel(fd);
 	close(fd);
-	delete it->second;
+	delete client;
 	_clients.erase(it);
 	_clientToListener.erase(fd);
 }
