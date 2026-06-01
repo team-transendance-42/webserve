@@ -81,6 +81,7 @@ bool ProcessRequest::_validateLocationRulesOrError(const HttpRequest &req, const
     }
 
     std::string reqMethod = ProcessRequest::methodToString(req.method);
+    if (req.method == HEAD) reqMethod = "GET"; // HEAD is allowed wherever GET is (RFC 9110 §9.3.2)
     bool allowed = false;
     for (size_t i = 0; i < loc.allowedMethod.size(); i++) {
         if (loc.allowedMethod[i] == reqMethod) {
@@ -91,10 +92,13 @@ bool ProcessRequest::_validateLocationRulesOrError(const HttpRequest &req, const
     if (!allowed) {
         // RFC 9110 §15.5.6: 405 MUST include an Allow header listing permitted methods.
         std::string allow;
+        bool hasGet = false;
         for (size_t i = 0; i < loc.allowedMethod.size(); i++) {
             if (i > 0) allow += ", ";
             allow += loc.allowedMethod[i];
+            if (loc.allowedMethod[i] == "GET" || loc.allowedMethod[i] == "HEAD") hasGet = true;
         }
+        if (hasGet) allow += ", HEAD";
         HttpResponse r = ErrorResponseBuilder::buildErrorResponse(405, cfg);
         r.setHeader("Allow", allow);
         client.writeBuf = r.serialize();
@@ -496,6 +500,11 @@ void ProcessRequest::handle(Client &client) const {
     }
 
     _serveFromStat(*loc, urlPath, filepath, st, client, cfg);
+    if (req.method == HEAD) {
+        size_t sep = client.writeBuf.find("\r\n\r\n");
+        if (sep != std::string::npos)
+            client.writeBuf.erase(sep + 4);
+    }
     HttpResponse::injectConnectionHeader(client.writeBuf, client.keep_alive);
 }
 
@@ -505,6 +514,7 @@ std::string ProcessRequest::methodToString(Method method) {
         case GET: return "GET";
         case POST: return "POST";
         case DELETE: return "DELETE";
+        case HEAD: return "HEAD";
         default: return "";
     }
 }

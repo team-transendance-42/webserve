@@ -55,7 +55,7 @@ def _check(label, got_code, want_code, got_reason, want_reason, extras=None):
 def _request(method, path, headers=None, body=None):
     """One HTTP/1.1 request; returns (status_code, reason_phrase, response)."""
     c = http.client.HTTPConnection(HOST, PORT, timeout=10)
-    c.request(method, path, body=body, headers=headers or {})
+    c.request(method, path, body=body, headers=headers or {}) # HTTP/1.1 requires at minimum a Host header. But http.client automatically adds Host and Accept-Encoding even if you pass headers={}
     r = c.getresponse()
     r.read()  # consume body so the connection stays clean
     return r.status, r.reason, r
@@ -82,7 +82,7 @@ def _raw_request(raw_bytes):
         pass # do nth here
     finally:
         s.close()
-    first_line = data.split(b"\r\n")[0].decode(errors="replace") # substitude ? for bad bytes, dont crash
+    first_line = data.split(b"\r\n")[0].decode(errors="replace") # errors="replace" is a parameter to .decode() that controls what happens when a byte sequence can't be decoded as valid UTF-8. By default errors="strict"), invalid bytes raise a UnicodeDecodeError and crash. With errors="replace", invalid bytes are replaced with ? (the Unicode replacement character) instead of crashing.
     parts = first_line.split(" ", 2)
     if len(parts) < 3:
         return None, first_line
@@ -91,12 +91,8 @@ def _raw_request(raw_bytes):
 # ── server lifecycle ──────────────────────────────────────────────────────────
 
 def _start_server():
-    """Start webserv and wait up to 3 s for the port to be ready."""
-    proc = subprocess.Popen( # ./webserv tests/conf/test_err_codes.conf
-        ["./webserv", CONFIG],
-        stdout=subprocess.DEVNULL, # black whole: discards logs
-        stderr=subprocess.DEVNULL,
-    )
+    """Start webserv and wait up to 3 s for the port to be ready. ./webserv tests/conf/test_err_codes.conf; Popen=process open, create a new child process; stdout=subprocess.DEVNULL, # black whole: discards logs"""
+    proc = subprocess.Popen(["./webserv", CONFIG], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,)
     for _ in range(30): # 30 x 0.1s = 3s
         try:
             socket.create_connection((HOST, PORT), timeout=0.1).close()

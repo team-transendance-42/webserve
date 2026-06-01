@@ -132,11 +132,12 @@ bool HttpRequest::_parse_method(const std::string &tok) {
     if      (tok == "GET")    { method = GET;    return true; }
     else if (tok == "POST")   { method = POST;   return true; }
     else if (tok == "DELETE") { method = DELETE; return true; }
+    else if (tok == "HEAD")   { method = HEAD;   return true; }
 
-    /* Real HTTP verbs this server doesn't implement → UNKNOWN → 501 in handle().
+    /* Real HTTP verbs the server doesn't implement → UNKNOWN → 501 in handle().
        Anything else (garbage like "BLA") → false → PARSE_ERROR → 400. */
     static const char *known[] = {
-        "PUT", "PATCH", "HEAD", "OPTIONS", "TRACE", "CONNECT", NULL
+        "PUT", "PATCH", "OPTIONS", "TRACE", "CONNECT", NULL
     };
     for (int i = 0; known[i]; ++i) {
         if (tok == known[i]) { method = UNKNOWN; return true; }

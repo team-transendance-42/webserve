@@ -4,7 +4,7 @@
 #include <map>
 
 // global — used by Server/Client to check status
-enum Method      { GET, POST, DELETE, UNKNOWN };
+enum Method      { GET, POST, DELETE, HEAD, UNKNOWN };
 enum ParseResult { INCOMPLETE, COMPLETE, PARSE_ERROR };
 
 

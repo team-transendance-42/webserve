@@ -1,0 +1,78 @@
+  # -i = show headers + body
+  curl -i http://localhost:8080/
+  ----------
+
+  # -I sends HEAD method; server must respond with headers and NO body
+  curl -I http://localhost:8080/
+
+-----------
+
+  # /api/data_json only allows GET
+  # method not allowed
+curl -i -X POST http://localhost:8080/api/data_json
+
+-------
+# 403 deny location
+curl -i http://localhost:8080/secret
+
+------
+
+ # --http1.1 forces HTTP/1.1 which REQUIRES Host:
+  # -H "Host:" sends an empty Host header, which is invalid
+
+ curl -i --http1.1 -H "Host:" http://localhost:8080/
+
+ -------
+
+# Redirect — 301 follow vs. not follow
+
+  # Without -L: see the 301 and Location: header
+  curl -i http://localhost:8080/play
+
+  # With -L: curl follows the redirect automatically
+  curl -iL http://localhost:8080/play
+
+-------
+
+ # /files-auto has autoindex on; no index.html → should list files
+  curl -i http://localhost:8080/files-auto/
+
+-----
+
+# /files has autoindex off → should return 403 forbidden
+  curl -i http://localhost:8080/files/
+
+===============================
+  nc (netcat) opens a raw TCP connection and lets you type bytes directly. Flags:
+  - -v verbose (shows connection open/close)
+  - -w N wait at most N seconds for a response then close
+=================================
+
+printf 'GET / HTTP/1.1\r\nHost: localhost\r\n\r\n' | nc -w 3 localhost 8080
+----
+# 400: bad req: no Host
+printf 'GET / HTTP/1.1\r\n\r\n' | nc -w 3 localhost 8080
+-----
+
+# Garbage / malformed request line
+  printf 'NOTAMETHOD / HTTP/1.1\r\nHost: localhost\r\n\r\n' | nc -w 3 localhost 8080
+---------
+ # HTTP/1.0 (no Host header required by spec — server should still respond)
+  printf 'GET / HTTP/1.0\r\n\r\n' | nc -w 3 localhost 8080
+
+------------
+# incomplete request (no blank line = headers never terminated), server waited 5 seconds, then nc closes — server silently drops it. That's correct nginx behavior.
+
+printf 'GET / HTTP/1.1\r\n' | nc -w 5 localhost 8080
+---------
+
+
+
+
+
+
+
+
+
+
+
