@@ -114,12 +114,25 @@ ParseResult HttpRequest::_parse() {
  * sets fields: version, method, path using parse_method() and parse_path()
  */
 bool HttpRequest::_parse_request_line(const std::string &line) {
-    std::istringstream ss(line);
-    std::string m, p, v;
-    if (!(ss >> m >> p >> v)) return false; // stream extraction operator (>>) used with input streams (like std::cin(char input, usually the keyboard), std::ifstream, std::istringstream) to extract (read) data from the stream into variables. 
-    if (!_parse_method(m))    return false;
-    if (!_parsePath(p))      return false;
-    if (v != "HTTP/1.0" && v != "HTTP/1.1") return false;
+    // RFC 9112 §3: exactly one SP between method, target, version — no extra spaces.
+    // istringstream >> skips any whitespace, so we split by position instead.
+    size_t sp1 = line.find(' ');
+    if (sp1 == std::string::npos) return false;
+    size_t sp2 = line.find(' ', sp1 + 1);
+    if (sp2 == std::string::npos) return false;
+
+    std::string m = line.substr(0, sp1);
+    std::string p = line.substr(sp1 + 1, sp2 - sp1 - 1);
+    std::string v = line.substr(sp2 + 1);
+
+    // empty token = consecutive spaces or leading/trailing space
+    if (m.empty() || p.empty() || v.empty()) return false;
+    // extra space inside version or trailing garbage
+    if (v.find(' ') != std::string::npos) return false;
+
+    if (!_parse_method(m))                     return false;
+    if (!_parsePath(p))                        return false;
+    if (v != "HTTP/1.0" && v != "HTTP/1.1")   return false;
     version = v;
     return true;
 }
@@ -149,12 +162,19 @@ bool HttpRequest::_parse_method(const std::string &tok) {
  * setting up the path field
  */
 bool HttpRequest::_parsePath(const std::string &raw) {
-    size_t q = raw.find('?');
+    std::string target = raw;
+    // RFC 9112 §3.2.2: servers MUST accept absolute-form URIs (e.g. from proxies).
+    // Strip scheme + authority so the rest of the code sees a normal origin-form path.
+    if (raw.compare(0, 7, "http://") == 0 || raw.compare(0, 8, "https://") == 0) {
+        size_t auth_end = raw.find('/', raw.find("//") + 2);
+        target = (auth_end != std::string::npos) ? raw.substr(auth_end) : "/";
+    }
+    size_t q = target.find('?');
     if (q != std::string::npos) {
-        path         = raw.substr(0, q);
-        query_string = raw.substr(q + 1);
+        path         = target.substr(0, q);
+        query_string = target.substr(q + 1);
     } else {
-        path         = raw;
+        path         = target;
         query_string = "";
     }
     return (!path.empty() && path[0] == '/');
@@ -233,6 +253,9 @@ bool HttpRequest::_parse_header_line(const std::string &line) {
         if (it != headers.end() && it->second != value)
             return false;
     }
+    /* RFC 9112 §6.3: exactly one Host header is required; two means malformed → 400. */
+    if (lkey == "host" && headers.count("host"))
+        return false;
 
     headers[lkey] = value;
     return true;
