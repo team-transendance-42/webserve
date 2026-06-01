@@ -318,6 +318,7 @@ void EventLoop::_handleCgiPipeEvent(int fd, uint32_t events) {
                 session.output.append(buf, allowed);
                 kill(session.pid, SIGKILL);
                 _finalizeCgi(*client);
+                return;  // prevent fall-through to EPOLLHUP block — session is deleted, reference is dangling
             } else {
                 session.output.append(buf, static_cast<std::size_t>(n));
             }
@@ -407,6 +408,7 @@ void EventLoop::_finalizeCgi(Client &client) {
 
     /* Write response into client writeBuf */
     client.writeBuf = response.serialize();
+    HttpResponse::injectConnectionHeader(client.writeBuf, client.keep_alive);
 
     /* Deregister pipes from epoll */
     _cleanupCgiSession(client);

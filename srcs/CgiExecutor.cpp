@@ -97,6 +97,7 @@ CgiSession *CgiExecutor::start(const CgiRequest &request, const Location &locati
         envStorage.push_back("SERVER_NAME=" + request.server_name);
         envStorage.push_back("SERVER_PORT=" + request.server_port);
         envStorage.push_back("REMOTE_ADDR=" + request.remote_addr);
+        envStorage.push_back("PATH=/usr/local/bin:/usr/bin:/bin");
 
         /* Add HTTP headers as environment variables with "HTTP_" prefix */
         for (std::map<std::string, std::string>::const_iterator it = request.headers.begin();
