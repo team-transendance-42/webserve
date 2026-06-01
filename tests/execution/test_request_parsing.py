@@ -42,12 +42,57 @@ def _raw(raw_bytes, timeout=5):
     return int(parts[1]), parts[2]
 
 
+def _raw_full(raw_bytes, timeout=5):
+    """Send exact bytes over TCP; return (status_code, body_str)."""
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.settimeout(timeout)
+    s.connect((HOST, PORT))
+    s.sendall(raw_bytes)
+    data = b""
+    try:
+        while True:
+            chunk = s.recv(4096)
+            if not chunk:
+                break
+            data += chunk
+    except socket.timeout:
+        pass
+    finally:
+        s.close()
+    if b"\r\n\r\n" not in data:
+        return None, ""
+    header_part, body = data.split(b"\r\n\r\n", 1)
+    first_line = header_part.split(b"\r\n")[0].decode(errors="replace")
+    parts = first_line.split(" ", 2)
+    if len(parts) < 2:
+        return None, ""
+    return int(parts[1]), body.decode(errors="replace")
+
+
 def _request(method, path, headers=None, body=None):
     c = http.client.HTTPConnection(HOST, PORT, timeout=5)
     c.request(method, path, body=body, headers=headers or {})
     r = c.getresponse()
     r.read()
     return r.status, r.reason, r
+
+
+def _request_body(method, path, headers=None, body=None):
+    """Like _request but returns the decoded response body for content checks."""
+    c = http.client.HTTPConnection(HOST, PORT, timeout=5)
+    c.request(method, path, body=body, headers=headers or {})
+    r = c.getresponse()
+    body = r.read().decode(errors="replace")
+    return r.status, r.reason, body
+
+
+def _request_body(method, path, headers=None, body=None):
+    """Like _request but returns the response body instead of the response object."""
+    c = http.client.HTTPConnection(HOST, PORT, timeout=5)
+    c.request(method, path, body=body, headers=headers or {})
+    r = c.getresponse()
+    body = r.read().decode(errors="replace")
+    return r.status, r.reason, body
 
 
 # ── parser robustness ─────────────────────────────────────────────────────────
@@ -126,6 +171,41 @@ def test_content_length_zero_body_ignored():
     _check("Content-Length: 0 → 200 (extra bytes ignored)", code, 200)
 
 
+# ── query string ──────────────────────────────────────────────────────────────
+
+def test_query_string_cgi_params():
+    # CGI script receives query string as QUERY_STRING; values appear in output
+    code, _, body = _request_body("GET", "/cgi-bin/pythoncgitest.py?your_name=Alice&company_name=42")
+    _check("CGI query string → 200",                code,             200)
+    _check("CGI output contains your_name value",   "Alice" in body,  True)
+    _check("CGI output contains company_name value","42" in body,     True)
+
+
+def test_query_string_missing_params():
+    # No query string — form.getvalue() returns None → script falls back to N/A
+    code, _, body = _request_body("GET", "/cgi-bin/pythoncgitest.py")
+    _check("CGI no query string → 200",   code,           200)
+    _check("CGI missing params → N/A",    "N/A" in body,  True)
+
+
+def test_query_string_empty_value():
+    # ?key= (empty value) must not crash the parser or the CGI
+    code, _, _ = _request_body("GET", "/cgi-bin/pythoncgitest.py?your_name=&company_name=")
+    _check("query string empty values → 200", code, 200)
+
+
+def test_absolute_form_uri_with_query():
+    # Proxy sends absolute-form URI with query string — query must not be dropped
+    # This is the bug fixed in _parsePath: http://host/path?q was losing ?q when
+    # the authority had no trailing slash before the query.
+    code, _, body = _request_body(
+        "GET",
+        "http://localhost:8080/cgi-bin/pythoncgitest.py?your_name=Proxy&company_name=Test"
+    )
+    _check("absolute-form URI with query → 200",        code,             200)
+    _check("absolute-form URI: query string preserved", "Proxy" in body,  True)
+
+
 TESTS = [
     test_double_host,
     test_negative_content_length,
@@ -139,6 +219,10 @@ TESTS = [
     test_absolute_form_uri,
     test_get_with_body_ignored,
     test_content_length_zero_body_ignored,
+    test_query_string_cgi_params,
+    test_query_string_missing_params,
+    test_query_string_empty_value,
+    test_absolute_form_uri_with_query,
 ]
 
 if __name__ == "__main__":

@@ -79,6 +79,14 @@ void ConnectionManager::readClient(Client &client, std::size_t) {
  */
 void ConnectionManager::writeClient(Client &client) {
 	client.lastTimestamp = std::time(nullptr); // update last activity time on each write
+	// Strip body before sending for HEAD requests (covers all response paths — nginx pattern).
+	// Safe to run at entry: writeBuf holds the full response on first call; on re-entry after
+	// EAGAIN the headers have already been partially sent so find() returns npos → no-op.
+	if (client.request.method == HEAD) {
+		size_t sep = client.writeBuf.find("\r\n\r\n");
+		if (sep != std::string::npos)
+			client.writeBuf.erase(sep + 4);
+	}
 	while (!client.writeBuf.empty()) {
 		ssize_t sent = send(client.fd,
 							client.writeBuf.c_str(),

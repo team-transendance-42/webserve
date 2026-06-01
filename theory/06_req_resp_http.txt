@@ -1,0 +1,86 @@
+Minimal request and response
+==================================
+Request:
+GET / HTTP/1.1
+Host: example.com
+-------------
+
+Response:
+HTTP/1.1 200 OK
+Content-Length: 13
+Content-Type: text/plain
+
+Hello, world!
+============================
+Average request and response
+=============================
+request:
+--------
+
+POST /login HTTP/1.1
+Host: example.com
+Content-Type: application/x-www-form-urlencoded
+Content-Length: 29
+
+username=alice&password=1234
+-------------------------
+response
+---------
+HTTP/1.1 200 OK
+Content-Type: application/json
+Content-Length: 17
+
+{"ok":true}
+===============================
+Request line is: method, path, version
+Response line is: version, status code, reason phrase
+Headers are one per line in the form Name: value
+Header section ends with a blank line
+Body is optional in both request and response
+For HTTP/1.1 requests, Host is usually required
+===============================
+
+why we need parsing with solid protection in http request but not in response?
+
+● trust boundaries.
+  Request parsing: untrusted input
+
+  The request comes from the network — from any client, potentially
+  malicious. 
+  - Data arrives in arbitrary TCP chunks (hence the state machine +
+  _buf)
+  - Clients can send garbage, oversized headers, slow-loris drips,
+  request smuggling attempts
+  - no control over what arrives
+    we protect for:
+  (MAX_HEADER_SIZE, MAX_BODY_SIZE, _headerCount, duplicate-Host guard,  method validation, etc.).
+
+  Response: trusted internal code
+
+  Responses are built by own code — ErrorResponseBuilder,
+  StaticFileHandler, HttpResponse::setStatus/setHeader/setBody.
+
+  Where it actually breaks down: CGI
+
+  There is one place where untrusted external output becomes a response
+  — CGI scripts. A CGI script is an external process you don't control.
+  Its output lands in _buildHttpResponseFromCgiOutput, which does a
+  minimal find("\r\n\r\n") split and a line-by-line header apply. No
+  limits, no validation, no state machine.
+
+  That's exactly why bug #7 exists (Status: 204 with a body slips
+  through) — the CGI output parser trusts whatever the script sends.
+
+  The HEAD body strip was the same problem
+
+  The strip was done as raw string surgery on the already-serialized
+  response (find("\r\n\r\n") → erase) instead of at the object level.
+  That's a symptom of having no response validation layer — the response
+  was already serialized into a raw string before anyone checked
+  whether it was correct for the method.
+
+  ---
+  Short answer: you only need to parse carefully what you don't control.
+  Requests → external, parse strictly. Responses → internal, trust your
+  own builders. CGI → external, should be parsed strictly but isn't
+  yet.

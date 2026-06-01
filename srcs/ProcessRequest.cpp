@@ -96,7 +96,7 @@ bool ProcessRequest::_validateLocationRulesOrError(const HttpRequest &req, const
         for (size_t i = 0; i < loc.allowedMethod.size(); i++) {
             if (i > 0) allow += ", ";
             allow += loc.allowedMethod[i];
-            if (loc.allowedMethod[i] == "GET" || loc.allowedMethod[i] == "HEAD") hasGet = true;
+            if (loc.allowedMethod[i] == "GET") hasGet = true;
         }
         if (hasGet) allow += ", HEAD";
         HttpResponse r = ErrorResponseBuilder::buildErrorResponse(405, cfg);
@@ -500,11 +500,6 @@ void ProcessRequest::handle(Client &client) const {
     }
 
     _serveFromStat(*loc, urlPath, filepath, st, client, cfg);
-    if (req.method == HEAD) {
-        size_t sep = client.writeBuf.find("\r\n\r\n");
-        if (sep != std::string::npos)
-            client.writeBuf.erase(sep + 4);
-    }
     HttpResponse::injectConnectionHeader(client.writeBuf, client.keep_alive);
 }
 
@@ -595,7 +590,7 @@ bool ProcessRequest::_executeCgiOrError(const HttpRequest &req,
 CgiRequest ProcessRequest::_buildCgiRequest(const HttpRequest &req,
                                             const std::string &filepath) const {
     CgiRequest cgiReq;
-    cgiReq.method = methodToString(req.method);
+    cgiReq.method = (req.method == HEAD) ? "GET" : methodToString(req.method);
     cgiReq.script_path = filepath;
     cgiReq.script_name = req.path;
     cgiReq.query_string = req.query_string;

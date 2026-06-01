@@ -21,6 +21,8 @@ ParseResult HttpRequest::feed(const char *data, size_t len) {
 }
 
 // ── internal parse loop ───────────────────────────────────────────────────────
+
+/*slow-loris:  client opens many HTTP connections and sends the request extremely slowly, especially by dribbling headers without finishing them. That keeps server resources tied up waiting for incomplete requests, so legitimate users can get blocked.*/
 /**
 limit for header size: protects for buffer overflow attacks
 limit for body size: protects for DoS attacks( Denial of Service: an attacker tries to make a service unavailable to normal users, usually by overwhelming it with too many requests or exhausting resources.) with large payloads
@@ -65,7 +67,7 @@ ParseResult HttpRequest::_parse() {
                     }
 
                     size_t contentLen = content_length();
-
+                    // detects a malformed or overflowing Content-Length header (non-digits, trailing garbage, or parse overflow)
                     if (contentLen == (size_t)-1) {
                         std::cout << "[400] Header: Content-Length is not a number\n";
                         _state = ERROR;
@@ -166,8 +168,15 @@ bool HttpRequest::_parsePath(const std::string &raw) {
     // RFC 9112 §3.2.2: servers MUST accept absolute-form URIs (e.g. from proxies).
     // Strip scheme + authority so the rest of the code sees a normal origin-form path.
     if (raw.compare(0, 7, "http://") == 0 || raw.compare(0, 8, "https://") == 0) {
-        size_t auth_end = raw.find('/', raw.find("//") + 2);
-        target = (auth_end != std::string::npos) ? raw.substr(auth_end) : "/";
+        size_t host_start  = raw.find("//") + 2;
+        size_t path_start  = raw.find('/', host_start);   // first '/' after host
+        size_t query_start = raw.find('?', host_start);   // first '?' after host (no path)
+        if (path_start != std::string::npos)
+            target = raw.substr(path_start);              // normal: /path?query
+        else if (query_start != std::string::npos)
+            target = "/" + raw.substr(query_start);       // http://host?q=1 → /?q=1
+        else
+            target = "/";                                 // bare http://host
     }
     size_t q = target.find('?');
     if (q != std::string::npos) {
@@ -362,9 +371,9 @@ std::string HttpRequest::_to_lower(const std::string &s) const {
     return out;
 }
 
-/* in ProcessRequest, inspect it */
+/* in ProcessRequest */
 void HttpRequest::debugPrint() const {
-    const char *m[] = { "GET", "POST", "DELETE", "UNKNOWN" };
+    const char *m[] = { "GET", "POST", "DELETE", "HEAD", "UNKNOWN" };
     std::cout << "=== HttpRequest ===\n"
               << "  method : " << m[method]     << "\n"
               << "  path   : " << path          << "\n"
