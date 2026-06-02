@@ -23,7 +23,7 @@ jobs:
         run: make
 
       - name: Run all tests
-        run: ./tests/run.sh
+        run: make test
 
       - name: Show webserv log
         if: always()
