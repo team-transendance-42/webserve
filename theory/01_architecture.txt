@@ -1,0 +1,25 @@
+Client (browser/curl)
+        │
+        │  TCP connection (SYN, SYN-ACK, ACK)
+        ▼
+┌───────────────────────────────────────┐
+│           LISTEN SOCKET (fd)          │  ← bound to IP:port, backlog queue
+│                                       │
+│   epoll_wait() ◄──── your event loop  │
+│        │                              │
+│   new connection? → accept() → conn fd│
+│   data ready?     → read() → buffer   │
+│   write ready?    → write() → client  │
+└───────────────────────────────────────┘
+        │
+        ▼
+   Parse HTTP request
+        │
+        ▼
+   Route to handler
+        │
+        ▼
+   Build HTTP response
+        │
+        ▼
+   Write back to conn fd

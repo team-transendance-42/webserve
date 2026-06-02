@@ -2,6 +2,13 @@
 import os
 import sys
 
+# run directly as test:
+#REQUEST_METHOD=GET QUERY_STRING="foo=bar" python3 tests/cgi-bin/pythoncgitest.py
+# then press ctr+d
+
+#echo "hello" | REQUEST_METHOD=POST QUERY_STRING="foo=bar" python3 tests/cgi-bin/pythoncgitest.py
+
+
 body = sys.stdin.read()
 print("Status: 200 OK")
 print("Content-Type: text/plain")

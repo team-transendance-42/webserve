@@ -37,3 +37,4 @@ uploads/
 CLAUDE.md
 en.subject.pdf
 .claude
+tests/execution/__pycache__/

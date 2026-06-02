@@ -1,0 +1,25 @@
+multipart/form-data is the standard way browsers upload files via HTML forms:
+
+
+<form enctype="multipart/form-data">
+  <input type="file" name="file">
+</form>
+The body looks like this:
+
+
+--boundary123
+Content-Disposition: form-data; name="file"; filename="hello.txt"
+Content-Type: text/plain
+
+file contents here
+--boundary123--
+
+!!!NB!!!
+Multiple "parts" separated by a boundary string — hence "multipart". Each part has its own headers and body. You can upload multiple files in one request.
+
+----
+Our server uses the simpler custom X-Filename approach instead — body is the raw file content, filename comes from the header
+if (content_type.find("multipart") != std::string::npos) {
+    resp.setStatus(415).setBody("Multipart uploads not supported", "text/plain");
+    return (resp);
+}

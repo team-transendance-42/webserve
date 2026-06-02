@@ -1,3 +1,4 @@
+#include <arpa/inet.h>
 #include <cerrno>
 #include <cctype>
 #include <climits>
@@ -5,6 +6,8 @@
 #include <ctime>
 #include <fstream>
 #include <iostream>
+#include <netinet/in.h>
+#include <sys/socket.h>
 #include <sys/types.h>
 #include <cctype>
 #include <cstdlib>
@@ -375,7 +378,7 @@ void ProcessRequest::_serveFromStat(const Location &loc,
                                     const struct stat &st,
                                     Client &client,
                                     const ServerConfig &cfg) const {
-    if (S_ISDIR(st.st_mode) && !urlPath.empty() && urlPath[urlPath.size() - 1] != '/') {
+    if (S_ISDIR(st.st_mode) && loc.autoindex && !urlPath.empty() && urlPath[urlPath.size() - 1] != '/') {
         client.writeBuf = HttpResponse::make_redirect(301, urlPath + "/").serialize();
         return;
     }
@@ -473,6 +476,17 @@ void ProcessRequest::handle(Client &client) const {
         return;
     }
 
+    // Redirect bare directory URL to trailing-slash form only for autoindex
+    // directories. Without the trailing slash the generated hrefs would be
+    // relative to the parent, causing broken links. Index-file directories
+    // are handled directly by _serveFromStat without needing a redirect.
+    if (S_ISDIR(st.st_mode) && loc->autoindex &&
+            !urlPath.empty() && urlPath[urlPath.size() - 1] != '/') {
+        client.writeBuf = HttpResponse::make_redirect(301, urlPath + "/").serialize();
+        HttpResponse::injectConnectionHeader(client.writeBuf, client.keep_alive);
+        return;
+    }
+
     // Check if this is a CGI executable before serving as static
     if (!S_ISDIR(st.st_mode) && _shouldExecuteCgi(*loc, filepath)) {
         if (_executeCgiOrError(req, *loc, filepath, client)) {
@@ -515,15 +529,36 @@ bool ProcessRequest::_shouldExecuteCgi(const Location &loc, const std::string &f
     return false;
 }
 
-/* Starts a CGI session: fork, setup pipes, register with EventLoop.
-   Returns true if CGI was successfully started or is handled (error response written).
-   If true and client.cgi != nullptr, the session is pending on EventLoop.
-   If true and client.cgi == nullptr, the response was completed immediately (shouldn't happen with new design). */
+static std::string _getClientIp(int fd) {
+    struct sockaddr_in addr;
+    socklen_t len = sizeof(addr);
+    if (getpeername(fd, (struct sockaddr *)&addr, &len) == 0) {
+        char buf[INET_ADDRSTRLEN];
+        if (inet_ntop(AF_INET, &addr.sin_addr, buf, sizeof(buf)))
+            return std::string(buf);
+    }
+    return "127.0.0.1";
+}
+
+static std::string _computePathInfo(const std::string &urlPath,
+                                    const std::string &cgiExt) {
+    if (cgiExt.empty()) return "";
+    size_t extPos = urlPath.find(cgiExt);
+    if (extPos == std::string::npos) return "";
+    size_t afterExt = extPos + cgiExt.size();
+    if (afterExt >= urlPath.size()) return "";
+    return urlPath.substr(afterExt);
+}
+
+/* Runs the CGI script for the request; writes 500/504 on failure/timeout,
+   or the parsed CGI output as the HTTP response. Always returns true. */
 bool ProcessRequest::_executeCgiOrError(const HttpRequest &req,
                                         const Location &loc,
                                         const std::string &filepath,
                                         Client &client) const {
     CgiRequest cgiReq = _buildCgiRequest(req, filepath);
+    cgiReq.remote_addr = _getClientIp(client.fd);
+    cgiReq.path_info   = _computePathInfo(req.path, loc.cgi_extension);
     CgiExecutor executor;
 
     CgiSession *session = executor.start(cgiReq, loc);

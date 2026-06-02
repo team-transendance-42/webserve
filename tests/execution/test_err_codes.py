@@ -6,12 +6,13 @@ and required headers for every HTTP code it can produce.
 Starts the server with tests/conf/test_err_codes.conf on port 19090,
 runs all cases, then shuts down.
 
-Run from repo root:
+Run from repo root, webserv should not be running:
     python3 tests/test_err_codes.py
 """
 
 import http.client
 import os
+import stat
 import socket
 import subprocess
 import sys
@@ -78,10 +79,10 @@ def _raw_request(raw_bytes):
                 break
             data += chunk
     except socket.timeout:
-        pass
+        pass # do nth here
     finally:
         s.close()
-    first_line = data.split(b"\r\n")[0].decode(errors="replace")
+    first_line = data.split(b"\r\n")[0].decode(errors="replace") # substitude ? for bad bytes, dont crash
     parts = first_line.split(" ", 2)
     if len(parts) < 3:
         return None, first_line
@@ -91,23 +92,23 @@ def _raw_request(raw_bytes):
 
 def _start_server():
     """Start webserv and wait up to 3 s for the port to be ready."""
-    proc = subprocess.Popen(
+    proc = subprocess.Popen( # ./webserv tests/conf/test_err_codes.conf
         ["./webserv", CONFIG],
-        stdout=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL, # black whole: discards logs
         stderr=subprocess.DEVNULL,
     )
-    for _ in range(30):
+    for _ in range(30): # 30 x 0.1s = 3s
         try:
             socket.create_connection((HOST, PORT), timeout=0.1).close()
             return proc
         except OSError:
             time.sleep(0.1)
-    proc.kill()
+    proc.kill() # please stop: clean
     raise RuntimeError(f"webserv did not start on port {PORT}")
 
 
 def _stop_server(proc):
-    proc.terminate()
+    proc.terminate() # die now
     try:
         proc.wait(timeout=3)
     except subprocess.TimeoutExpired:
@@ -121,7 +122,7 @@ def test_200():
 
 
 def test_201():
-    # POST with X-Filename header → file upload → 201 Created
+    # POST with X-Filename header → file upload → 201 Created; X- headers are custom
     code, reason, _ = _request(
         "POST", "/testfiles",
         headers={"X-Filename": "test_upload.txt", "Content-Type": "text/plain"},
@@ -199,6 +200,74 @@ def test_504():
     r.read()
     _check("504 Gateway Timeout — CGI script timeout", r.status, 504, r.reason, "Gateway Timeout")
 
+
+def test_501():
+    # PUT is a known-but-unimplemented method → parser sets method=UNKNOWN → 501
+    code, reason = _raw_request(b"PUT / HTTP/1.1\r\nHost: localhost\r\n\r\n")
+    _check("501 Not Implemented — PUT method", code, 501, reason, "Not Implemented")
+
+
+def test_400_garbage_method():
+    # garbage method → PARSE_ERROR → 400 (same as nginx)
+    code, reason = _raw_request(b"BLA / HTTP/1.1\r\nHost: localhost\r\n\r\n")
+    _check("400 Bad Request — garbage method BLA", code, 400, reason, "Bad Request")
+
+
+def test_409():
+    # unlink() on a directory returns EISDIR(error is dir) → 409 Conflict
+    subdir = f"{UPLOAD_DIR}/test_subdir"
+    os.makedirs(subdir, exist_ok=True)
+    try:
+        code, reason, _ = _request("DELETE", "/testfiles/test_subdir")
+        _check("409 Conflict — DELETE on a directory", code, 409, reason, "Conflict")
+    finally:
+        try:
+            os.rmdir(subdir)
+        except OSError:
+            pass
+
+
+def test_500():
+    # Make upload dir read-only → write fails → 500 Internal Server Error
+    upload_dir = UPLOAD_DIR
+    os.makedirs(upload_dir, exist_ok=True)
+    try:
+        os.chmod(upload_dir, stat.S_IRUSR | stat.S_IXUSR)  # 500 — no write permission
+        code, reason, _ = _request(
+            "POST", "/testfiles",
+            headers={"X-Filename": "wontwork.txt", "Content-Type": "text/plain"},
+            body=b"data",
+        )
+        _check("500 Internal Server Error — upload dir not writable", code, 500, reason, "Internal Server Error")
+    finally:
+        os.chmod(upload_dir, 0o755)
+
+
+def test_408():
+    # Connect and send nothing — server closes idle connection after 60 s → 408
+    print("  NOTE  test_408 waits ~61 s for the idle timeout to fire …", flush=True)
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.settimeout(70)
+    s.connect((HOST, PORT))
+    data = b""
+    try:
+        while True:
+            chunk = s.recv(256)
+            if not chunk:
+                break
+            data += chunk
+            if b"\r\n\r\n" in data:
+                break
+    except socket.timeout:
+        pass
+    finally:
+        s.close()
+    first_line = data.split(b"\r\n")[0].decode(errors="replace")
+    parts = first_line.split(" ", 2)
+    code   = int(parts[1]) if len(parts) >= 3 else None
+    reason = parts[2]      if len(parts) >= 3 else first_line
+    _check("408 Request Timeout — idle connection", code, 408, reason, "Request Timeout")
+
 # ── main ─────────────────────────────────────────────────────────────────────
 
 TESTS = [
@@ -211,7 +280,12 @@ TESTS = [
     test_405,
     test_413,
     test_415,
+    test_501,
+    test_400_garbage_method,
+    test_409,
+    test_500,
     test_504,
+    test_408,   # slow — 61 s, always last
 ]
 
 if __name__ == "__main__":
