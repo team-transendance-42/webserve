@@ -21,8 +21,8 @@ if 'file' in form and form['file'].filename:
     with open(filepath, 'wb') as f:
         f.write(fileitem.file.read())
 
-    print(f"<h1>✓ File uploaded: {filename}</h1>")
-    print(f"<p><a href='/upload/{filename}'>Download your file</a></p>")
+    print(f"<h1>File uploaded: {filename}</h1>")
+    print(f"<p><a href='/uploads/{filename}'>Download your file</a></p>")
 else:
     print("""
     <h1>File Upload Form</h1>

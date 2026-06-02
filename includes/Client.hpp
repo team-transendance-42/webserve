@@ -3,6 +3,7 @@
 #include <string>
 #include <ctime>
 #include "HttpRequest.hpp"
+#include "CgiSession.hpp"
 
 /**
 In C++, struct and class are almost identical. The only difference is:
@@ -31,8 +32,9 @@ struct Client {
     std::string writeBuf;
     bool        keep_alive;
     time_t      lastTimestamp;
+    CgiSession  *cgi; /* nullptr if no CGI is running, ptr to heap-owned CgiSession if one is active */
 
-    explicit Client(int fd) : fd(fd), keep_alive(false), lastTimestamp(std::time(0)) {}
+    explicit Client(int fd) : fd(fd), keep_alive(false), lastTimestamp(std::time(0)), cgi(nullptr) {}
 
     Client(const Client &) = delete;
     Client &operator=(const Client &) = delete;

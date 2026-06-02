@@ -18,7 +18,9 @@ public:
     ConnectionManager(std::map<int, Client *> &clients,
                       std::map<int, Listener *> &clientToListener,
                       std::function<void(int, uint32_t)> epollMod,
-                      std::function<void(int)> epollDel);
+                      std::function<void(int)> epollDel,
+                      std::function<void(Client&)> registerCgiPipes,
+                      std::function<void(Client&)> cleanupCgi);
 
     void readClient(Client &client, std::size_t readBufSize);
     void writeClient(Client &client);
@@ -30,4 +32,6 @@ private:
     /* the second arg uint32_t: (EPOLLOUT | EPOLLRDHUP) is an integer value (specifically, a bitmask of event flags) */
     std::function<void(int, uint32_t)>  _epollMod;
     std::function<void(int)>            _epollDel;
+    std::function<void(Client&)>        _registerCgiPipes;
+    std::function<void(Client&)>        _cleanupCgi;
 };
