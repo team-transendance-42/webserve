@@ -355,15 +355,20 @@ void EventLoop::_finalizeCgi(Client &client) {
     /* Reap the child process and capture exit code */
     int status = 0;
     pid_t done = waitpid(session.pid, &status, WNOHANG);
-    if (done != session.pid) {
-        /* Child hasn't exited yet; try once more with blocking (safety net) */
-        waitpid(session.pid, &status, 0);
-    }
-
-    if (WIFEXITED(status)) {
-        session.exit_code = WEXITSTATUS(status);
-    } else {
+    if (done == 0) {
+        /* Child still running — don't block. Mark unknown exit and continue. */
+        std::cerr << "[EventLoop] CGI pid=" << session.pid << " still running; proceeding without blocking\n";
         session.exit_code = 128;
+    } else if (done == -1) {
+        /* waitpid failed — log and treat as error */
+        std::cerr << "[EventLoop] waitpid failed for pid=" << session.pid << " (" << strerror(errno) << ")\n";
+        session.exit_code = 128;
+    } else {
+        if ((WIFEXITED(status))) {
+            session.exit_code = WEXITSTATUS(status);
+        } else {
+            session.exit_code = 128;
+        }
     }
 
     /* Build HTTP response from CGI output */
