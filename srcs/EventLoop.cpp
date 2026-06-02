@@ -37,6 +37,10 @@ EventLoop::EventLoop()
 
 EventLoop::~EventLoop() {
     for (std::map<int, Client *>::iterator it = _clients.begin(); it != _clients.end(); ++it) {
+        if (it->second->cgi && it->second->cgi->pid > 0) {
+            kill(it->second->cgi->pid, SIGKILL);
+            waitpid(it->second->cgi->pid, nullptr, 0);
+        }
         close(it->first);
         delete it->second;
     }

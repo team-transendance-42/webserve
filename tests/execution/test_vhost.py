@@ -98,6 +98,20 @@ def test_unknown_host_fallback(proc):
     _check("fallback vhost Content-Type: text/html", ct.startswith("text/html"), True)
 
 
+def test_host_with_port(proc):
+    """Host: alpha:18080 (explicit port) must route to the alpha vhost."""
+    status, ct, body = _req("alpha:18080", "/")
+    _check("Host: alpha:18080 → 200", status, 200)
+    _check("Host: alpha:18080 Content-Type: text/html", ct.startswith("text/html"), True)
+
+
+def test_host_case_insensitive(proc):
+    """HTTP header names and server_name matching must be case-insensitive (RFC 9110 §7.2)."""
+    status, ct, _ = _req("ALPHA", "/")
+    _check("Host: ALPHA (uppercase) → 200", status, 200)
+    _check("Host: ALPHA Content-Type: text/html", ct.startswith("text/html"), True)
+
+
 if __name__ == "__main__":
     print(f"Starting webserv ({CONFIG}) on {HOST}:{PORT} …")
     server = _start_server()
@@ -107,6 +121,8 @@ if __name__ == "__main__":
         test_alpha_vhost(server)
         test_beta_vhost(server)
         test_unknown_host_fallback(server)
+        test_host_with_port(server)
+        test_host_case_insensitive(server)
     finally:
         _stop_server(server)
 

@@ -10,6 +10,7 @@ Run from repo root:
 
 import http.client
 import sys
+from email.utils import parsedate
 from helpers import _check, require_server, finish
 
 HOST = "127.0.0.1"
@@ -59,11 +60,32 @@ def test_content_length_header():
         _check("GET /api/data_json Content-Length matches body", int(cl), len(body))
 
 
+def test_date_header_format():
+    """Every response must include a Date header in RFC 1123 format (RFC 9110 §6.6.1)."""
+    r, _ = _req("GET", "/")
+    date_val = r.getheader("Date") or ""
+    _check("GET / has Date header", bool(date_val), True)
+    parsed = parsedate(date_val)
+    _check("Date header is valid RFC 1123 format", parsed is not None, True)
+
+
+def test_content_length_accuracy_large_file():
+    """Content-Length must exactly match the body for a 2 MB binary file."""
+    r, body = _req("GET", "/uploads/large.bin")
+    _check("GET /uploads/large.bin → 200", r.status, 200)
+    cl = r.getheader("Content-Length")
+    _check("large file has Content-Length", cl is not None, True)
+    if cl is not None:
+        _check("large file Content-Length matches body", int(cl), len(body))
+
+
 TESTS = [
     test_html_content_type,
     test_json_content_type,
     test_css_content_type,
     test_content_length_header,
+    test_date_header_format,
+    test_content_length_accuracy_large_file,
 ]
 
 

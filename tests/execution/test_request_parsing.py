@@ -86,15 +86,6 @@ def _request_body(method, path, headers=None, body=None):
     return r.status, r.reason, body
 
 
-def _request_body(method, path, headers=None, body=None):
-    """Like _request but returns the response body instead of the response object."""
-    c = http.client.HTTPConnection(HOST, PORT, timeout=5)
-    c.request(method, path, body=body, headers=headers or {})
-    r = c.getresponse()
-    body = r.read().decode(errors="replace")
-    return r.status, r.reason, body
-
-
 # ── parser robustness ─────────────────────────────────────────────────────────
 
 def test_double_host():
@@ -206,6 +197,27 @@ def test_absolute_form_uri_with_query():
     _check("absolute-form URI: query string preserved", "Proxy" in body,  True)
 
 
+# ── additional edge-case tests ────────────────────────────────────────────────
+
+def test_null_byte_in_uri():
+    # Null byte is never valid in a URI — must be rejected before filesystem access
+    code, _ = _raw(b"GET /\x00evil HTTP/1.1\r\nHost: localhost\r\n\r\n")
+    _check("null byte in URI → 400", code, 400)
+
+
+def test_oversized_header():
+    # A single header value > 8 KB — must not crash or consume unbounded memory
+    big_value = b"X-Custom: " + b"a" * 8200 + b"\r\n"
+    code, _ = _raw(b"GET / HTTP/1.1\r\nHost: localhost\r\n" + big_value + b"\r\n")
+    _check("8 KB header value → 400 or 431", code in (400, 431), True)
+
+
+def test_http_version_unsupported():
+    # HTTP/9.9 is not a real version — server must reject with 400 or 505
+    code, _ = _raw(b"GET / HTTP/9.9\r\nHost: localhost\r\n\r\n")
+    _check("HTTP/9.9 → 400 or 505", code in (400, 505), True)
+
+
 TESTS = [
     test_double_host,
     test_negative_content_length,
@@ -219,6 +231,9 @@ TESTS = [
     test_absolute_form_uri,
     test_get_with_body_ignored,
     test_content_length_zero_body_ignored,
+    test_null_byte_in_uri,
+    test_oversized_header,
+    test_http_version_unsupported,
     test_query_string_cgi_params,
     test_query_string_missing_params,
     test_query_string_empty_value,

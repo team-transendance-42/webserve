@@ -474,6 +474,14 @@ void ProcessRequest::handle(Client &client) const {
     std::string urlPath  = req.path;
     std::string filepath = _resolveFilePath(*loc, urlPath);
 
+	if (filepath.empty()) {
+		int code = (errno == EACCES) ? 403 : 404;
+		client.writeBuf = ErrorResponseBuilder::buildErrorResponse(code, cfg).serialize();
+		client.keep_alive = false;
+		HttpResponse::injectConnectionHeader(client.writeBuf, false);
+		return;
+	}
+
     struct stat st;
     if (!_resolvePathStatOrError(filepath, client, st, cfg)) {
         client.keep_alive = false;

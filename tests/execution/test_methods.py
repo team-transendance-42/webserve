@@ -24,6 +24,15 @@ def _req(method, path, body=None, headers=None):
     return r.status
 
 
+def _req_r(method, path, body=None, headers=None):
+    """Like _req but returns the full response object."""
+    c = http.client.HTTPConnection(HOST, PORT, timeout=10)
+    c.request(method, path, body=body, headers=headers or {})
+    r = c.getresponse()
+    r.read()
+    return r
+
+
 # ── tests ─────────────────────────────────────────────────────────────────────
 
 def test_delete_on_get_only():
@@ -47,7 +56,26 @@ def test_allowed_methods():
     _check("GET /zk_apply_form → 200", _req("GET", "/zk_apply_form"), 200)
 
 
-TESTS = [test_delete_on_get_only, test_post_on_get_only, test_allowed_methods]
+def test_405_allow_header():
+    """RFC 9110 §15.5.6: every 405 response MUST include an Allow header listing
+    the methods that are permitted for the request target."""
+    paths_expect_405 = [
+        ("DELETE", "/"),
+        ("DELETE", "/zombie_kittens"),
+        ("POST",   "/zombie_kittens"),
+        ("POST",   "/api/data_json"),
+        ("DELETE", "/api/data_json"),
+    ]
+    for method, path in paths_expect_405:
+        r = _req_r(method, path)
+        if r.status == 405:
+            allow = r.getheader("Allow") or ""
+            _check(f"{method} {path} → Allow header present", len(allow) > 0, True)
+        else:
+            _check(f"{method} {path} → 405 (got {r.status})", False, True)
+
+
+TESTS = [test_delete_on_get_only, test_post_on_get_only, test_allowed_methods, test_405_allow_header]
 
 
 if __name__ == "__main__":

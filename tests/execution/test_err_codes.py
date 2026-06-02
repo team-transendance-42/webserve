@@ -239,6 +239,35 @@ def test_500():
         os.chmod(upload_dir, 0o755)
 
 
+def test_403_index_no_read():
+    """Strip all permissions from index.html — server finds it via stat but
+    access(R_OK) fails with EACCES → 403 Forbidden (not 500)."""
+    index = "./www/one/index.html"
+    orig_mode = stat.S_IMODE(os.stat(index).st_mode)
+    try:
+        os.chmod(index, 0o000)
+        code, reason, _ = _request("GET", "/")
+        _check("403 Forbidden — index.html mode 000 (no read)", code, 403, reason, "Forbidden")
+    finally:
+        os.chmod(index, orig_mode)
+
+
+def test_403_webroot_no_execute():
+    """Strip the execute (search) bit from the webroot directory — the kernel
+    refuses stat/open of any entry inside → 403 Forbidden.
+    Runs after the index.html test to confirm both failure modes are caught
+    independently."""
+    webroot = "./www/one"
+    orig_mode = stat.S_IMODE(os.stat(webroot).st_mode)
+    try:
+        # 0o444 = r--r--r-- : readable but not searchable; stat on children → EACCES
+        os.chmod(webroot, 0o444)
+        code, reason, _ = _request("GET", "/")
+        _check("403 Forbidden — webroot mode 444 (no execute/search)", code, 403, reason, "Forbidden")
+    finally:
+        os.chmod(webroot, orig_mode)
+
+
 def test_408():
     # Connect and send nothing — server closes idle connection after 60 s → 408
     print("  NOTE  test_408 waits ~61 s for the idle timeout to fire …", flush=True)
@@ -280,6 +309,8 @@ TESTS = [
     test_400_garbage_method,
     test_409,
     test_500,
+    test_403_index_no_read,
+    test_403_webroot_no_execute,
     test_504,
     test_408,   # slow — 61 s, always last
 ]

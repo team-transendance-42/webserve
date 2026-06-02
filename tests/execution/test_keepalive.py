@@ -8,6 +8,7 @@ Run from repo root:
     python3 tests/execution/test_keepalive.py
 """
 
+import concurrent.futures
 import http.client
 import shutil
 import socket
@@ -429,6 +430,46 @@ def test_pipeline_post_interleaved():
             _check(f"pipeline-post-interleaved: GET resp {i+1:02d} → 200", codes[i], 200)
 
 
+def test_http10_closes_connection():
+    """HTTP/1.0 is not persistent by default — the server must close after the response."""
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.settimeout(5)
+    s.connect((HOST, PORT))
+    s.sendall(b"GET / HTTP/1.0\r\nHost: 127.0.0.1\r\n\r\n")
+    data = b""
+    try:
+        while True:
+            chunk = s.recv(4096)
+            if not chunk:
+                break
+            data += chunk
+    except socket.timeout:
+        pass
+    finally:
+        s.close()
+    _check("HTTP/1.0: response received",              data.startswith(b"HTTP/"),                         True)
+    _check("HTTP/1.0: no Connection: keep-alive sent", b"connection: keep-alive" not in data.lower(),     True)
+
+
+def test_concurrent_connections():
+    """20 simultaneous HTTP/1.1 connections must all complete with 200."""
+    def _fetch(_):
+        c = http.client.HTTPConnection(HOST, PORT, timeout=10)
+        c.request("GET", "/")
+        r = c.getresponse()
+        r.read()
+        return r.status
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=20) as ex:
+        results = list(ex.map(_fetch, range(20)))
+
+    all_ok = all(s == 200 for s in results)
+    _check("20 concurrent connections: all 200", all_ok, True)
+    if not all_ok:
+        bad = [(i, results[i]) for i in range(len(results)) if results[i] != 200]
+        print(f"        bad responses: {bad}")
+
+
 TESTS = [
     test_keepalive_reuse,
     test_pipelining,
@@ -441,6 +482,8 @@ TESTS = [
     test_pipeline_50_one_shot,
     test_pipeline_burst_send,
     test_pipeline_post_interleaved,
+    test_http10_closes_connection,
+    test_concurrent_connections,
 ]
 
 

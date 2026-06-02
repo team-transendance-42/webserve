@@ -35,6 +35,7 @@ struct Client {
     CgiSession  *cgi; /* nullptr if no CGI is running, ptr to heap-owned CgiSession if one is active */
 
     explicit Client(int fd) : fd(fd), keep_alive(false), lastTimestamp(std::time(0)), cgi(nullptr) {}
+	~Client() { delete cgi; } // cgi is set only when cgi req is active, but deleting nullptr is safe
 
     Client(const Client &) = delete;
     Client &operator=(const Client &) = delete;

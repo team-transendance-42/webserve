@@ -164,6 +164,10 @@ bool HttpRequest::_parse_method(const std::string &tok) {
  * setting up the path field
  */
 bool HttpRequest::_parsePath(const std::string &raw) {
+    // Null bytes are invalid in URIs and truncate C-string calls (realpath, stat),
+    // turning "/\x00evil" into "/" and causing wrong filesystem lookups.
+    if (raw.find('\0') != std::string::npos)
+        return false;
     std::string target = raw;
     // RFC 9112 §3.2.2: servers MUST accept absolute-form URIs (e.g. from proxies).
     // Strip scheme + authority so the rest of the code sees a normal origin-form path.

@@ -21,15 +21,15 @@ int main(int argc, char *argv[])
         return (1);
     }
 
-    /* SIGPIPE → SIG_IGN: send() to a closed peer returns -1/EPIPE instead of
-     * killing the process. ConnectionManager::writeClient closes on sent <= 0. */
+    /* When a client disconnects mid-response, the server's next write() to that socket receives EPIPE. The kernel delivers SIGPIPE to
+  the process. The default handler for SIGPIPE is terminate — so an unprotected server crashes silently. SIGPIPE */
     struct sigaction sa{};
     sa.sa_handler = onSignal;
     sigemptyset(&sa.sa_mask);
     sigaction(SIGINT,  &sa, nullptr);
     sigaction(SIGTERM, &sa, nullptr);
     sa.sa_handler = SIG_IGN;
-    sigaction(SIGPIPE, &sa, nullptr);
+    sigaction(SIGPIPE, &sa, nullptr); // kernel signal when write on fd with no reader
 
     std::string configFile = (argc == 2) ? argv[1] : "tests/conf/default.conf";
     std::cout << "--- webserv — loading " << configFile << " ---\n";

@@ -91,6 +91,12 @@ def test_cgi_content_length_env():
            f"CONTENT_LENGTH={len(payload)}" in body, True)
 
 
+def test_cgi_nonexistent_script():
+    """Requesting a CGI path that maps to no file on disk must return 404."""
+    r, _ = _req("GET", "/cgi-bin/does_not_exist.py")
+    _check("GET /cgi-bin/does_not_exist.py → 404", r.status, 404)
+
+
 TESTS = [
     test_cgi_get_success,
     test_cgi_request_method_get,
@@ -100,6 +106,7 @@ TESTS = [
     test_cgi_post_body,
     test_cgi_content_type_env,
     test_cgi_content_length_env,
+    test_cgi_nonexistent_script,
 ]
 
 
