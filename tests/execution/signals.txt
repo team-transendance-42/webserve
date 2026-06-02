@@ -1,9 +1,0 @@
-manual tests for SIGPIPE(if client closes before server writes)
------------
-Test 1 — normal request (baseline, should return 200)
-curl -v http://localhost:8080/
-Expected: server responds with HTML, stays alive.
--------------
-todo: more tests for 
-
-================

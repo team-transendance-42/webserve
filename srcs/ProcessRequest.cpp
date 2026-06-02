@@ -81,6 +81,7 @@ bool ProcessRequest::_validateLocationRulesOrError(const HttpRequest &req, const
     }
 
     std::string reqMethod = ProcessRequest::methodToString(req.method);
+    if (req.method == HEAD) reqMethod = "GET"; // HEAD is allowed wherever GET is (RFC 9110 §9.3.2)
     bool allowed = false;
     for (size_t i = 0; i < loc.allowedMethod.size(); i++) {
         if (loc.allowedMethod[i] == reqMethod) {
@@ -91,10 +92,13 @@ bool ProcessRequest::_validateLocationRulesOrError(const HttpRequest &req, const
     if (!allowed) {
         // RFC 9110 §15.5.6: 405 MUST include an Allow header listing permitted methods.
         std::string allow;
+        bool hasGet = false;
         for (size_t i = 0; i < loc.allowedMethod.size(); i++) {
             if (i > 0) allow += ", ";
             allow += loc.allowedMethod[i];
+            if (loc.allowedMethod[i] == "GET") hasGet = true;
         }
+        if (hasGet) allow += ", HEAD";
         HttpResponse r = ErrorResponseBuilder::buildErrorResponse(405, cfg);
         r.setHeader("Allow", allow);
         client.writeBuf = r.serialize();
@@ -510,6 +514,7 @@ std::string ProcessRequest::methodToString(Method method) {
         case GET: return "GET";
         case POST: return "POST";
         case DELETE: return "DELETE";
+        case HEAD: return "HEAD";
         default: return "";
     }
 }
@@ -577,7 +582,7 @@ bool ProcessRequest::_executeCgiOrError(const HttpRequest &req,
 CgiRequest ProcessRequest::_buildCgiRequest(const HttpRequest &req,
                                             const std::string &filepath) const {
     CgiRequest cgiReq;
-    cgiReq.method = methodToString(req.method);
+    cgiReq.method = (req.method == HEAD) ? "GET" : methodToString(req.method);
     cgiReq.script_path = filepath;
     cgiReq.script_name = req.path;
     cgiReq.query_string = req.query_string;

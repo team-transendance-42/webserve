@@ -16,7 +16,7 @@ https://www.rfc-editor.org/rfc/rfc9110
 for servers like nginx, a .conf file is used to define server settings—such as which ports to listen on, server names, root directories, and location rules.
 
 Who uses it? The web server software (like nginx, Apache, or your own server) reads and parses the .conf file when it starts or reloads.
-How? The server’s code includes a configuration parser that loads the .conf file, interprets its directives, and sets up the server accordingly (sockets, virtual hosts, etc.).
+How? The server's code includes a configuration parser that loads the .conf file, interprets its directives, and sets up the server accordingly (sockets, virtual hosts, etc.).
 For nginx, the .conf file is required (usually at /etc/nginx/nginx.conf or /etc/nginx/sites-enabled/).
 ------------------------------------------------
 

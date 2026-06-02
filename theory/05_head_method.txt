@@ -1,0 +1,7 @@
+HEAD is like GET, but the server must return only the response headers and no response body. It is used to check things like:
+
+whether a resource exists
+its Content-Type
+its Content-Length
+last-modified or cache headers
+A client might use HEAD to test a URL before downloading it with GET.

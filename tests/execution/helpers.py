@@ -10,6 +10,7 @@ _failed = 0
 
 
 def _check(label, got, want):
+    """ counts failed and passed tests, prints logs """
     global _passed, _failed
     if got == want:
         _passed += 1
@@ -20,6 +21,7 @@ def _check(label, got, want):
 
 
 def require_server(host, port, config="tests/conf/default.conf"):
+    """ asserts the server is already running, tried to connect and closes the connection """
     try:
         socket.create_connection((host, port), timeout=1).close()
     except OSError:
@@ -28,6 +30,7 @@ def require_server(host, port, config="tests/conf/default.conf"):
 
 
 def finish():
+    """ final results print """
     total = _passed + _failed
     print(f"\n{'=' * 42}")
     print(f"  {total} tests: {_passed} passed, {_failed} failed")

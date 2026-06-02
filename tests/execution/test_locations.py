@@ -41,7 +41,7 @@ LOCATION_CASES = [
     ("GET",    "/play",           301, "redirect"),
     ("GET",    "/secret",         403, "denyAll"),
     ("GET",    "/not_allowed",    200, "page served"),
-    ("GET",    "/files",          403, "autoindex off, no index"),
+    ("GET",    "/files",          301, "autoindex off, bare path → trailing slash"),
     ("GET",    "/files-auto",     301, "autoindex on, bare path → trailing slash"),
     ("GET",    "/api/data_json",  200, "json endpoint"),
     ("GET",    "/does_not_exist", 404, "missing resource"),
@@ -79,6 +79,15 @@ def test_autoindex_redirect_location():
     _check("GET /files-auto Location: /files-auto/", location, "/files-auto/")
 
 
+def test_files_no_autoindex_redirect_then_403():
+    r, _ = _req_full("GET", "/files")
+    location = r.getheader("Location") or ""
+    _check("GET /files → 301", r.status, 301)
+    _check("GET /files Location: /files/", location, "/files/")
+    r2, _ = _req_full("GET", "/files/")
+    _check("GET /files/ → 403 (autoindex off)", r2.status, 403)
+
+
 def test_autoindex_content():
     r, body = _req_full("GET", "/files-auto/")
     text = body.decode(errors="replace")
@@ -91,6 +100,7 @@ TESTS = [
     test_locations,
     test_413_oversized_body,
     test_redirect_location_header,
+    test_files_no_autoindex_redirect_then_403,
     test_autoindex_redirect_location,
     test_autoindex_content,
 ]

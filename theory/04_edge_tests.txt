@@ -1,0 +1,130 @@
+ Edge cases that break servers, and how nginx handles them
+
+  1. Head-of-line blocking behind a slow response
+
+  req1 is a CGI script that takes 2 seconds. req2, req3, req4 are
+  instant static files. They all sit blocked because responses must go
+  out in order. nginx accepts this tradeoff on HTTP/1.1 — it's
+  spec-correct. The fix is HTTP/2 (streams), which nginx supports on the
+   frontend and then muxes back to separate upstream keep-alive
+  connections.
+
+  2. Request body bleeds into the next request
+
+  A client sends Content-Length: 10 but then sends 14 bytes. A naive
+  server reads all 14, consuming the first 4 bytes of req2's headers.
+  nginx enforces Content-Length strictly — it passes exactly that many
+  bytes to the upstream, discards or errors on the rest. Without this,
+  req2 gets a garbled start and the whole pipeline is corrupt.
+
+  3. Chunked request body mid-pipeline
+
+  A client sends a Transfer-Encoding: chunked POST as req1, then
+  pipelines req2 behind it. The server can't know where req1 ends until
+  it sees the terminal chunk (0\r\n\r\n). If the client sends the
+  terminal chunk late (slow network), req2 sits waiting. nginx handles
+  this transparently with its chunked decoder — it reads chunks,
+  forwards them to upstream, and only starts parsing req2 after the
+  0\r\n\r\n.
+
+  4. Expect: 100-continue inside a pipeline
+
+  req1 is POST with Expect: 100-continue. The server must send 100
+  Continue before reading the body. But req2 is already sitting in the
+  read buffer. A broken server might try to send resp2 before finishing
+  req1, which corrupts stream order. nginx queues the 100 response
+  correctly and will not start req2 until req1's body is fully consumed.
+
+  5. Slow reader on the downstream (client)
+
+  The server finishes resp1, writes it to the socket — but the client's
+  receive buffer is full (it's not reading). The write blocks. Now
+  req2's response also sits in memory, and all later requests stall
+  behind a frozen connection. nginx has send_timeout (default 60s) and
+  internal write-event buffering. If the client doesn't drain for that
+  long, nginx kills the connection and frees the queue.
+
+  6. Partial write on the response side
+
+  nginx calls write() on the socket and the kernel only accepts 1200 of
+  4000 bytes (send buffer was almost full). A naive server might mark
+  the write done and move to the next response, causing truncation.
+  nginx re-registers the file descriptor for a writable event and
+  retries the remaining bytes before ever touching the next response in
+  the queue.
+
+  7. Connection: upgrade mid-pipeline
+
+  req1 is a WebSocket upgrade. req2, req3 are regular HTTP requests.
+  After the server sends 101 Switching Protocols, the connection is no
+  longer HTTP — the framing changes to WebSocket frames. req2 and req3
+  in the buffer are now meaningless bytes arriving on a WebSocket
+  connection. nginx closes the HTTP pipeline at the upgrade point and
+  does not attempt to parse anything after the 101.
+
+  8. Connection: close in the middle of a pipeline
+
+  The client sends 4 requests but marks req2 with Connection: close. The
+   server must respond to req1 and req2, then close — even if req3 and
+  req4 are already in the receive buffer. nginx reads the header on
+  req2, sets a close flag, processes req1 then req2, sends both
+  responses, then closes. req3 and req4 are discarded. The client is
+  expected to retry them on a new connection (most clients do).
+
+  9. Two workers racing on the same connection (thundering herd)
+
+  With accept_mutex off, multiple nginx workers can wake up for the same
+   incoming connection event. The first one to accept() wins; the others
+   get EAGAIN and go back to sleep. Without this the same connection
+  could be partially read by two workers, splitting a pipelined request
+  across processes — fatal corruption. nginx uses either accept_mutex or
+   EPOLLEXCLUSIVE (Linux 4.5+) to prevent this.
+
+  10. Very large number of pipelined requests filling the kernel buffer
+
+  A client sends 200 pipelined requests in one burst (~20 KB of
+  headers). The kernel's receive buffer fills. The client's TCP stack
+  backs off (receive window → 0). Now the server is mid-parse on request
+   47 and the rest can't arrive. nginx handles this fine — it processes
+  whatever it has, sends responses, which cause the client to read them,
+   which frees space in the client's receive buffer, which opens the
+  window again, which lets the rest of the requests flow in. The danger
+  is a server that holds the parsed-but-not-yet-responded requests in
+  unbounded memory — nginx's large_client_header_buffers caps this.
+
+
+
+
+   No Expect: 100-continue handling at all in the codebase.
+
+  Here's what that means practically:
+
+  The flow that breaks:
+  client sends:  POST headers + "Expect: 100-continue"  (body held back)
+  server does:   nothing — waits in BODY state for bytes that never
+  arrive
+  client does:   waits for "HTTP/1.1 100 Continue"      (body still held
+   back)
+  result:        deadlock — both sides are waiting for the other
+
+  How it resolves in practice: Every HTTP client (curl, browsers, Python
+   requests) has a fallback timeout (curl uses 1 second). After that
+  timeout with no 100, they say "fine" and send the body anyway. So your
+   server eventually gets the body and responds correctly — just with a
+  1-second penalty on every such request.
+
+  The pipelining interaction you asked about earlier: If a
+  strictly-spec-following client sends Expect: 100-continue on req1, it
+  won't pipeline req2 until req1's body is sent and acknowledged. So
+  that specific deadlock scenario is rare. But a looser client that
+  pipelines req2 anyway while waiting for 100 would find your server
+  stuck in BODY state — it won't touch req2 until req1's body bytes
+  arrive, which is at least ordering-safe, but will stall req2
+  indefinitely.
+
+  Is it a problem for your project? Almost certainly not — this is a 42
+  webserver. Expect: 100-continue is mainly used by clients before
+  uploading large bodies to avoid wasting bandwidth if the server will
+  reject the request (wrong auth, too large, etc.). If it's not in the
+  subject requirements, ignore it. Just be aware: curl -T largefile will
+   have that 1-second pause on every upload.
