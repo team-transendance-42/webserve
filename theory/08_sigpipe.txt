@@ -1,0 +1,24 @@
+SIGPIPE is a Unix signal (signal number 13) the kernel sends to a process when it tries to write to a broken pipe — a file descriptor whose read end no longer exists.
+
+The name comes from unnamed pipes (| in shell), but the same mechanism applies to:
+
+Named pipes (FIFOs)
+Unix domain sockets
+TCP sockets whose peer has closed
+Default behavior: terminate the process. Most programs never handle it, so a simple cat big_file | head -1 causes SIGPIPE to kill cat the moment head exits and the pipe breaks.
+-----------------
+When a TCP client closes its connection, the kernel sends a FIN packet. The server gets it — epoll fires EPOLLRDHUP. But there's a window:
+Time ─────────────────────────────────────────────────►
+
+  client:  FIN sent ──────────────────────────────►
+  server:  FIN arrives ──────► your process hasn't called recv yet
+           epoll hasn't fired  server calls send() ───────────────►
+                                         kernel: "no reader" → SIGPIPE
+--------------
+
+What it is	             Kernel signal when writing to a fd with no reader
+Default effect	         Process termination
+curr fix	             SIG_IGN at startup → send()/write() return -1/EPIPE instead
+Where it fires      	Client drops TCP mid-response; CGI exits before reading all its stdin
+What handles it     	closeClient() on sent < 0; kill+finalizeCgi() on n < 0
+

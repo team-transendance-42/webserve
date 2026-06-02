@@ -14,6 +14,7 @@
 #include <sstream>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <algorithm>
 
 #include "../includes/CgiExecutor.hpp"
 #include "../includes/ErrorResponseBuilder.hpp"
@@ -244,7 +245,7 @@ bool ProcessRequest::_handleUploadIfNeeded(const HttpRequest &req,
         return true;
     }
 
-    std::string body = "<html><body><h1>201 Created</h1><p>Saved: " + savedPath + "</p></body></html>";
+    std::string body = "<html><body><h1>201 Created</h1><p>Saved: " + StaticFileHandler::htmlEscape(savedPath) + "</p></body></html>"; // reflected xss(cross scripting attack)
     HttpResponse response;
     response.setStatus(201).setBody(body, "text/html");
     client.writeBuf = response.serialize();
@@ -382,7 +383,7 @@ void ProcessRequest::_serveFromStat(const Location &loc,
                                     const struct stat &st,
                                     Client &client,
                                     const ServerConfig &cfg) const {
-    if (S_ISDIR(st.st_mode) && loc.autoindex && !urlPath.empty() && urlPath[urlPath.size() - 1] != '/') {
+    if (S_ISDIR(st.st_mode) && !urlPath.empty() && urlPath[urlPath.size() - 1] != '/') {
         client.writeBuf = HttpResponse::make_redirect(301, urlPath + "/").serialize();
         return;
     }
@@ -484,7 +485,7 @@ void ProcessRequest::handle(Client &client) const {
     // directories. Without the trailing slash the generated hrefs would be
     // relative to the parent, causing broken links. Index-file directories
     // are handled directly by _serveFromStat without needing a redirect.
-    if (S_ISDIR(st.st_mode) && loc->autoindex &&
+    if (S_ISDIR(st.st_mode) &&
             !urlPath.empty() && urlPath[urlPath.size() - 1] != '/') {
         client.writeBuf = HttpResponse::make_redirect(301, urlPath + "/").serialize();
         HttpResponse::injectConnectionHeader(client.writeBuf, client.keep_alive);
@@ -638,6 +639,7 @@ namespace {
 		std::string val = (colonPos + 1 < line.size()) ? line.substr(colonPos + 1) : "";
 		if (!val.empty() && val[0] == ' ') val.erase(0, 1);
 		if (key == "Status") {
+			val.erase(std::remove_if(val.begin(), val.end(), [](char c) { return c == '\r' || c == '\n'; }), val.end());
 			response.setStatus(atoi(val.c_str()));
 			statusSet = true;
 		} else if (key != "Content-Length")
