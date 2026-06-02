@@ -1,3 +1,13 @@
+git fetch origin
+git checkout 36-final-cleanup 
+============================
+ss -tlnp 'sport = :8080'
+ss lists sockets. -t TCP, -l listening only, -n numeric ports, -p show the owning process. The 'sport = :8080' filter narrows it to just that port. The output includes pid=XXXX in the Process column.
+=======================================
+  To see all your processes use ps aux | grep webserv — the a shows all users' processes, u adds detail, x includes processes with no controlling terminal (detached/background ones).
+=======================================
+  
+  
   # -i = show headers + body
   curl -i http://localhost:8080/
   ----------

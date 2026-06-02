@@ -72,7 +72,7 @@ std::string StaticFileHandler::mimeType(const std::string &path) {
  prevents HTML injection and broken markup by converting special characters (like <, >, &, ") into safe HTML entities.
  Example: "<script>" becomes "&lt;script&gt;"
  */
-static std::string htmlEscape(const std::string &s) {
+std::string StaticFileHandler::htmlEscape(const std::string &s) {
     std::string out;
     for (size_t i = 0; i < s.size(); ++i) {
         switch (s[i]) {

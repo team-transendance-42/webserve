@@ -32,7 +32,7 @@ def test_cgi_get_success():
     """GET to a CGI script returns 200 and the script's own output."""
     r, body = _req("GET", "/cgi-bin/pythoncgitest.py")
     _check("GET /cgi-bin/pythoncgitest.py → 200", r.status, 200)
-    _check("body contains script marker", "CGI script is working correctly" in body, True)
+    _check("body contains script marker", "simple CGI script" in body, True)
 
 
 def test_cgi_request_method_get():

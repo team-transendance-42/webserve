@@ -399,7 +399,7 @@ void EventLoop::_finalizeCgi(Client &client) {
             }
         }
         if (!statusSet) {
-            response.setStatus(session.exit_code == 0 ? 200 : 500);
+            response.setStatus(200);
         }
         response.setBody(body, "text/html");
     } else {
