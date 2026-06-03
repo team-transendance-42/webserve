@@ -7,6 +7,11 @@ ss lists sockets. -t TCP, -l listening only, -n numeric ports, -p show the ownin
   To see all your processes use ps aux | grep webserv — the a shows all users' processes, u adds detail, x includes processes with no controlling terminal (detached/background ones).
 =======================================
   
+--leak-check=full / --show-leak-kinds=all : detailed leak report.
+--track-origins=yes : helps find where uninitialized values came from.
+--trace-children=yes : also run Valgrind on forked/executed child processes.
+--track-fds=yes : report file descriptors left open at exit.
+========================================
   
   # -i = show headers + body
   curl -i http://localhost:8080/
