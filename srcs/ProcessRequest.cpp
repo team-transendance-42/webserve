@@ -536,8 +536,8 @@ bool ProcessRequest::_shouldExecuteCgi(const Location &loc, const std::string &f
 
     // Check if filepath ends with cgi_extension (e.g., ".py")
     if (filepath.size() >= loc.cgi_extension.size()) {
-        std::string ext = filepath.substr(filepath.size() - loc.cgi_extension.size());
-        return ext == loc.cgi_extension;
+        std::string extension = filepath.substr(filepath.size() - loc.cgi_extension.size());
+        return extension == loc.cgi_extension;
     }
 
     return false;

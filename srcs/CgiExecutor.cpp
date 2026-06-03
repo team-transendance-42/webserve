@@ -82,6 +82,15 @@ CgiSession *CgiExecutor::start(const CgiRequest &request, const Location &locati
         close(stdoutPipe[0]);
         close(stdoutPipe[1]);
 
+        /* Change to script's directory so CGI can access relative paths */
+        size_t lastSlash = request.script_path.rfind('/');
+        if (lastSlash != std::string::npos) {
+            std::string scriptDir = request.script_path.substr(0, lastSlash);
+            if (chdir(scriptDir.c_str()) != 0) {
+                _exit(127);
+            }
+        }
+
         std::vector<std::string> envStorage;
         envStorage.reserve(16 + request.headers.size());
 

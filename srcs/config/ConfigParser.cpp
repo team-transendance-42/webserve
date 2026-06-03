@@ -11,19 +11,19 @@
 #include <sstream>
 #include <stdexcept>
 
+/*
+ * Tokenize config file into Tokens.
+ * Loops through the input character by character, while pushing tokens into a vector.
+ */
 std::vector<Token> Tokenizer::tokenize() {
 	std::vector<Token> tokens;
 
-	// Loop through the input character by character
 	while (_index < _input.size()) {
 		skipWhitespaceAndComments();
-
-		// Check if we've reached the end of the input after skipping whitespace/comments
 		if (_index >= _input.size()) {
 			break;
 		}
 
-		// Handle single-character tokens, or read a word
 		char current = _input[_index];
 		if (current == '{') {
 			tokens.push_back(makeSingle(TOKEN_LBRACE));
@@ -39,11 +39,11 @@ std::vector<Token> Tokenizer::tokenize() {
 		}
 	}
 
-	// Add an EOF token at the end of the token stream
 	tokens.push_back(Token{TOKEN_EOF, "", _line, _column});
 	return (tokens);
 }
 
+// Create a token out of single-characters
 Token Tokenizer::makeSingle(TokenType type) const {
 	return (Token{type, "", _line, _column});
 }
@@ -61,16 +61,16 @@ void Tokenizer::advance() {
 void Tokenizer::skipWhitespaceAndComments() {
 	while (_index < _input.size()) {
 		char current = _input[_index];
-		// Skip whitespace characters
+		// Skip whitespaces
 		if (std::isspace(static_cast<unsigned char>(current))) {
 			advance();
 			continue;
 		}
-		// Skip comments (starting with '#')
+
+		// Skip comments (#)
 		if (current == '#') {
-			while (_index < _input.size() && _input[_index] != '\n') {
+			while (_index < _input.size() && _input[_index] != '\n')
 				advance();
-			}
 			continue;
 		}
 		break;
@@ -84,7 +84,7 @@ Token Tokenizer::readWord() {
 
 	while (_index < _input.size()) {
 		char current = _input[_index];
-		// Words are terminated by a whitespace or special characters
+		// Close word
 		if (std::isspace(static_cast<unsigned char>(current))
 			|| current == '{'
 			|| current == '}'
@@ -92,6 +92,7 @@ Token Tokenizer::readWord() {
 			|| current == '#') {
 			break;
 		}
+
 		value.push_back(current);
 		advance();
 	}
@@ -103,7 +104,11 @@ Token Tokenizer::readWord() {
 	return (Token{TOKEN_WORD, value, startLine, startCol});
 }
 
-// Main parsing function, returns the fully parsed ConfigFile
+/*
+ * Main parse function.
+ * Returns the config as a ConfigFile structure.
+ * On error throws ParseError (with a message and line/column info).
+ */
 ConfigFile Parser::parseConfig() {
 	ConfigFile result;
 
@@ -133,7 +138,7 @@ bool Parser::check(TokenType type) const {
 	return (peek().type == type);
 }
 
-// Move to the next token and return the one before it
+// Return the current token, and move to the next one
 const Token& Parser::advance() {
 	if (!check(TOKEN_EOF)) {
 		++_index;
@@ -142,7 +147,7 @@ const Token& Parser::advance() {
 	return (previous());
 }
 
-// Consume a token of the expected type, or throw an error if it doesn't match
+// Consume the token if it matches the given type
 const Token& Parser::consume(TokenType type, const std::string& message) {
 	if (check(type)) {
 		return advance();
@@ -151,7 +156,7 @@ const Token& Parser::consume(TokenType type, const std::string& message) {
 	throw ParseError(message, peek().line, peek().column);
 }
 
-// Consume a token that must match a specific word
+// Consume the token if it is a word AND matches the given value
 const Token& Parser::consumeWord(const std::string& expected) {
 	const Token& token = consume(TOKEN_WORD, "expected '" + expected + "'");
 	if (token.value != expected) {
@@ -161,7 +166,14 @@ const Token& Parser::consumeWord(const std::string& expected) {
 	return (token);
 }
 
-// Parse a server block, which should start with 'server' and be enclosed in braces
+/*
+ * Parse the server block.
+ * Should start with 'server' followed by '{'
+ * Then looks for directives/location blocks
+ * Closes with a '}'
+ *
+ * On error throws ParseError (with message and line/column info).
+ */
 ServerConfig Parser::parseServerBlock() {
 	consumeWord("server");
 	consume(TOKEN_LBRACE, "expected '{' after server");
@@ -185,7 +197,13 @@ ServerConfig Parser::parseServerBlock() {
 	return (server);
 }
 
-// Parse a location block, which should start with 'location' followed by a path, and enclosed in braces
+/*
+ * Parse a location block.
+ * Should start with 'location' followed by a path
+ * Must be enclosed in '{' and '}'
+ *
+ * On error throws ParseError (with message and line/column info).
+ */
 Location Parser::parseLocationBlock() {
 	consumeWord("location");
 	const Token& pathToken = consume(TOKEN_WORD, "expected path after location");
@@ -206,17 +224,17 @@ Location Parser::parseLocationBlock() {
 	return (location);
 }
 
-// Check if the current token is a word and matches the specified value
+// Check if the current token is a word and matches given value
 bool Parser::checkWord(const std::string& value) const {
 	return (check(TOKEN_WORD) && peek().value == value);
 }
 
-// Parse a server-level directive and assign known typed fields
+// Parse a server directive and assign known fields
 void Parser::parseServerDirective(ServerConfig& server) {
 	const Token& key = consume(TOKEN_WORD, "expected directive name");
 	std::vector<std::string> values;
 
-	while (!check(TOKEN_SEMICOLON)) {
+	while (!check(TOKEN_SEMICOLON)) { // Read until ';'
 		if (check(TOKEN_EOF) || check(TOKEN_LBRACE) || check(TOKEN_RBRACE)) {
 			throw ParseError("expected ';' after directive '" + key.value + "'", peek().line, peek().column);
 		}
@@ -227,12 +245,12 @@ void Parser::parseServerDirective(ServerConfig& server) {
 	assignKnownServerFields(server, key, values);
 }
 
-// Parse a location-level directive and assign known typed fields
+// Parse a location directive and assign known fields
 void Parser::parseLocationDirective(Location& location, std::set<std::string>& seenDirectives) {
 	const Token& key = consume(TOKEN_WORD, "expected directive name");
 	std::vector<std::string> values;
 
-	while (!check(TOKEN_SEMICOLON)) {
+	while (!check(TOKEN_SEMICOLON)) { // Read until ';'
 		if (check(TOKEN_EOF) || check(TOKEN_LBRACE) || check(TOKEN_RBRACE)) {
 			throw ParseError("expected ';' after directive '" + key.value + "'", peek().line, peek().column);
 		}
@@ -240,6 +258,7 @@ void Parser::parseLocationDirective(Location& location, std::set<std::string>& s
 	}
 	consume(TOKEN_SEMICOLON, "expected ';' after directive");
 
+	// Throw error if a duplicate directive is found in one location block
 	if (seenDirectives.count(key.value) > 0) {
 		throw ParseError("duplicate location directive: " + key.value, key.line, key.column);
 	}
@@ -248,7 +267,7 @@ void Parser::parseLocationDirective(Location& location, std::set<std::string>& s
 	assignKnownLocationFields(location, key, values);
 }
 
-// For known server directives, assign their values to the corresponding fields in the ServerConfig structure
+// For known server directives, assign their values to the fields in ServerConfig
 void Parser::assignKnownServerFields(ServerConfig& server, const Token& key, const std::vector<std::string>& values) {
 	if (key.value == "listen") {
 		if (values.size() != 1 || !isUnsigned(values[0])) {
@@ -288,18 +307,13 @@ void Parser::assignKnownServerFields(ServerConfig& server, const Token& key, con
 	}
 }
 
-// For known location directives, assign their values to the corresponding fields in the Location structure
+// For known location directives, assign their values to the fields in Location
 void Parser::assignKnownLocationFields(Location& location, const Token& key, const std::vector<std::string>& values) {
 	if (key.value == "root") {
 		if (values.size() != 1) {
 			throw ParseError("root expects one value", key.line, key.column);
 		}
 		location.root = values[0];
-	// } else if (key.value == "alias") { TODO
-	// 	if (values.size() != 1) {
-	// 		throw ParseError("alias expects one value", key.line, key.column);
-	// 	}
-	// 	location.alias = values[0];
 	} else if (key.value == "index") {
 		if (values.size() != 1) {
 			throw ParseError("index expects one value", key.line, key.column);
@@ -356,7 +370,10 @@ void Parser::assignKnownLocationFields(Location& location, const Token& key, con
 	}
 }
 
-// Validate that the server block has all required directives and that location blocks have valid allowedMethods
+/*
+ * Validate the server blcok for all required directives.
+ * & location blocks for valid AllowedMethods.
+ */
 void Parser::validateServer(const ServerConfig& server) {
 	if (server.port < 0) {
 		throw ParseError("missing required directive 'listen'", peek().line, peek().column);
@@ -370,7 +387,7 @@ void Parser::validateServer(const ServerConfig& server) {
 	}
 }
 
-// Validate that the allowedMethods directive in 'location' only contains valid HTTP methods
+// Validate the allowedMethods directive in 'location'
 void Parser::validateLocation(const Location& location) {
 	if (!location.cgi_extension.empty() && location.cgi_extension[0] != '.') {
 		throw ParseError("cgi_extension must start with '.'", peek().line, peek().column);
