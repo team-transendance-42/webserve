@@ -1,7 +1,0 @@
-Default file to serve when the requested resource is a directory.
-Uploading files from the clients to the server is authorized, and storage location
-is provided.
-=========
-Execution of CGI, based on file extension (for example .php)
-Just remember that, for chunked requests, your server needs to un-chunk
-them, the CGI will expect EOF as the end of the body

@@ -1,0 +1,46 @@
+Memory, SQLite, and RedisMemory, SQLite, and Redis
+are three different ways to store and access data, each with different trade-offs.
+=========================
+Memory (RAM)
+Data lives in your program's process. It's the fastest possible storage — nanosecond access — but it's volatile: everything disappears when the process exits or crashes. In C/C++ this is your heap/stack; in Java it's the JVM heap. No setup needed, but no persistence.
+---------------------------
+SQLite
+A relational database engine embedded directly into your application as a library (or a single binary). There's no separate server process — your program opens a .db file and talks to it directly via SQL.
+
+Data lives on disk → persists across restarts
+Supports full SQL: tables, queries, joins, transactions, indexes
+The entire DB is one file you can copy, backup, or delete
+Single writer at a time (fine for most use cases, limiting for high concurrency)
+Used in browsers, mobile apps, embedded systems — extremely battle-tested
+---
+// C example — just open a file
+sqlite3 *db;
+sqlite3_open("myapp.db", &db);
+sqlite3_exec(db, "CREATE TABLE IF NOT EXISTS kv (key TEXT, value TEXT)", ...);
+----------------------------
+Redis
+A separate server process that your application connects to over a network socket (usually localhost:6379). It stores data in RAM (with optional disk persistence), making it extremely fast.
+
+Key-value store with rich data types: strings, lists, hashes, sets, sorted sets
+Designed for concurrent access from multiple processes/machines
+Supports pub/sub, TTL (expiring keys), atomic operations
+Requires the Redis server to be running separately (redis-server)
+Used for caching, session storage, leaderboards, real-time queues
+---
+// Java — you talk to a remote process
+Jedis jedis = new Jedis("localhost", 6379);
+jedis.set("user:42:score", "1500");
+------------------------------
++----------------+-----------------------------+------------------------------------+----------------------------------+
+|                | Memory                      | SQLite                             | Redis                            |
++----------------+-----------------------------+------------------------------------+----------------------------------+
+| Persistence    | X                           | Yes (disk)                         | Yes (optional)                   |
+| Speed          | Fastest                     | Fast                               | Very fast                        |
+| Setup          | None                        | None (single file)                 | Server process required          |
+| Concurrency    | Single process              | Limited                            | Excellent                        |
+| Best for       | Temp data, caches in-process| Local apps, single-process persist.| Multi-process, distributed, RT   |
++----------------+-----------------------------+------------------------------------+----------------------------------+
+
+
+
+
