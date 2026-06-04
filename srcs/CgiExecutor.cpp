@@ -18,32 +18,6 @@ CgiExecutor::CgiExecutor(std::size_t max_output_bytes, int timeout_ms)
 }
 
 /*
- * Sanitize header names by converting to uppercase and replacing '-' with '_'
- * e.g User-Agent → USER_AGENT, Content-Type → CONTENT_TYPE
- */
-std::string CgiExecutor::sanitizeHeaderName(const std::string &key) {
-    std::string result;
-    result.reserve(key.size());
-
-    for (std::size_t i = 0; i < key.size(); ++i) {
-        unsigned char ch = static_cast<unsigned char>(key[i]);
-        if (ch == '-') {
-            result.push_back('_');
-        } else {
-            result.push_back(static_cast<char>(std::toupper(ch)));
-        }
-    }
-    return (result);
-}
-
-/* Convert size_t to string */
-static std::string toString(std::size_t value) {
-    std::ostringstream oss;
-    oss << value;
-    return (oss.str());
-}
-
-/*
  * Start a CGI session: fork and setup pipes/environment.
  * Returns a heap-allocated CgiSession on success; nullptr on failure.
  * All I/O from this point on is non-blocking and driven by EventLoop::tick.
@@ -157,6 +131,32 @@ CgiSession *CgiExecutor::start(const CgiRequest &request, const Location &locati
     session->exit_code = -1;
 
     return session;
+}
+
+/*
+ * Sanitize header names by converting to uppercase and replacing '-' with '_'
+ * e.g User-Agent → USER_AGENT, Content-Type → CONTENT_TYPE
+ */
+std::string CgiExecutor::sanitizeHeaderName(const std::string &key) {
+    std::string result;
+    result.reserve(key.size());
+
+    for (std::size_t i = 0; i < key.size(); ++i) {
+        unsigned char ch = static_cast<unsigned char>(key[i]);
+        if (ch == '-') {
+            result.push_back('_');
+        } else {
+            result.push_back(static_cast<char>(std::toupper(ch)));
+        }
+    }
+    return (result);
+}
+
+/* Convert size_t to string */
+static std::string toString(std::size_t value) {
+    std::ostringstream oss;
+    oss << value;
+    return (oss.str());
 }
 
 /* Parse CGI raw output into headers section and body.
