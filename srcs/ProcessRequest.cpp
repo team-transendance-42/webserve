@@ -20,7 +20,6 @@
 #include "../includes/ErrorResponseBuilder.hpp"
 #include "../includes/ProcessRequest.hpp"
 #include "../includes/StaticFileHandler.hpp"
-#include "../includes/UploadHandler.hpp"
 #include "../includes/config/Config.hpp"
 
 
