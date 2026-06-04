@@ -1,108 +1,9 @@
-#include "../../includes/config/Config.hpp"
 #include "../../includes/config/Parser.hpp"
-#include "../../includes/config/Tokenizer.hpp"
 
 #include <cctype>
-#include <cerrno>
-#include <cstdlib>
 #include <fstream>
-#include <iostream>
 #include <set>
 #include <sstream>
-#include <stdexcept>
-
-/*
- * Tokenize config file into Tokens.
- * Loops through the input character by character, while pushing tokens into a vector.
- */
-std::vector<Token> Tokenizer::tokenize() {
-	std::vector<Token> tokens;
-
-	while (_index < _input.size()) {
-		skipWhitespaceAndComments();
-		if (_index >= _input.size()) {
-			break;
-		}
-
-		char current = _input[_index];
-		if (current == '{') {
-			tokens.push_back(makeSingle(TOKEN_LBRACE));
-			advance();
-		} else if (current == '}') {
-			tokens.push_back(makeSingle(TOKEN_RBRACE));
-			advance();
-		} else if (current == ';') {
-			tokens.push_back(makeSingle(TOKEN_SEMICOLON));
-			advance();
-		} else {
-			tokens.push_back(readWord());
-		}
-	}
-
-	tokens.push_back(Token{TOKEN_EOF, "", _line, _column});
-	return (tokens);
-}
-
-// Create a token out of single-characters
-Token Tokenizer::makeSingle(TokenType type) const {
-	return (Token{type, "", _line, _column});
-}
-
-void Tokenizer::advance() {
-	if (_input[_index] == '\n') {
-		++_line;
-		_column = 1;
-	} else {
-		++_column;
-	}
-	++_index;
-}
-
-void Tokenizer::skipWhitespaceAndComments() {
-	while (_index < _input.size()) {
-		char current = _input[_index];
-		// Skip whitespaces
-		if (std::isspace(static_cast<unsigned char>(current))) {
-			advance();
-			continue;
-		}
-
-		// Skip comments (#)
-		if (current == '#') {
-			while (_index < _input.size() && _input[_index] != '\n')
-				advance();
-			continue;
-		}
-		break;
-	}
-}
-
-Token Tokenizer::readWord() {
-	std::size_t startLine = _line;
-	std::size_t startCol = _column;
-	std::string value;
-
-	while (_index < _input.size()) {
-		char current = _input[_index];
-		// Close word
-		if (std::isspace(static_cast<unsigned char>(current))
-			|| current == '{'
-			|| current == '}'
-			|| current == ';'
-			|| current == '#') {
-			break;
-		}
-
-		value.push_back(current);
-		advance();
-	}
-
-	if (value.empty()) {
-		throw ParseError("unexpected token", startLine, startCol);
-	}
-
-	return (Token{TOKEN_WORD, value, startLine, startCol});
-}
 
 /*
  * Main parse function.
@@ -121,49 +22,6 @@ ConfigFile Parser::parseConfig() {
 	}
 
 	return (result);
-}
-
-// Look at the current token without consuming it
-const Token& Parser::peek() const {
-	return (_tokens[_index]);
-}
-
-// Look at the previous token (the one most recently consumed)
-const Token& Parser::previous() const {
-	return (_tokens[_index - 1]);
-}
-
-// Check if the current token matches the expected type
-bool Parser::check(TokenType type) const {
-	return (peek().type == type);
-}
-
-// Return the current token, and move to the next one
-const Token& Parser::advance() {
-	if (!check(TOKEN_EOF)) {
-		++_index;
-	}
-
-	return (previous());
-}
-
-// Consume the token if it matches the given type
-const Token& Parser::consume(TokenType type, const std::string& message) {
-	if (check(type)) {
-		return advance();
-	}
-
-	throw ParseError(message, peek().line, peek().column);
-}
-
-// Consume the token if it is a word AND matches the given value
-const Token& Parser::consumeWord(const std::string& expected) {
-	const Token& token = consume(TOKEN_WORD, "expected '" + expected + "'");
-	if (token.value != expected) {
-		throw ParseError("expected '" + expected + "'", token.line, token.column);
-	}
-
-	return (token);
 }
 
 /*
@@ -222,11 +80,6 @@ Location Parser::parseLocationBlock() {
 
 	consume(TOKEN_RBRACE, "expected '}' after location block");
 	return (location);
-}
-
-// Check if the current token is a word and matches given value
-bool Parser::checkWord(const std::string& value) const {
-	return (check(TOKEN_WORD) && peek().value == value);
 }
 
 // Parse a server directive and assign known fields
@@ -407,6 +260,54 @@ void Parser::validateLocation(const Location& location) {
 			throw ParseError("invalid method in allowedMethods: " + methods[i], peek().line, peek().column);
 		}
 	}
+}
+
+// Look at the current token without consuming it
+const Token& Parser::peek() const {
+	return (_tokens[_index]);
+}
+
+// Look at the previous token (the one most recently consumed)
+const Token& Parser::previous() const {
+	return (_tokens[_index - 1]);
+}
+
+// Return the current token, and move to the next one
+const Token& Parser::advance() {
+	if (!check(TOKEN_EOF)) {
+		++_index;
+	}
+
+	return (previous());
+}
+
+// Consume the token if it matches the given type
+const Token& Parser::consume(TokenType type, const std::string& message) {
+	if (check(type)) {
+		return advance();
+	}
+
+	throw ParseError(message, peek().line, peek().column);
+}
+
+// Consume the token if it is a word AND matches the given value
+const Token& Parser::consumeWord(const std::string& expected) {
+	const Token& token = consume(TOKEN_WORD, "expected '" + expected + "'");
+	if (token.value != expected) {
+		throw ParseError("expected '" + expected + "'", token.line, token.column);
+	}
+
+	return (token);
+}
+
+// Check if the current token is a word and matches given value
+bool Parser::checkWord(const std::string& value) const {
+	return (check(TOKEN_WORD) && peek().value == value);
+}
+
+// Check if the current token matches the expected type
+bool Parser::check(TokenType type) const {
+	return (peek().type == type);
 }
 
 // Check if a string represents an unsigned int

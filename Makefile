@@ -2,6 +2,7 @@ NAME = webserv
 
 SRC = srcs/config/Config.cpp \
 	  srcs/config/ConfigParser.cpp \
+	  srcs/config/Tokenizer.cpp \
       srcs/Listener.cpp \
 	  srcs/EventLoop.cpp \
 	  srcs/EpollLoop.cpp \
