@@ -31,6 +31,10 @@ cmake_install.cmake
 # Other
 *.tmp
 *.bak
+
+# CGI session demo database (generated at runtime)
+*.db
+www/one/cgi-bin/sessions.db
 webserv
 .env
 uploads/
