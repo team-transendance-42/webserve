@@ -6,6 +6,9 @@
 
   # 204 — delete (upload the file first, then delete)
   curl -v -X DELETE http://localhost:19090/testfiles/manual.txt
+  ====================================
+https://github.com/JoeDog/siege for stress testing
+  ====================================
 
   # 400 — missing Host (nc sends raw bytes, no auto-headers)
   printf "GET / HTTP/1.1\r\n\r\n" | nc localhost 19090

@@ -1,0 +1,200 @@
+ 1. Basic GET load test
+
+  siege -c 10 -t 10S http://127.0.0.1:8080/
+  -c 10 = 10 concurrent users, -t 10S = run for 10 seconds. Tests that the
+  server handles concurrent GET requests without crashing.
+  ---------------------------
+2. Tests the static-only server (port 8082) handles concurrent file reads.
+siege -c 5 -t 5S http://127.0.0.1:8082/static/index.html
+------------------------
+
+3. Tests the health endpoint under concurrent load — expect all 200 OK.
+siege -c 10 -t 10S http://127.0.0.1:8081/api/health
+------------------------
+
+4.Tests multiple routes simultaneously — simulates real mixed traffic across virtual servers.
+cat > /tmp/urls.txt << 'EOF'
+http://127.0.0.1:8080/
+http://127.0.0.1:8080/files-auto
+http://127.0.0.1:8081/api/health
+http://127.0.0.1:8082/static/index.html
+EOF
+
+siege -c 20 -t 30S -f /tmp/urls.txt
+------------------------
+5.FD Exhaustion — High Concurrency
+siege -c 500 -t 30S -b http://127.0.0.1:8080/
+
+File descriptor limits. Your server has a max FD count (usually 1024 per process).
+What could go wrong: Server runs out of FDs → accept() fails → new connections rejected → Connection refused errors. Clients see timeouts. Real production: 500 concurrent users is common at peak traffic.
+Watch for: Failed transactions > 0 or Availability < 100%. If it drops, your server is hitting limits.
+----------------------------
+6. Slow Client / Slowloris
+siege -c 50 -t 60S --delay=10 http://127.0.0.1:8080/
+
+--delay=10 = each client waits 10sec between requests. Tests if the server hangs waiting for slow I/O.
+What could go wrong: Buffer bloat. If your server allocates a buffer per connection and a client never completes the request, you leak memory → OOM → crash after ~1 hour under sustained attack
+-c 50 = 50 clients run simultaneously (all at the same time)
+-t 60S = test runs for 60 seconds total (not per request)
+http://127.0.0.1:8080/ = all 50 clients hit this same URL
+----------------------------------------
+7. POST Streaming — Chunk Payload at Limit
+python3 << 'PYEOF'
+import requests
+import time
+
+url = "http://127.0.0.1:8080/zk_apply_form"
+payload = "X" * (1024 * 1024)  # 1MB (at limit on port 8080)
+
+for i in range(20):
+    try:
+        r = requests.post(url, data=payload, timeout=5)
+        print(f"{i}: {r.status_code}")
+    except Exception as e:
+        print(f"{i}: ERROR - {e}")
+    time.sleep(0.1)
+PYEOF
+
+What we test: POST handling at body-size boundaries. Real clients upload files.
+What could go wrong: Off-by-one in content-length parsing → crashes on exact limit, or accepts oversized payloads → security hole.
+-------------------------------------------
+8. Mixed Methods Under Load
+cat > /tmp/mixed.txt << 'EOF'
+http://127.0.0.1:8080/ GET
+http://127.0.0.1:8080/zk_apply_form POST user=test&data=value
+http://127.0.0.1:8080/uploads DELETE
+http://127.0.0.1:8081/api/health GET
+http://127.0.0.1:8080/secret GET
+http://127.0.0.1:8080/this_404 GET
+EOF
+
+siege -c 100 -t 45S -f /tmp/mixed.txt -m
+
+-f /tmp/mixed.txt = read URLs from a file instead of a single URL on command line
+
+Each line in the file is a separate URL/request
+Siege cycles through them randomly
+-m = mixed mode — tells siege to parse method in the URL
+------------------------------------------
+9. cgi exec under load
+siege -c 50 -t 30S 'http://127.0.0.1:8080/cgi-bin/script.py?param1=test&param2=data'
+------------------------------------------
+10. Connection Reuse Stress
+siege -c 200 -r 55 http://127.0.0.1:8080/
+
+-r 15 = each client makes 15 requests sequentially. tress connection handling.
+----------------------------------------
+11. rapid reconnect
+for i in {1..1000}; do
+  curl -s -o /dev/null http://127.0.0.1:8080/ &
+  sleep 0.01
+done
+wait
+----------------------------------------
+12. Large file download under concurrency
+
+# Create a 50MB test file
+dd if=/dev/zero of=/tmp/bigfile.bin bs=1M count=50
+
+# Copy to www
+cp /tmp/bigfile.bin /sgoinfre/pekatsar/webserve/www/one/
+
+# Siege it
+siege -c 30 -r 5 http://127.0.0.1:8080/bigfile.bin
+-----------------------------------------------
+13. Partial req fuzz
+python3 << 'PYEOF'
+import socket
+import time
+
+for attempt in range(20):
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.connect(("127.0.0.1", 8080))
+        # Send incomplete HTTP request
+        s.send(b"GET /")  # No CRLF, no Host, no version
+        time.sleep(1)  # Hang
+        s.close()
+    except Exception as e:
+        print(f"Attempt {attempt}: {e}")
+    time.sleep(0.1)
+PYEOF
+
+Malformed request handling. Network issues cause partial packets.
+What could go wrong: Parser hangs waiting for more data, or crashes on incomplete header → denial of service.
+------------------------------------------------
+# Terminal 1: start server
+./webserv tests/conf/default.conf
+
+# Terminal 2: monitor
+watch -n 1 'ps aux | grep webserv'
+
+# Terminal 3: attack
+siege -c 50 -t 60S --delay=10 http://127.0.0.1:8080/
+-------------------------------------------------
+14.  POST request
+cat > /tmp/post_test.txt << 'EOF'
+http://127.0.0.1:8080/zk_apply_form POST name=test&value=123
+EOF
+
+siege -c 5 -t 10S -f /tmp/post_test.txt -m
+------------------------------------------------
+
+15. Error cascade
+cat > /tmp/404s.txt << 'EOF'
+http://127.0.0.1:8080/nonexistent1
+http://127.0.0.1:8080/nonexistent2
+http://127.0.0.1:8080/nonexistent3
+http://127.0.0.1:8080/nonexistent4
+http://127.0.0.1:8080/nonexistent5
+EOF
+
+siege -c 100 -t 30S -f /tmp/404s.txt
+-------------------------------------
+16. redirect under load
+siege -c 10 -t 5S http://127.0.0.1:8080/play
+/play redirects to /game_start. Checks redirect logic is stable under concurrency.
+-----------------------------
+17. slow client/connetion hammering
+siege -c 100 -t 15S --delay=0 http://127.0.0.1:8080/
+
+100 concurrent zero-delay clients. Tests fd limits and select/poll loop stability. Watch for crashes or fd exhaustion.
+
+
+
+
+
+
+
+
+
+
+
+
+
+pekatsar@f1r6s1:/sgoinfre/pekatsar/webserve$ siege -c 255 -t 60S delay=3 -f /tmp/post_test.txt -m
+siege: option requires an argument -- 'm'
+
+{       "transactions":                        42881,
+        "availability":                       100.00,
+        "elapsed_time":                        59.57,
+        "data_transferred":                    97.31,
+        "response_time":                        0.35,
+        "transaction_rate":                   719.84,
+        "throughput":                           1.63,
+        "concurrency":                        254.04,
+        "successful_transactions":             42881,
+        "failed_transactions":                     0,
+        "longest_transaction":                  1.52,
+        "shortest_transaction":                 0.03
+}
+[error] unable to create log file: /var/log/log/siege.log: No such file or directory
+LOG FILE: /var/log/log/siege.log
+You can disable this log file notification by editing
+/home/pekatsar/.siege/siege.conf and changing 'show-logfile' to false.
+[error] unable to create log file: /var/log/log/siege.log: No such file or directory
+pekatsar@f1r6s1:/sgoinfre/pekatsar/webserve$ 
+
+
+
+
