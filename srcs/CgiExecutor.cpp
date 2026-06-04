@@ -17,6 +17,13 @@ CgiExecutor::CgiExecutor(std::size_t max_output_bytes, int timeout_ms)
     : _max_output_bytes(max_output_bytes), _timeout_ms(timeout_ms) {
 }
 
+/* Convert size_t to string */
+static std::string toString(std::size_t value) {
+    std::ostringstream oss;
+    oss << value;
+    return (oss.str());
+}
+
 /*
  * Start a CGI session: fork and setup pipes/environment.
  * Returns a heap-allocated CgiSession on success; nullptr on failure.
@@ -150,13 +157,6 @@ std::string CgiExecutor::sanitizeHeaderName(const std::string &key) {
         }
     }
     return (result);
-}
-
-/* Convert size_t to string */
-static std::string toString(std::size_t value) {
-    std::ostringstream oss;
-    oss << value;
-    return (oss.str());
 }
 
 /* Parse CGI raw output into headers section and body.
