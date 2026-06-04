@@ -40,3 +40,4 @@ en.subject.pdf
 tests/execution/__pycache__/
 tester
 cgi_tester
+tests/execution/__pycache__/*
