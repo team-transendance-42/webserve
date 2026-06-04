@@ -33,7 +33,7 @@ After parsing REQ1, leftover bytes belong to REQ2, so they stay in _buf.
  */
 class HttpRequest {
 public:
-    // ── parsed data — read these after feed() returns 
+    // ── parsed data — read these after feed() returns
     Method                             method;
     std::string                        path;
     std::string                        query_string;
@@ -53,17 +53,18 @@ public:
 
     void        clear();        // reset for next request (keep-alive)
     void        debugPrint()   const;
-	ParseResult tryParse();	
+	ParseResult tryParse();
     bool        hasStarted() const;
     bool        isComplete() const;
 
 private:
     // internal parse state
-    enum ParseState { REQUEST_LINE, HEADERS, BODY, DONE, ERROR };
+    enum ParseState { REQUEST_LINE, HEADERS, BODY, CHUNKED_BODY, DONE, ERROR };
 
     ParseState  _state;
     std::string _buf;
     size_t      _headerCount;
+    std::string _chunked_acc;
 
     ParseResult _parse();
     bool        _parse_request_line(const std::string &line);

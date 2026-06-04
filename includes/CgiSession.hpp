@@ -9,7 +9,7 @@
  * Represents an active CGI execution session.
  * Owned by a Client; heap-allocated when a CGI request begins,
  * deleted when the CGI process completes and the response is written.
- * 
+ *
  * The session tracks:
  * - Child process ID
  * - Pipe file descriptors for stdin/stdout (connected to the child)
