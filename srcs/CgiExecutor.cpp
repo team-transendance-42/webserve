@@ -17,7 +17,10 @@ CgiExecutor::CgiExecutor(std::size_t max_output_bytes, int timeout_ms)
     : _max_output_bytes(max_output_bytes), _timeout_ms(timeout_ms) {
 }
 
-/* Sanitize header names by converting to uppercase and replacing '-' with '_' */
+/*
+ * Sanitize header names by converting to uppercase and replacing '-' with '_'
+ * e.g User-Agent → USER_AGENT, Content-Type → CONTENT_TYPE
+ */
 std::string CgiExecutor::sanitizeHeaderName(const std::string &key) {
     std::string result;
     result.reserve(key.size());
@@ -40,9 +43,11 @@ static std::string toString(std::size_t value) {
     return (oss.str());
 }
 
-/* Start a CGI session: fork and setup pipes/environment.
-   Returns a heap-allocated CgiSession on success; nullptr on failure.
-   All I/O from this point on is non-blocking and driven by EventLoop::tick. */
+/*
+ * Start a CGI session: fork and setup pipes/environment.
+ * Returns a heap-allocated CgiSession on success; nullptr on failure.
+ * All I/O from this point on is non-blocking and driven by EventLoop::tick.
+ */
 CgiSession *CgiExecutor::start(const CgiRequest &request, const Location &location) const {
     if (!location.hasCgi()) {
         return nullptr;
