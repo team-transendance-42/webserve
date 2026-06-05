@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import cgi, os, sys
 import html
+import urllib.parse
 
 print("Content-Type: text/html\r\n\r\n")
 
@@ -23,7 +24,7 @@ if 'file' in form and form['file'].filename:
         f.write(fileitem.file.read())
 
     print(f"<h1>File uploaded: {html.escape(filename)}</h1>")
-    print(f"<p><a href='/uploads/{html.escape(filename)}'>Download your file</a></p>")
+    print(f"<p><a href='/uploads/{urllib.parse.quote(filename)}'>Download your file</a></p>")
 else:
     print("""
     <h1>File Upload Form</h1>
