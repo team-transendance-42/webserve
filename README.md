@@ -6,7 +6,7 @@ The goal of this project is to create a simple web server in C++.
 ## Features
 - Can use a given configuration file to set up the server
 - Handles HTTP requests
-- Supports GET, POST, and DELETE methods
+- Supports HEAD, GET, POST, and DELETE methods
 - Serves static files
 - Executes CGI scripts (python)
 - Is able to listen to multiple ports to deliver different content
