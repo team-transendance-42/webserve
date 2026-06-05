@@ -34,63 +34,58 @@ ConnectionManager::ConnectionManager(std::map<int, Client *> &clients,
 	  _cleanupCgi(std::move(cleanupCgi)) {}
 
 /**
- *  Drains the socket in a non-blocking loop, feeding each chunk into the incremental HTTP parser.
- *  PARSE_INCOMPLETE is handled implicitly: the loop continues calling recv until EAGAIN/EWOULDBLOCK,
- *  then returns — epoll re-fires on the next incoming data and resumes feeding the same client.request.
- *  PARSE_ERROR → 400 and close. COMPLETE → hand off to the request processor and switch to write mode.
+ *  One recv() per EPOLLIN event, fed into the incremental HTTP parser. recv <= 0:
+ *  peer closed or error — close. PARSE_INCOMPLETE: return and wait for the next
+ *  EPOLLIN to resume feeding the same client.request. PARSE_ERROR → 400 and close.
+ *  COMPLETE → hand off to the request processor and switch to write mode.
  */
 void ConnectionManager::readClient(Client &client, std::size_t) {
 	char chunk[4096]; // stack array: no heap allocation, no cleanup, already in CPU cache
 	client.lastTimestamp = std::time(nullptr);
-	while (true) {
-		ssize_t bytes = recv(client.fd, chunk, sizeof(chunk), 0);
 
-		if (bytes < 0) {
-			if (errno == EAGAIN || errno == EWOULDBLOCK) 	break; // try again
-			closeClient(client.fd);
-			return;
-		}
-		if (bytes == 0) {
-			closeClient(client.fd);
-			return;
-		}
+	ssize_t bytes = recv(client.fd, chunk, sizeof(chunk), 0);
 
-		ParseResult result = client.request.feed(chunk, static_cast<size_t>(bytes));
-
-		if (result == PARSE_ERROR) {
-			client.writeBuf  = HttpResponse::make_400().serialize();
-			client.keep_alive = false;
-			HttpResponse::injectConnectionHeader(client.writeBuf, false);
-			_epollMod(client.fd, EPOLLOUT | EPOLLRDHUP);
-			return;
-		}
-
-		if (result == COMPLETE) {
-			std::map<int, Listener *>::iterator listenerIt = _clientToListener.find(client.fd); //at() throws
-			if (listenerIt == _clientToListener.end()) { closeClient(client.fd); return; }
-			listenerIt->second->processRequest().handle(client);
-			
-			/* If a CGI session was started, register pipes with epoll */
-			if (client.cgi) {
-				if (_registerCgiPipes) {
-					_registerCgiPipes(client);
-				}
-				/* Switch the client socket to EPOLLRDHUP-only (no EPOLLOUT) to detect disconnects. */
-				_epollMod(client.fd, EPOLLRDHUP);
-			} else {
-				/* Normal response path: arm for writing */
-				_epollMod(client.fd, EPOLLOUT | EPOLLRDHUP);
-			}
-			return;
-		}
+	if (bytes <= 0) {
+		closeClient(client.fd);
+		return;
 	}
+
+	ParseResult result = client.request.feed(chunk, static_cast<size_t>(bytes));
+
+	if (result == PARSE_ERROR) {
+		client.writeBuf  = HttpResponse::make_400().serialize();
+		client.keep_alive = false;
+		HttpResponse::injectConnectionHeader(client.writeBuf, false);
+		_epollMod(client.fd, EPOLLOUT | EPOLLRDHUP);
+		return;
+	}
+
+	if (result == COMPLETE) {
+		std::map<int, Listener *>::iterator listenerIt = _clientToListener.find(client.fd); //at() throws
+		if (listenerIt == _clientToListener.end()) { closeClient(client.fd); return; }
+		listenerIt->second->processRequest().handle(client);
+		
+		/* If a CGI session was started, register pipes with epoll */
+		if (client.cgi) {
+			if (_registerCgiPipes) {
+				_registerCgiPipes(client);
+			}
+			/* Switch the client socket to EPOLLRDHUP-only (no EPOLLOUT) to detect disconnects. */
+			_epollMod(client.fd, EPOLLRDHUP);
+		} else {
+			/* Normal response path: arm for writing */
+			_epollMod(client.fd, EPOLLOUT | EPOLLRDHUP);
+		}
+		return;
+	}
+	// PARSE_INCOMPLETE: do nothing — level-triggered epoll re-fire EPOLLIN
+	// when more bytes arrive, and we resume feeding the same client.request.
 }
 
 /**
- *  Flushes the write buffer to the socket in a non-blocking loop.
- *  On EAGAIN/EWOULDBLOCK, returns and lets epoll re-fire when the socket is writable again.
- *  On completion: if keep-alive, clears the request, re-arms for EPOLLIN, and checks whether
- *  a pipelined request is already buffered (tryParse). Otherwise closes the connection.
+ *  One send() per EPOLLOUT event. Partial send: keep the rest in writeBuf and
+ *  return — epoll re-fires when the socket drains. Once fully sent: keep-alive
+ *  re-arms EPOLLIN (and parses any pipelined request); otherwise close.
  */
 void ConnectionManager::writeClient(Client &client) {
 	client.lastTimestamp = std::time(nullptr); // update last activity time on each write
@@ -102,17 +97,19 @@ void ConnectionManager::writeClient(Client &client) {
 		if (sep != std::string::npos)
 			client.writeBuf.erase(sep + 4);
 	}
-	while (!client.writeBuf.empty()) {
-		ssize_t sent = send(client.fd,
-							client.writeBuf.c_str(),
-							client.writeBuf.size(), 0);
-		if (sent < 0) {
-			if (errno == EAGAIN || errno == EWOULDBLOCK) return;
+	if (!client.writeBuf.empty()) {
+		ssize_t sent = send(client.fd, client.writeBuf.c_str(), client.writeBuf.size(), 0);
+		if (sent <= 0) {
+			// No errno, we know the kernel buffer has space because this is only called through send in HttpResponse AFTER an EPOLLOUT event (which means the buffer has space).
 			closeClient(client.fd);
 			return;
 		}
 		client.writeBuf.erase(0, static_cast<size_t>(sent));
 	}
+
+	// On a partial write, writeBuf is not empty so we need to wait for next EPOLLOUT.
+	if (!client.writeBuf.empty())
+		return;
 
 	if (client.keep_alive) { // connection stays open for next req
 		client.request.clear();
