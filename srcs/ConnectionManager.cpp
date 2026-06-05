@@ -39,7 +39,7 @@ ConnectionManager::ConnectionManager(std::map<int, Client *> &clients,
  *  EPOLLIN to resume feeding the same client.request. PARSE_ERROR → 400 and close.
  *  COMPLETE → hand off to the request processor and switch to write mode.
  */
-void ConnectionManager::readClient(Client &client, std::size_t) {
+void ConnectionManager::readClient(Client &client) {
 	char chunk[4096]; // stack array: no heap allocation, no cleanup, already in CPU cache
 	client.lastTimestamp = std::time(nullptr);
 

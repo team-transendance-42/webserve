@@ -63,8 +63,6 @@ private:
                             Client &client) const;
     CgiRequest _buildCgiRequest(const HttpRequest &req,
                                 const std::string &filepath) const;
-    bool _buildHttpResponseFromCgiOutput(const std::string &raw,
-                                         HttpResponse &response) const;
     void _serveFromStat(const Location &loc,
                         const std::string &urlPath,
                         const std::string &filepath,

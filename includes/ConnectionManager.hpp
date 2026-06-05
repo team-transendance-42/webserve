@@ -22,7 +22,7 @@ public:
                       std::function<void(Client&)> registerCgiPipes,
                       std::function<void(Client&)> cleanupCgi);
 
-    void readClient(Client &client, std::size_t readBufSize);
+    void readClient(Client &client);
     void writeClient(Client &client);
     void closeClient(int fd);
 
