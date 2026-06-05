@@ -16,8 +16,7 @@ struct Location {
     int                      redirect_code        = 0;   // no redirect
     std::string              redirect_url;
     long                     clientMaxBodySize= -1;  // inherit from server
-	std::string              upload_path; // absolute path on server to save uploaded files, e.g. "/var/www/uploads";
-    std::vector<std::string>  upload_allowed_types; // e.g. {".jpg", ".png", ".pdf"}
+	std::string              upload_path; // absolute path on server to save uploaded files, e.g. "/var/www/uploads"
 
     bool hasCgi() const {
         return (!cgi_extension.empty() && !cgi_pass.empty());

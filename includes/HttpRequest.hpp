@@ -54,8 +54,6 @@ public:
     void        clear();        // reset for next request (keep-alive)
     void        debugPrint()   const;
 	ParseResult tryParse();
-    bool        hasStarted() const;
-    bool        isComplete() const;
 
 private:
     // internal parse state

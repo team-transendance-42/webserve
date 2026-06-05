@@ -169,7 +169,7 @@ void EventLoop::tick() {
             continue;
         }
         if (ev & EPOLLIN) {
-            _conn.readClient(client, READ_BUF);
+            _conn.readClient(client);
             /* readClient may have closed and deleted the client (disconnect, parse error).
                Re-check before touching client again — use-after-free otherwise. */
             if (_clients.find(fd) == _clients.end()) continue;

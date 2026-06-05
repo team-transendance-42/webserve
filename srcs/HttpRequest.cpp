@@ -463,10 +463,3 @@ void HttpRequest::debugPrint() const {
     std::cout << "===================\n";
 }
 
-bool HttpRequest::isComplete() const {
-    return _state == DONE;
-}
-
-bool HttpRequest::hasStarted() const {
-    return !_buf.empty() || _state != REQUEST_LINE;
-}
