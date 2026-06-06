@@ -31,10 +31,16 @@ cmake_install.cmake
 # Other
 *.tmp
 *.bak
+
+# CGI session demo database (generated at runtime)
+*.db
+www/one/cgi-bin/sessions.db
 webserv
 .env
 uploads/
 CLAUDE.md
-en.subject.pdf
 .claude
 tests/execution/__pycache__/
+tester
+cgi_tester
+tests/execution/__pycache__/*

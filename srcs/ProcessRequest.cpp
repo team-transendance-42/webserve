@@ -20,7 +20,6 @@
 #include "../includes/ErrorResponseBuilder.hpp"
 #include "../includes/ProcessRequest.hpp"
 #include "../includes/StaticFileHandler.hpp"
-#include "../includes/UploadHandler.hpp"
 #include "../includes/config/Config.hpp"
 
 
@@ -536,8 +535,8 @@ bool ProcessRequest::_shouldExecuteCgi(const Location &loc, const std::string &f
 
     // Check if filepath ends with cgi_extension (e.g., ".py")
     if (filepath.size() >= loc.cgi_extension.size()) {
-        std::string ext = filepath.substr(filepath.size() - loc.cgi_extension.size());
-        return ext == loc.cgi_extension;
+        std::string extension = filepath.substr(filepath.size() - loc.cgi_extension.size());
+        return extension == loc.cgi_extension;
     }
 
     return false;
@@ -619,61 +618,5 @@ CgiRequest ProcessRequest::_buildCgiRequest(const HttpRequest &req,
     cgiReq.headers = req.headers;
 
     return cgiReq;
-}
-/*cpp way (in c it is static func) private for this file*/
-namespace {
-	/* Find the separator and split into headers + body. No parsing. */
-	bool _splitCgiOutput(const std::string &raw,std::string &headers, std::string &body) {
-		size_t pos = raw.find("\r\n\r\n");
-		if (pos != std::string::npos) {
-			headers = raw.substr(0, pos);
-			body	= raw.substr(pos + 4);
-			return true;
-		}
-		pos = raw.find("\n\n");
-		if (pos != std::string::npos) {
-			headers = raw.substr(0, pos);
-			body	= raw.substr(pos + 2);
-			return true;
-		}
-		return false;
-	}
-
-	/* Parses one already-split line and apply it to the response */
-	void _applyCgiHeaderLine(const std::string &line, HttpResponse &response, bool &statusSet) {
-		size_t colonPos = line.find(':');
-		if (colonPos == std::string::npos) return;
-		std::string key = line.substr(0, colonPos);
-		std::string val = (colonPos + 1 < line.size()) ? line.substr(colonPos + 1) : "";
-		if (!val.empty() && val[0] == ' ') val.erase(0, 1);
-		if (key == "Status") {
-			val.erase(std::remove_if(val.begin(), val.end(), [](char c) { return c == '\r' || c == '\n'; }), val.end());
-			response.setStatus(atoi(val.c_str()));
-			statusSet = true;
-		} else if (key != "Content-Length")
-			response.setHeader(key, val);
-	}
-
-	/* Iterate lines (handle both \r\n and \n via getline + \r strip), call _applyCgiHeaderLine, sets 200 fallback. */
-	void _applyCgiHeaders(const std::string &headerSection, HttpResponse &response) {
-		std::istringstream iss(headerSection);
-		std::string line;
-		bool statusSet = false;
-		while (std::getline(iss, line)) {
-			if (!line.empty() && line[line.size() - 1] == '\r')
-				line.erase(line.size() - 1);
-			_applyCgiHeaderLine(line, response, statusSet);
-		}
-		if (!statusSet)
-			response.setStatus(200);
-	}
-}
-
-bool ProcessRequest::_buildHttpResponseFromCgiOutput(const std::string &raw, HttpResponse &response) const {
-	std::string headerSection, body;
-	if (!_splitCgiOutput(raw, headerSection, body)) return false;
-	response.setBody(body, "text/html");
-	_applyCgiHeaders(headerSection, response);
-	return true;
 }
 

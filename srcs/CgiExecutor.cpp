@@ -17,22 +17,6 @@ CgiExecutor::CgiExecutor(std::size_t max_output_bytes, int timeout_ms)
     : _max_output_bytes(max_output_bytes), _timeout_ms(timeout_ms) {
 }
 
-/* Sanitize header names by converting to uppercase and replacing '-' with '_' */
-std::string CgiExecutor::sanitizeHeaderName(const std::string &key) {
-    std::string result;
-    result.reserve(key.size());
-
-    for (std::size_t i = 0; i < key.size(); ++i) {
-        unsigned char ch = static_cast<unsigned char>(key[i]);
-        if (ch == '-') {
-            result.push_back('_');
-        } else {
-            result.push_back(static_cast<char>(std::toupper(ch)));
-        }
-    }
-    return (result);
-}
-
 /* Convert size_t to string */
 static std::string toString(std::size_t value) {
     std::ostringstream oss;
@@ -40,9 +24,11 @@ static std::string toString(std::size_t value) {
     return (oss.str());
 }
 
-/* Start a CGI session: fork and setup pipes/environment.
-   Returns a heap-allocated CgiSession on success; nullptr on failure.
-   All I/O from this point on is non-blocking and driven by EventLoop::tick. */
+/*
+ * Start a CGI session: fork and setup pipes/environment.
+ * Returns a heap-allocated CgiSession on success; nullptr on failure.
+ * All I/O from this point on is non-blocking and driven by EventLoop::tick.
+ */
 CgiSession *CgiExecutor::start(const CgiRequest &request, const Location &location) const {
     if (!location.hasCgi()) {
         return nullptr;
@@ -81,6 +67,15 @@ CgiSession *CgiExecutor::start(const CgiRequest &request, const Location &locati
         close(stdinPipe[1]);
         close(stdoutPipe[0]);
         close(stdoutPipe[1]);
+
+        /* Change to script's directory so CGI can access relative paths */
+        size_t lastSlash = request.script_path.rfind('/');
+        if (lastSlash != std::string::npos) {
+            std::string scriptDir = request.script_path.substr(0, lastSlash);
+            if (chdir(scriptDir.c_str()) != 0) {
+                _exit(127);
+            }
+        }
 
         std::vector<std::string> envStorage;
         envStorage.reserve(16 + request.headers.size());
@@ -143,6 +138,25 @@ CgiSession *CgiExecutor::start(const CgiRequest &request, const Location &locati
     session->exit_code = -1;
 
     return session;
+}
+
+/*
+ * Sanitize header names by converting to uppercase and replacing '-' with '_'
+ * e.g User-Agent → USER_AGENT, Content-Type → CONTENT_TYPE
+ */
+std::string CgiExecutor::sanitizeHeaderName(const std::string &key) {
+    std::string result;
+    result.reserve(key.size());
+
+    for (std::size_t i = 0; i < key.size(); ++i) {
+        unsigned char ch = static_cast<unsigned char>(key[i]);
+        if (ch == '-') {
+            result.push_back('_');
+        } else {
+            result.push_back(static_cast<char>(std::toupper(ch)));
+        }
+    }
+    return (result);
 }
 
 /* Parse CGI raw output into headers section and body.

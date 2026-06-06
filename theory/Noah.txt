@@ -1,0 +1,59 @@
+Config.cpp
+
+Match the incoming HTTP request URI against the locations defined in the server config.
+If multiple locations match, the longest (most specific) match is chosen.
+It does so by iterating through locations using a comparison between:
+> Length of the location path & request URI
+> Location path string & URI string (ensure exact match)
+
+EXAMPLE:
+request comes for /api/v1/users
+> Locations are /api and /api/v1
+
+Both match, but /api/v1 is longer (more specific), so it returns that location
+
+
+ConfigParser.cpp
+
+First the input is split into tokens.
+The tokens are either words, or special characters like '{', '}', ';'.
+These tokens are then parsed according to the expected structure of the config file.
+
+The main parser function iterates through the tokens, looking for server blocks.
+If a server block is found, it looks for locations and directives within that block.
+When it finds a direcive:
+> It checks if the directive is an expected one (like listen, server_name, root, etc.)
+> It validates the directive's value (e.g. port number for listen, valid path for root)
+> Lastly, it assigns the value to the appropriate field in the ServerConfig object.
+
+When it finds a location:
+> It captures the location path (e.g. /api)
+> It looks for directives within that location block,
+  applying the same parsing logic as above, but assigns values to LocationConfig object.
+
+Finally, it returns a ConfigFile object, which contains a vector of ServerConfig objects,
+each holding their respective LocationConfig objects, ready to be used by the web server.
+
+
+CgiExectutor.cpp
+
+This file is responsible for executing CGI scripts.
+TLDR: It sets up environment variables, creates pipes for communication,
+	  forks a child process to execute the CGI script,
+	  and captures the output to be sent back as an HTTP response.
+
+It does this by:
+1. Setting up pipes for stdin and stdout to communicate with the CGI process.
+2. Forking the process.
+   > The child process executes the CGI script
+   > The parent reads the output.
+3. In the child process:
+   > It duplicates the write end of the stdout pipe to STDOUT_FILENO
+   > It duplicates the read end of the stdin pipe to STDIN_FILENO
+   > It sets up environment variables based on the HTTP request and server config
+   > It executes the CGI script using execve()
+4. In the parent process:
+   > It closes the unused ends of the pipes (write end of stdout, read end of stdin)
+   > It reads the CGI output from the stdout pipe, up to a maximum size
+   > It waits for the child process to finish and captures its exit status
+5. It returns the CGI output and status to be used in the HTTP response.

@@ -6,11 +6,11 @@
 #include "../includes/HttpRequest.hpp"
 
 /* path, query_string, version, headers,_buf and body are default-initialized to empty by their own constructors */
-HttpRequest::HttpRequest() : method(UNKNOWN), _state(REQUEST_LINE), _headerCount(0) {}
+HttpRequest::HttpRequest() : method(UNKNOWN), _state(REQUEST_LINE), _headerCount(0), _chunked_acc("") {}
 
 // ── public feed ───────────────────────────────────────────────────────────────
 
-/* Feeds data into the HTTP request parser; 
+/* Feeds data into the HTTP request parser;
 Sometimes, data arrives as a raw buffer (const char*), such as from a socket read.
 var.append(..) is for ptr to char array(we use this in ConnectionManager)
 _buf += data; is used when you have a std::string. It appends the entire string
@@ -60,26 +60,25 @@ ParseResult HttpRequest::_parse() {
                 if (line.empty()) {
                     // blank line = end of headers
                     if (headers.count("transfer-encoding")) {
-                        /* Chunked (and any TE) not supported — reject cleanly
-                           rather than misreading the body as zero-length. */
-                        _state = ERROR;
-                        return PARSE_ERROR;
-                    }
+                        /* Chunked encoding detected: parse chunks instead of failing */
+                        _state = CHUNKED_BODY;
+                        _chunked_acc = "";  /* Reset accumulator for new chunked body */
+                    } else {
+                        size_t contentLen = content_length();
+                        // detects a malformed or overflowing Content-Length header (non-digits, trailing garbage, or parse overflow)
+                        if (contentLen == (size_t)-1) {
+                            std::cout << "[400] Header: Content-Length is not a number\n";
+                            _state = ERROR;
+                            return PARSE_ERROR;
+                        }
+                        if (contentLen > MAX_BODY_SIZE) {
+                            std::cout << "[400] Header: Content-Length exceeds parser cap\n";
+                            _state = ERROR;
+                            return PARSE_ERROR;
+                        }
 
-                    size_t contentLen = content_length();
-                    // detects a malformed or overflowing Content-Length header (non-digits, trailing garbage, or parse overflow)
-                    if (contentLen == (size_t)-1) {
-                        std::cout << "[400] Header: Content-Length is not a number\n";
-                        _state = ERROR;
-                        return PARSE_ERROR;
+                        _state = (contentLen > 0) ? BODY : DONE;
                     }
-                    if (contentLen > MAX_BODY_SIZE) {
-                        std::cout << "[400] Header: Content-Length exceeds parser cap\n";
-                        _state = ERROR;
-                        return PARSE_ERROR;
-                    }
-                    
-                    _state = (contentLen > 0) ? BODY : DONE;
                 } else {
                     // Cap header count independently of total size: many tiny headers
                     // (e.g. "A:1\n" x 4000) fit within MAX_HEADER_SIZE but each creates
@@ -97,12 +96,84 @@ ParseResult HttpRequest::_parse() {
             }
             case BODY: {
                 size_t contentLen = content_length();
-                if (_buf.size() < contentLen) return INCOMPLETE;
+                if (_buf.size() < contentLen)
+                    return INCOMPLETE;
                 body = _buf.substr(0, contentLen);
                 _buf.erase(0, contentLen);
                 _state = DONE;
                 break;
-            }  
+            }
+            case CHUNKED_BODY: {
+                /* Read chunks until we get "0\r\n\r\n" (or "0\n\n") */
+                while (true) {
+                    // cr = '/r' = Carriage Return
+                    // lf = '/n' = Line Feed
+                    size_t crlfPos = _buf.find("\r\n");
+                    size_t lfPos = _buf.find("\n");
+                    size_t lineEnd = std::string::npos;
+                    size_t lineSkip = 0;
+
+                    if (crlfPos != std::string::npos && (lfPos == std::string::npos || crlfPos < lfPos)) {
+                        lineEnd = crlfPos;
+                        lineSkip = 2;  // skip \r\n
+                    } else if (lfPos != std::string::npos) {
+                        lineEnd = lfPos;
+                        lineSkip = 1;  // skip \n
+                    } else {
+                        return INCOMPLETE;
+                    }
+
+                    std::string chunkSizeLine = _buf.substr(0, lineEnd);
+
+                    // Parse chunk size (hex) from the size line
+                    size_t semiPos = chunkSizeLine.find(';');  // chunk extensions after ; are ignored
+                    if (semiPos != std::string::npos) {
+                        chunkSizeLine = chunkSizeLine.substr(0, semiPos);
+                    }
+
+                    try {
+                        size_t chunkSize = std::stoul(chunkSizeLine, nullptr, 16);
+                        _buf.erase(0, lineEnd + lineSkip);
+
+                        if (chunkSize == 0) {
+                            // Last chunk (0) reached. Skip trailing CR and/or LF
+                            if (_buf.size() > 0 && _buf[0] == '\r')
+                                _buf.erase(0, 1);
+                            if (_buf.size() > 0 && _buf[0] == '\n')
+                                _buf.erase(0, 1);
+
+                            // Set body to accumulated chunks and Content-Length
+                            body = _chunked_acc;
+                            headers["content-length"] = std::to_string(body.size());
+                            _state = DONE;
+                            break;
+                        }
+
+                        // Check if we have enough data for this chunk
+                        if (_buf.size() < chunkSize + lineSkip) {
+                            // Restore the size line to _buf since we didn't process this chunk yet
+                            _buf.insert(0, chunkSizeLine + (lineSkip == 2 ? "\r\n" : "\n"));
+                            return INCOMPLETE;
+                        }
+
+                        // Accumulate chunk data
+                        _chunked_acc.append(_buf.substr(0, chunkSize));
+                        _buf.erase(0, chunkSize + lineSkip);  // Skip chunk + trailing CRLF/LF
+
+                        // Check for MAX_BODY_SIZE limit
+                        if (_chunked_acc.size() > MAX_BODY_SIZE) {
+                            std::cout << "[400] Dechunked body exceeds parser cap\n";
+                            _state = ERROR;
+                            return PARSE_ERROR;
+                        }
+                    } catch (...) {
+                        // Failed to parse hex chunk size
+                        _state = ERROR;
+                        return PARSE_ERROR;
+                    }
+                }
+                break;
+            }
             case DONE:
                 return COMPLETE;
             case ERROR:
@@ -335,6 +406,7 @@ void HttpRequest::clear() {
     body.clear();
     _state = REQUEST_LINE;
     _headerCount = 0;
+    _chunked_acc.clear();
     //_buf.clear(); might have chunks from next req, dont clear
 }
 
@@ -391,10 +463,3 @@ void HttpRequest::debugPrint() const {
     std::cout << "===================\n";
 }
 
-bool HttpRequest::isComplete() const {
-    return _state == DONE;
-}
-
-bool HttpRequest::hasStarted() const {
-    return !_buf.empty() || _state != REQUEST_LINE;
-}
