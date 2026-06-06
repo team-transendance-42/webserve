@@ -98,7 +98,9 @@ void Parser::parseServerDirective(ServerConfig& server, std::set<std::string>& s
 
 	// Throw error if a duplicate directive is found in one location block
 	if (seenDirectives.count(key.value) > 0) {
-		throw ParseError("duplicate server directive: " + key.value, key.line, key.column);
+		if (key.value != "error_page") {
+			throw ParseError("duplicate server directive: " + key.value, key.line, key.column);
+		}
 	}
 	seenDirectives.insert(key.value);
 
