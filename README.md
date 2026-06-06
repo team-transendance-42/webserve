@@ -56,15 +56,25 @@ E.g
 ```
 
 ## Running Tests
-TODO
+```bash
+make tests
+```
 
 # Resources
-[CGI in Python](https://www.geeksforgeeks.org/python/what-is-cgi-in-python/)\
+[Beej's Guide to Network Programming](https://beej.us/guide/bgnet/)\
+[Nginx Documentation](https://nginx.org/en/docs/)
 [Nginx Beginner's Guide](https://nginx.org/en/docs/beginners_guide.html)\
 [poll() or epoll()](https://gist.github.com/MangaD/a16e7e4caadb5427fd3b3e37c4d41ed4)\
+[CGI in Python](https://www.geeksforgeeks.org/python/what-is-cgi-in-python/)\
 [http](https://developer.mozilla.org/en-US/docs/Web/HTTP)\
 [http methods](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Methods)\
 [http status codes](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status)\
 [RFC http 7230](https://datatracker.ietf.org/doc/html/rfc7230)\
 [RFC http 7231](https://datatracker.ietf.org/doc/html/rfc7231)\
-[RFC http 9110](https://datatracker.ietf.org/doc/html/rfc9110)
+[RFC http 9110](https://datatracker.ietf.org/doc/html/rfc9110)\
+
+## AI Use
+- Tests
+- Debugging
+- Non-project related frontend work
+- Tutoring on C++ and webserver concepts
