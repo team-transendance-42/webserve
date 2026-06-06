@@ -17,13 +17,6 @@ CgiExecutor::CgiExecutor(std::size_t max_output_bytes, int timeout_ms)
     : _max_output_bytes(max_output_bytes), _timeout_ms(timeout_ms) {
 }
 
-/* Convert size_t to string */
-static std::string toString(std::size_t value) {
-    std::ostringstream oss;
-    oss << value;
-    return (oss.str());
-}
-
 /*
  * Start a CGI session: fork and setup pipes/environment.
  * Returns a heap-allocated CgiSession on success; nullptr on failure.
@@ -37,7 +30,7 @@ CgiSession *CgiExecutor::start(const CgiRequest &request, const Location &locati
     int stdinPipe[2] = {-1, -1};
     int stdoutPipe[2] = {-1, -1};
 
-    /* Setup pipes for CGI stdin and stdout */
+    // Setup pipes for CGI stdin and stdout
     if (pipe(stdinPipe) != 0 || pipe(stdoutPipe) != 0) {
         if (stdinPipe[0] >= 0) close(stdinPipe[0]);
         if (stdinPipe[1] >= 0) close(stdinPipe[1]);
@@ -46,7 +39,7 @@ CgiSession *CgiExecutor::start(const CgiRequest &request, const Location &locati
         return nullptr;
     }
 
-    /* Fork the process to execute the CGI script in the child */
+    // Fork the process to execute the CGI script in the child
     pid_t pid = fork();
     if (pid < 0) {
         close(stdinPipe[0]);
@@ -56,19 +49,19 @@ CgiSession *CgiExecutor::start(const CgiRequest &request, const Location &locati
         return nullptr;
     }
 
+	// Child process: setup environment and execute CGI script
     if (pid == 0) {
-        /* Child process: setup environment and execute CGI script */
         if (dup2(stdinPipe[0], STDIN_FILENO) < 0 || dup2(stdoutPipe[1], STDOUT_FILENO) < 0) {
             _exit(127);
         }
 
-        /* Close unused pipe ends in the child */
+        // Close unused pipe ends within the child process
         close(stdinPipe[0]);
         close(stdinPipe[1]);
         close(stdoutPipe[0]);
         close(stdoutPipe[1]);
 
-        /* Change to script's directory so CGI can access relative paths */
+        // Change to script's directory so CGI can access relative paths
         size_t lastSlash = request.script_path.rfind('/');
         if (lastSlash != std::string::npos) {
             std::string scriptDir = request.script_path.substr(0, lastSlash);
@@ -80,11 +73,11 @@ CgiSession *CgiExecutor::start(const CgiRequest &request, const Location &locati
         std::vector<std::string> envStorage;
         envStorage.reserve(16 + request.headers.size());
 
-        /* Standard CGI environment variables */
+        // Standard CGI environment variables
         envStorage.push_back("REQUEST_METHOD=" + request.method);
         envStorage.push_back("QUERY_STRING=" + request.query_string);
         envStorage.push_back("CONTENT_TYPE=" + request.content_type);
-        envStorage.push_back("CONTENT_LENGTH=" + toString(request.body.size()));
+        envStorage.push_back("CONTENT_LENGTH=" + std::to_string(request.body.size()));
         envStorage.push_back("SCRIPT_NAME=" + request.script_name);
         envStorage.push_back("SCRIPT_FILENAME=" + request.script_path);
         envStorage.push_back("PATH_INFO=" + request.path_info);
@@ -94,17 +87,19 @@ CgiSession *CgiExecutor::start(const CgiRequest &request, const Location &locati
         envStorage.push_back("REMOTE_ADDR=" + request.remote_addr);
         envStorage.push_back("PATH=/usr/local/bin:/usr/bin:/bin");
 
-        /* Add HTTP headers as environment variables with "HTTP_" prefix */
-        for (std::map<std::string, std::string>::const_iterator it = request.headers.begin();
-             it != request.headers.end(); ++it) {
-            std::string key = sanitizeHeaderName(it->first);
+        // Add HTTP headers as environment variables with "HTTP_" prefix
+        for (std::map<std::string, std::string>::const_iterator i = request.headers.begin();
+             i != request.headers.end();
+			 ++i)
+		{
+            std::string key = sanitizeHeaderName(i->first);
             if (key == "CONTENT_TYPE" || key == "CONTENT_LENGTH") {
                 continue;
             }
-            envStorage.push_back("HTTP_" + key + "=" + it->second);
+            envStorage.push_back("HTTP_" + key + "=" + i->second);
         }
 
-        /* Convert envStorage to the format required by execve */
+        // Convert envStorage to the format required by execve
         std::vector<char *> envp;
         envp.reserve(envStorage.size() + 1);
         for (std::size_t i = 0; i < envStorage.size(); ++i) {
@@ -117,15 +112,16 @@ CgiSession *CgiExecutor::start(const CgiRequest &request, const Location &locati
         argv.push_back(const_cast<char *>(request.script_path.c_str()));
         argv.push_back(NULL);
 
-        /* Execute the CGI script */
+        // Execute the CGI script
         execve(location.cgi_pass.c_str(), &argv[0], &envp[0]);
         _exit(127);
     }
 
-    /* Parent process: close unused pipe ends and create session */
+    // Parent process: close unused pipe ends and create session
     close(stdinPipe[0]);
     close(stdoutPipe[1]);
 
+	// Fill in the CgiSession struct with initial values.
     CgiSession *session = new CgiSession();
     session->pid = pid;
     session->stdin_fd = stdinPipe[1];

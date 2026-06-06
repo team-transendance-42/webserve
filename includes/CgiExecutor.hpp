@@ -23,8 +23,8 @@ struct CgiRequest {
 };
 
 /*
- * Refactored CgiExecutor: spawns CGI processes and tracks them via the EventLoop.
- * No blocking poll() or waitpid() anymore — all I/O driven by the shared epoll.
+ * Spawns CGI processes and tracks them via the EventLoop.
+ * All I/O driven by the shared epoll.
  */
 class CgiExecutor {
 public:
