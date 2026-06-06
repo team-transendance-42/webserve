@@ -37,6 +37,7 @@ ServerConfig Parser::parseServerBlock() {
 	consume(TOKEN_LBRACE, "expected '{' after server");
 
 	ServerConfig server;
+	std::set<std::string> seenDirectives;
 
 	while (!check(TOKEN_RBRACE)) {
 		if (check(TOKEN_EOF)) {
@@ -46,7 +47,7 @@ ServerConfig Parser::parseServerBlock() {
 		if (checkWord("location")) {
 			server.locations.push_back(parseLocationBlock());
 		} else {
-			parseServerDirective(server);
+			parseServerDirective(server, seenDirectives);
 		}
 	}
 
@@ -83,7 +84,7 @@ Location Parser::parseLocationBlock() {
 }
 
 // Parse a server directive and assign known fields
-void Parser::parseServerDirective(ServerConfig& server) {
+void Parser::parseServerDirective(ServerConfig& server, std::set<std::string>& seenDirectives) {
 	const Token& key = consume(TOKEN_WORD, "expected directive name");
 	std::vector<std::string> values;
 
@@ -94,6 +95,12 @@ void Parser::parseServerDirective(ServerConfig& server) {
 		values.push_back(consume(TOKEN_WORD, "expected directive value").value);
 	}
 	consume(TOKEN_SEMICOLON, "expected ';' after directive");
+
+	// Throw error if a duplicate directive is found in one location block
+	if (seenDirectives.count(key.value) > 0) {
+		throw ParseError("duplicate server directive: " + key.value, key.line, key.column);
+	}
+	seenDirectives.insert(key.value);
 
 	assignKnownServerFields(server, key, values);
 }
