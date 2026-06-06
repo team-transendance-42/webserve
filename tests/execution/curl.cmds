@@ -21,10 +21,15 @@ ss lists sockets. -t TCP, -l listening only, -n numeric ports, -p show the ownin
   curl -I http://localhost:8080/
 
 -----------
+curl -i -X DELETE http://localhost:8080/uploads/tmp.0TpOkfVeXv
+-------------------------------------------
 
   # /api/data_json only allows GET
   # method not allowed
 curl -i -X POST http://localhost:8080/api/data_json
+
+curl -i -X POST http://localhost:8080/zk_apply_form \
+  -d "name=Alice&answer=yes"
 
 -------
 # 403 deny location

@@ -21,8 +21,7 @@
 struct CgiSession {
     enum State {
         STATE_BODY_WRITE,     /* Writing request body to stdin */
-        STATE_READING_OUTPUT, /* Reading CGI stdout */
-        STATE_FINALIZING      /* Waiting for final EOF/waitpid */
+        STATE_READING_OUTPUT  /* Reading CGI stdout */
     };
 
     pid_t       pid;

@@ -169,7 +169,7 @@ void EventLoop::tick() {
             continue;
         }
         if (ev & EPOLLIN) {
-            _conn.readClient(client, READ_BUF);
+            _conn.readClient(client);
             /* readClient may have closed and deleted the client (disconnect, parse error).
                Re-check before touching client again — use-after-free otherwise. */
             if (_clients.find(fd) == _clients.end()) continue;
@@ -287,8 +287,8 @@ void EventLoop::_handleCgiPipeEvent(int fd, uint32_t events) {
             ssize_t n = write(fd, session.body.data() + session.body_written, remaining);
             if (n > 0) {
                 session.body_written += static_cast<std::size_t>(n);
-            } else if (n < 0 && errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR) {
-                /* Write error: kill the CGI process */
+            } else {
+                /* n <= 0: pipe write failed (no errno). We only reach here on EPOLLOUT, so the pipe was writable. */
                 kill(session.pid, SIGKILL);
                 _finalizeCgi(*client);
                 return;
@@ -326,8 +326,8 @@ void EventLoop::_handleCgiPipeEvent(int fd, uint32_t events) {
             } else {
                 session.output.append(buf, static_cast<std::size_t>(n));
             }
-        } else if (n < 0 && errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR) {
-            /* Read error: finalize with what we have */
+        } else {
+            /* n == 0 (EOF: CGI closed stdout) or n < 0 (error), no errno either way. We dont expect more output */
             _finalizeCgi(*client);
             return;
         }
