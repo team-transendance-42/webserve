@@ -52,7 +52,7 @@ private:
     bool checkWord(const std::string& value) const;
 
 	// Parse and assign one server-level directive into the typed ServerConfig fields
-    void parseServerDirective(ServerConfig& server);
+    void parseServerDirective(ServerConfig& server, std::set<std::string>& seenDirectives);
 
 	// Parse and assign one location-level directive into the typed Location fields
     void parseLocationDirective(Location& location, std::set<std::string>& seenDirectives);
@@ -71,9 +71,6 @@ private:
 
 	// Check if a string represents an unsigned int
     static bool isUnsigned(const std::string& text);
-
-	// Convert a string to an unsigned long
-    static unsigned long toUnsigned(const std::string& text);
 
 public:
     explicit Parser(const std::vector<Token>& tokens) : _tokens(tokens), _index(0) {}

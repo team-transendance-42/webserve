@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
 import warnings
-warnings.filterwarnings("ignore", category=DeprecationWarning)  # Suppress DeprecationWarning from cgi module
+
+warnings.filterwarnings(
+    "ignore",
+    message=".*'cgi' is deprecated.*",
+    category=DeprecationWarning
+)
+
 import cgi, os, sys
 import html
 import re

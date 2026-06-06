@@ -37,6 +37,7 @@ ServerConfig Parser::parseServerBlock() {
 	consume(TOKEN_LBRACE, "expected '{' after server");
 
 	ServerConfig server;
+	std::set<std::string> seenDirectives;
 
 	while (!check(TOKEN_RBRACE)) {
 		if (check(TOKEN_EOF)) {
@@ -46,7 +47,7 @@ ServerConfig Parser::parseServerBlock() {
 		if (checkWord("location")) {
 			server.locations.push_back(parseLocationBlock());
 		} else {
-			parseServerDirective(server);
+			parseServerDirective(server, seenDirectives);
 		}
 	}
 
@@ -83,7 +84,7 @@ Location Parser::parseLocationBlock() {
 }
 
 // Parse a server directive and assign known fields
-void Parser::parseServerDirective(ServerConfig& server) {
+void Parser::parseServerDirective(ServerConfig& server, std::set<std::string>& seenDirectives) {
 	const Token& key = consume(TOKEN_WORD, "expected directive name");
 	std::vector<std::string> values;
 
@@ -94,6 +95,20 @@ void Parser::parseServerDirective(ServerConfig& server) {
 		values.push_back(consume(TOKEN_WORD, "expected directive value").value);
 	}
 	consume(TOKEN_SEMICOLON, "expected ';' after directive");
+
+	if (key.value == "error_page") {
+		// include error code to allow multiple error_page directives with different codes
+		if (seenDirectives.count(key.value + *(values.end() - 2)) > 0) {
+			throw ParseError("duplicate server directive: " + key.value + " " + *(values.end() - 2), key.line, key.column);
+		}
+		seenDirectives.insert(key.value + *(values.end() - 2));
+	// Throw error if a duplicate directive is found in one location block
+	} else {
+		if (seenDirectives.count(key.value) > 0) {
+			throw ParseError("duplicate server directive: " + key.value, key.line, key.column);
+		}
+		seenDirectives.insert(key.value);
+	}
 
 	assignKnownServerFields(server, key, values);
 }
@@ -126,7 +141,7 @@ void Parser::assignKnownServerFields(ServerConfig& server, const Token& key, con
 		if (values.size() != 1 || !isUnsigned(values[0])) {
 			throw ParseError("listen expects one numeric value", key.line, key.column);
 		}
-		server.port = static_cast<int>(toUnsigned(values[0]));
+		server.port = std::stoul(values[0]);
 	} else if (key.value == "host") {
 		if (values.size() != 1) {
 			throw ParseError("host expects one value", key.line, key.column);
@@ -141,12 +156,12 @@ void Parser::assignKnownServerFields(ServerConfig& server, const Token& key, con
 		if (values.size() != 1 || !isUnsigned(values[0])) {
 			throw ParseError("clientMaxBodySize expects one numeric value", key.line, key.column);
 		}
-		server.clientMaxBodySize = static_cast<long>(toUnsigned(values[0]));
+		server.clientMaxBodySize = std::stoul(values[0]);
 	} else if (key.value == "error_page") {
 		if (values.size() != 2 || !isUnsigned(values[0])) {
 			throw ParseError("error_page expects: <code> <path>", key.line, key.column);
 		}
-		server.errorPages[static_cast<int>(toUnsigned(values[0]))] = values[1];
+		server.errorPages[std::stoul(values[0])] = values[1];
 	} else if (key.value == "default_server") {
 		if (values.empty()) {
 			server.default_server = true;
@@ -191,13 +206,13 @@ void Parser::assignKnownLocationFields(Location& location, const Token& key, con
 		if (values.size() != 2 || !isUnsigned(values[0])) {
 			throw ParseError("return expects: <code> <url>", key.line, key.column);
 		}
-		location.redirect_code = static_cast<int>(toUnsigned(values[0]));
+		location.redirect_code = std::stoul(values[0]);
 		location.redirect_url = values[1];
 	} else if (key.value == "clientMaxBodySize") {
 		if (values.size() != 1 || !isUnsigned(values[0])) {
 			throw ParseError("clientMaxBodySize expects one numeric value", key.line, key.column);
 		}
-		location.clientMaxBodySize = static_cast<long>(toUnsigned(values[0]));
+		location.clientMaxBodySize = std::stoul(values[0]);
 	} else if (key.value == "cgi_extension") {
 		if (values.size() != 1) {
 			throw ParseError("cgi_extension expects one value", key.line, key.column);
@@ -321,14 +336,6 @@ bool Parser::isUnsigned(const std::string& text) {
 		}
 	}
 	return (true);
-}
-
-// Convert a string to an unsigned long
-unsigned long Parser::toUnsigned(const std::string& text) {
-	std::istringstream iss(text);
-	unsigned long value = 0;
-	iss >> value;
-	return (value);
 }
 
 // Read an entire file into a string
