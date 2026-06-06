@@ -126,7 +126,7 @@ void Parser::assignKnownServerFields(ServerConfig& server, const Token& key, con
 		if (values.size() != 1 || !isUnsigned(values[0])) {
 			throw ParseError("listen expects one numeric value", key.line, key.column);
 		}
-		server.port = static_cast<int>(toUnsigned(values[0]));
+		server.port = std::stoul(values[0]);
 	} else if (key.value == "host") {
 		if (values.size() != 1) {
 			throw ParseError("host expects one value", key.line, key.column);
@@ -141,12 +141,12 @@ void Parser::assignKnownServerFields(ServerConfig& server, const Token& key, con
 		if (values.size() != 1 || !isUnsigned(values[0])) {
 			throw ParseError("clientMaxBodySize expects one numeric value", key.line, key.column);
 		}
-		server.clientMaxBodySize = static_cast<long>(toUnsigned(values[0]));
+		server.clientMaxBodySize = std::stoul(values[0]);
 	} else if (key.value == "error_page") {
 		if (values.size() != 2 || !isUnsigned(values[0])) {
 			throw ParseError("error_page expects: <code> <path>", key.line, key.column);
 		}
-		server.errorPages[static_cast<int>(toUnsigned(values[0]))] = values[1];
+		server.errorPages[std::stoul(values[0])] = values[1];
 	} else if (key.value == "default_server") {
 		if (values.empty()) {
 			server.default_server = true;
@@ -191,13 +191,13 @@ void Parser::assignKnownLocationFields(Location& location, const Token& key, con
 		if (values.size() != 2 || !isUnsigned(values[0])) {
 			throw ParseError("return expects: <code> <url>", key.line, key.column);
 		}
-		location.redirect_code = static_cast<int>(toUnsigned(values[0]));
+		location.redirect_code = std::stoul(values[0]);
 		location.redirect_url = values[1];
 	} else if (key.value == "clientMaxBodySize") {
 		if (values.size() != 1 || !isUnsigned(values[0])) {
 			throw ParseError("clientMaxBodySize expects one numeric value", key.line, key.column);
 		}
-		location.clientMaxBodySize = static_cast<long>(toUnsigned(values[0]));
+		location.clientMaxBodySize = std::stoul(values[0]);
 	} else if (key.value == "cgi_extension") {
 		if (values.size() != 1) {
 			throw ParseError("cgi_extension expects one value", key.line, key.column);
@@ -321,14 +321,6 @@ bool Parser::isUnsigned(const std::string& text) {
 		}
 	}
 	return (true);
-}
-
-// Convert a string to an unsigned long
-unsigned long Parser::toUnsigned(const std::string& text) {
-	std::istringstream iss(text);
-	unsigned long value = 0;
-	iss >> value;
-	return (value);
 }
 
 // Read an entire file into a string
