@@ -52,7 +52,7 @@ private:
     bool checkWord(const std::string& value) const;
 
 	// Parse and assign one server-level directive into the typed ServerConfig fields
-    void parseServerDirective(ServerConfig& server);
+    void parseServerDirective(ServerConfig& server, std::set<std::string>& seenDirectives);
 
 	// Parse and assign one location-level directive into the typed Location fields
     void parseLocationDirective(Location& location, std::set<std::string>& seenDirectives);

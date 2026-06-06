@@ -37,6 +37,7 @@ ServerConfig Parser::parseServerBlock() {
 	consume(TOKEN_LBRACE, "expected '{' after server");
 
 	ServerConfig server;
+	std::set<std::string> seenDirectives;
 
 	while (!check(TOKEN_RBRACE)) {
 		if (check(TOKEN_EOF)) {
@@ -46,7 +47,7 @@ ServerConfig Parser::parseServerBlock() {
 		if (checkWord("location")) {
 			server.locations.push_back(parseLocationBlock());
 		} else {
-			parseServerDirective(server);
+			parseServerDirective(server, seenDirectives);
 		}
 	}
 
@@ -83,7 +84,7 @@ Location Parser::parseLocationBlock() {
 }
 
 // Parse a server directive and assign known fields
-void Parser::parseServerDirective(ServerConfig& server) {
+void Parser::parseServerDirective(ServerConfig& server, std::set<std::string>& seenDirectives) {
 	const Token& key = consume(TOKEN_WORD, "expected directive name");
 	std::vector<std::string> values;
 
@@ -94,6 +95,20 @@ void Parser::parseServerDirective(ServerConfig& server) {
 		values.push_back(consume(TOKEN_WORD, "expected directive value").value);
 	}
 	consume(TOKEN_SEMICOLON, "expected ';' after directive");
+
+	if (key.value == "error_page") {
+		// include error code to allow multiple error_page directives with different codes
+		if (seenDirectives.count(key.value + *(values.end() - 2)) > 0) {
+			throw ParseError("duplicate server directive: " + key.value + " " + *(values.end() - 2), key.line, key.column);
+		}
+		seenDirectives.insert(key.value + *(values.end() - 2));
+	// Throw error if a duplicate directive is found in one location block
+	} else {
+		if (seenDirectives.count(key.value) > 0) {
+			throw ParseError("duplicate server directive: " + key.value, key.line, key.column);
+		}
+		seenDirectives.insert(key.value);
+	}
 
 	assignKnownServerFields(server, key, values);
 }
