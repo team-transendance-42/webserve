@@ -96,13 +96,19 @@ void Parser::parseServerDirective(ServerConfig& server, std::set<std::string>& s
 	}
 	consume(TOKEN_SEMICOLON, "expected ';' after directive");
 
+	if (key.value == "error_page") {
+		// include error code to allow multiple error_page directives with different codes
+		if (seenDirectives.count(key.value + *(values.end() - 2)) > 0) {
+			throw ParseError("duplicate server directive: " + key.value + " " + *(values.end() - 2), key.line, key.column);
+		}
+		seenDirectives.insert(key.value + *(values.end() - 2));
 	// Throw error if a duplicate directive is found in one location block
-	if (seenDirectives.count(key.value) > 0) {
-		if (key.value != "error_page") {
+	} else {
+		if (seenDirectives.count(key.value) > 0) {
 			throw ParseError("duplicate server directive: " + key.value, key.line, key.column);
 		}
+		seenDirectives.insert(key.value);
 	}
-	seenDirectives.insert(key.value);
 
 	assignKnownServerFields(server, key, values);
 }
