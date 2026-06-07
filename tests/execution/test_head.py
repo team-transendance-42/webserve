@@ -82,8 +82,10 @@ def test_head_redirect():
 
 
 def test_head_implicit_on_get_location():
-    # HEAD is not listed in allowedMethod for /uploads (GET DELETE are) — must still work
-    code, r, body = _head("/uploads/")
+    # HEAD is not listed in allowedMethod for /zk_apply_form (GET POST are) —
+    # must still work implicitly. Uses a location whose page is tracked in git
+    # (unlike /uploads, which is .gitignore'd and empty on a fresh checkout).
+    code, r, body = _head("/zk_apply_form")
     _check("HEAD on GET location (implicit) → 200", code,      200)
     _check("HEAD implicit → no body",               len(body), 0)
 
