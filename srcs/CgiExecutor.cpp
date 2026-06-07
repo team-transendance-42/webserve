@@ -74,7 +74,7 @@ CgiSession *CgiExecutor::start(const CgiRequest &request, const Location &locati
         envStorage.reserve(16 + request.headers.size());
 
         /* Standard CGI environment variables */
-        envStorage.push_back("REDIRECT_STATUS=" + toString(200)); // For PHP CGI to recognize it's a CGI request
+        envStorage.push_back("REDIRECT_STATUS=" + std::to_string(200)); // For PHP CGI to recognize it's a CGI request
         envStorage.push_back("REQUEST_METHOD=" + request.method);
         envStorage.push_back("QUERY_STRING=" + request.query_string);
         envStorage.push_back("CONTENT_TYPE=" + request.content_type);
