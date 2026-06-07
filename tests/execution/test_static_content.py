@@ -71,8 +71,9 @@ def test_date_header_format():
 
 def test_content_length_accuracy_large_file():
     """Content-Length must exactly match the body for a 2 MB binary file."""
-    r, body = _req("GET", "/uploads/large.bin")
-    _check("GET /uploads/large.bin → 200", r.status, 200)
+    # large.bin lives at www/uploads/large.bin, served through /files (root "./").
+    r, body = _req("GET", "/files/www/uploads/large.bin")
+    _check("GET /files/www/uploads/large.bin → 200", r.status, 200)
     cl = r.getheader("Content-Length")
     _check("large file has Content-Length", cl is not None, True)
     if cl is not None:
