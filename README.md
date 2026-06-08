@@ -71,7 +71,7 @@ make tests
 [http status codes](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status)\
 [RFC http 7230](https://datatracker.ietf.org/doc/html/rfc7230)\
 [RFC http 7231](https://datatracker.ietf.org/doc/html/rfc7231)\
-[RFC http 9110](https://datatracker.ietf.org/doc/html/rfc9110)\
+[RFC http 9110](https://datatracker.ietf.org/doc/html/rfc9110)
 
 ## AI Use
 - Tests
