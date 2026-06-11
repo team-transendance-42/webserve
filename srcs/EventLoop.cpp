@@ -227,10 +227,10 @@ void EventLoop::_closeIdleClients() {
             /* Build 504 Gateway Timeout response */
             std::map<int, Listener *>::iterator listenerIt = _clientToListener.find(client->fd);
             if (listenerIt != _clientToListener.end()) {
-                client->writeBuf = HttpResponse::make_504().serialize();
+                client->writeBuf = HttpResponse::make_err_page("Gateway Timeout", 504).serialize();
                 HttpResponse::injectConnectionHeader(client->writeBuf, false);
             } else {
-                client->writeBuf = HttpResponse::make_504().serialize();
+                client->writeBuf = HttpResponse::make_err_page("Gateway Timeout", 504).serialize();
             }
             client->keep_alive = false;
             if (!_epoll.mod(client->fd, EPOLLOUT | EPOLLRDHUP)) {
