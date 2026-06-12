@@ -383,8 +383,11 @@ void EventLoop::_finalizeCgi(Client &client) {
         }
     }
 
-    /* CGI exited with error: return 500 without parsing output */
-    if (session.exit_code != 0) {
+    /* CGI exited with error: return 500 without parsing output.
+       Only when waitpid actually reaped the process (done > 0) — if the child
+       hasn't exited yet (done == 0, WNOHANG race) we fall through and parse
+       whatever output was buffered. */
+    if (done > 0 && session.exit_code != 0) {
         std::map<int, Listener *>::iterator lit = _clientToListener.find(client.fd);
         const ServerConfig *cfg = (lit != _clientToListener.end()) ? &lit->second->configs()[0] : nullptr;
         client.writeBuf = _cgiErrorResponse(cfg);
