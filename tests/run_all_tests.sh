@@ -10,6 +10,10 @@ sleep 0.5
 
 echo ""
 echo "=== Default-server tests ==="
+
+echo "--- tests/execution/taste_cookies.py ---"
+python3 tests/execution/taste_cookies.py
+
 for f in tests/execution/test_*.py; do
     echo "--- $f ---"
     python3 "$f"
