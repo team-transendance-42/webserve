@@ -45,6 +45,7 @@ private:
     void _handleCgiPipeEvent(int fd, uint32_t events);
     void _finalizeCgi(Client &client);
     void _cleanupCgiSession(Client &client);
+    static std::string _cgiErrorResponse(const ServerConfig *cfg);
 
     enum {
         POLL_TIMEOUT_MS = 100,
