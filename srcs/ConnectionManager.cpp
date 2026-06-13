@@ -53,7 +53,7 @@ void ConnectionManager::readClient(Client &client) {
 	ParseResult result = client.request.feed(chunk, static_cast<size_t>(bytes));
 
 	if (result == PARSE_ERROR) {
-		client.writeBuf  = HttpResponse::make_400().serialize();
+		client.writeBuf  = HttpResponse::make_err_page("Bad Request", 400).serialize();
 		client.keep_alive = false;
 		HttpResponse::injectConnectionHeader(client.writeBuf, false);
 		_epollMod(client.fd, EPOLLOUT | EPOLLRDHUP);
@@ -131,7 +131,7 @@ void ConnectionManager::writeClient(Client &client) {
 				_epollMod(client.fd, EPOLLOUT | EPOLLRDHUP);
 			}
 		} else if (res == PARSE_ERROR) {
-			client.writeBuf = HttpResponse::make_400().serialize();
+			client.writeBuf = HttpResponse::make_err_page("Bad Request", 400).serialize();
 			client.keep_alive = false;
 			HttpResponse::injectConnectionHeader(client.writeBuf, false);
 			_epollMod(client.fd, EPOLLOUT | EPOLLRDHUP);

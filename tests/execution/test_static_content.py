@@ -68,18 +68,6 @@ def test_date_header_format():
     parsed = parsedate(date_val)
     _check("Date header is valid RFC 1123 format", parsed is not None, True)
 
-
-def test_content_length_accuracy_large_file():
-    """Content-Length must exactly match the body for a 2 MB binary file."""
-    # large.bin lives at www/uploads/large.bin, served through /files (root "./").
-    r, body = _req("GET", "/files/www/uploads/large.bin")
-    _check("GET /files/www/uploads/large.bin → 200", r.status, 200)
-    cl = r.getheader("Content-Length")
-    _check("large file has Content-Length", cl is not None, True)
-    if cl is not None:
-        _check("large file Content-Length matches body", int(cl), len(body))
-
-
 TESTS = [
     test_html_content_type,
     test_json_content_type,

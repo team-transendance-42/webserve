@@ -21,29 +21,29 @@ HttpResponse StaticFileHandler::serveStatic(const std::string &filepath) {
     struct stat st; // POSIX API structure (size, mode/type, timestamps, etc.).
     if (stat(filepath.c_str(), &st) != 0) { //0 = success, -1 = failure and sets errno. 
         if (errno == ENOENT || errno == ENOTDIR) // error no entry(path or file doesnt exist, error no dir(/www/index.html/abc))
-            return HttpResponse::make_404();
+            return HttpResponse::make_err_page("Not Found", 404);
         if (errno == EACCES) // error access denied
-            return HttpResponse::make_403();
-        return HttpResponse::make_500();
+            return HttpResponse::make_err_page("Forbidden", 403);
+        return HttpResponse::make_err_page("Internal Server Error", 500);
     }
 
     if (S_ISDIR(st.st_mode))
-        return HttpResponse::make_403();
+        return HttpResponse::make_err_page("Forbidden", 403);
 
     static const off_t MAX_STATIC_BYTES = 50 * 1024 * 1024; // 50 MB
     if (st.st_size > MAX_STATIC_BYTES)
-        return HttpResponse::make_413();
+        return HttpResponse::make_err_page("Payload Too Large", 413);
 
     // Ensure permission-denied on file read maps to 403, not generic 500.
     if (access(filepath.c_str(), R_OK) != 0) {
         if (errno == EACCES)
-            return HttpResponse::make_403();
-        return HttpResponse::make_500();
+            return HttpResponse::make_err_page("Forbidden", 403);
+        return HttpResponse::make_err_page("Internal Server Error", 500);
     }
 
     std::ifstream file(filepath.c_str(), std::ios::binary); //Open the file at filepath in binary mode.
     if (!file.is_open())
-        return HttpResponse::make_500();
+        return HttpResponse::make_err_page("Internal Server Error", 500);
 
     std::ostringstream ss;
     ss << file.rdbuf(); // read buffer(read whole file into a string stream)
@@ -117,7 +117,7 @@ static std::string urlEncode(const std::string &s) {
 HttpResponse StaticFileHandler::autoindex(const std::string &dirpath,
                                           const std::string &url_path) {
     DIR *dir = opendir(dirpath.c_str());
-    if (!dir) return HttpResponse::make_403();
+    if (!dir) return HttpResponse::make_err_page("Forbidden", 403);
 
     std::ostringstream html;
     html << "<html><head><title>Index of " << htmlEscape(url_path) << "</title></head>"

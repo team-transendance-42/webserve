@@ -227,10 +227,10 @@ void EventLoop::_closeIdleClients() {
             /* Build 504 Gateway Timeout response */
             std::map<int, Listener *>::iterator listenerIt = _clientToListener.find(client->fd);
             if (listenerIt != _clientToListener.end()) {
-                client->writeBuf = HttpResponse::make_504().serialize();
+                client->writeBuf = HttpResponse::make_err_page("Gateway Timeout", 504).serialize();
                 HttpResponse::injectConnectionHeader(client->writeBuf, false);
             } else {
-                client->writeBuf = HttpResponse::make_504().serialize();
+                client->writeBuf = HttpResponse::make_err_page("Gateway Timeout", 504).serialize();
             }
             client->keep_alive = false;
             if (!_epoll.mod(client->fd, EPOLLOUT | EPOLLRDHUP)) {
@@ -350,6 +350,13 @@ void EventLoop::_handleCgiPipeEvent(int fd, uint32_t events) {
     }
 }
 
+/* Build a 500 response, using the server's configured error page if available. */
+/*static*/ std::string EventLoop::_cgiErrorResponse(const ServerConfig *cfg) {
+    if (cfg)
+        return ErrorResponseBuilder::buildErrorResponse(500, *cfg).serialize();
+    return HttpResponse::make_err_page("Internal Server Error", 500).serialize();
+}
+
 /* Finalize CGI session: waitpid, parse output, write response, cleanup.
    Called when stdout is closed (EPOLLHUP) or on error/timeout. */
 void EventLoop::_finalizeCgi(Client &client) {
@@ -374,6 +381,22 @@ void EventLoop::_finalizeCgi(Client &client) {
         } else {
             session.exit_code = 128;
         }
+    }
+
+    /* CGI exited with error: return 500 without parsing output.
+       Only when waitpid actually reaped the process (done > 0) — if the child
+       hasn't exited yet (done == 0, WNOHANG race) we fall through and parse
+       whatever output was buffered. */
+    if (done > 0 && session.exit_code != 0) {
+        std::map<int, Listener *>::iterator lit = _clientToListener.find(client.fd);
+        const ServerConfig *cfg = (lit != _clientToListener.end()) ? &lit->second->configs()[0] : nullptr;
+        client.writeBuf = _cgiErrorResponse(cfg);
+        HttpResponse::injectConnectionHeader(client.writeBuf, false);
+        client.keep_alive = false;
+        _cleanupCgiSession(client);
+        if (!_epoll.mod(client.fd, EPOLLOUT | EPOLLRDHUP))
+            _conn.closeClient(client.fd);
+        return;
     }
 
     /* Build HTTP response from CGI output */

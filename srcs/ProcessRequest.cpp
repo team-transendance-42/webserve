@@ -9,8 +9,6 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <sys/types.h>
-#include <cctype>
-#include <cstdlib>
 #include <sstream>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -426,7 +424,7 @@ void ProcessRequest::handle(Client &client) const {
     client.keep_alive = req.is_keep_alive();
 
     if (req.method == UNKNOWN) {
-        client.writeBuf = HttpResponse::make_501().serialize();
+        client.writeBuf = HttpResponse::make_err_page("Not Implemented", 501).serialize();
         client.keep_alive = false;
         HttpResponse::injectConnectionHeader(client.writeBuf, false);
         return;
@@ -577,7 +575,7 @@ bool ProcessRequest::_executeCgiOrError(const HttpRequest &req,
     CgiSession *session = executor.start(cgiReq, loc);
     if (!session) {
         /* Fork or setup failed: return 500 */
-        client.writeBuf = HttpResponse::make_500().serialize();
+        client.writeBuf = HttpResponse::make_err_page("Internal Server Error", 500).serialize();
         return true;
     }
 
