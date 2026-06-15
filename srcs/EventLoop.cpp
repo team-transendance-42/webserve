@@ -369,7 +369,6 @@ void EventLoop::_finalizeCgi(Client &client) {
     pid_t done = waitpid(session.pid, &status, WNOHANG);
     if (done == 0) {
         /* Child still running — don't block. Mark unknown exit and continue. */
-        std::cerr << "[EventLoop] CGI pid=" << session.pid << " still running; proceeding without blocking\n";
         session.exit_code = 128;
     } else if (done == -1) {
         /* waitpid failed — log and treat as error */
@@ -435,7 +434,7 @@ void EventLoop::_finalizeCgi(Client &client) {
         if (session.exit_code == 0) {
             response.setStatus(200).setBody(session.output, "text/plain");
         } else {
-            response.setStatus(500);
+            response = HttpResponse::make_500();
         }
     }
 
