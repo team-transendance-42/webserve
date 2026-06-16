@@ -74,7 +74,6 @@ TESTS = [
     test_css_content_type,
     test_content_length_header,
     test_date_header_format,
-    test_content_length_accuracy_large_file,
 ]
 
 

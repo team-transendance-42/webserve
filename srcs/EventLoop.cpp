@@ -434,7 +434,7 @@ void EventLoop::_finalizeCgi(Client &client) {
         if (session.exit_code == 0) {
             response.setStatus(200).setBody(session.output, "text/plain");
         } else {
-            response = HttpResponse::make_500();
+            response = HttpResponse::make_err_page("Internal Server Error", 500);
         }
     }
 
